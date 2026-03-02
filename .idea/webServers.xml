@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="WebServers">
+    <option name="servers">
+      <webServer id="8946df1c-c7ce-46c0-b267-7f7f4237dc0b" name="fullmoon">
+        <fileTransfer rootFolder="/srv/customer/sites/fullmoon.ismailhalouani.eu" accessType="SFTP" host="57-108234.ssh.hosting-ik.com" port="22" sshConfigId="c2b28b13-7299-413c-8a8d-a3753f5cf198" sshConfig="cY4uHChzu2x_node_system@57-108234.ssh.hosting-ik.com:22 password">
+          <advancedOptions>
+            <advancedOptions dataProtectionLevel="Private" keepAliveTimeout="0" passiveMode="true" shareSSLContext="true" />
+          </advancedOptions>
+        </fileTransfer>
+      </webServer>
+    </option>
+  </component>
+</project>
