@@ -1,12 +1,7 @@
 import Image from 'next/image';
 import { Player, Phase, GameState } from '@/types/game';
-import { ROLES, RoleId } from "@/types/roles";
+import { ROLES, RoleId, isInWolfCamp } from "@/types/roles";
 
-const isInWolfCamp = (roleId: RoleId | null | undefined): boolean => {
-    if (!roleId) return false;
-    const wolfRoles = ['LOUP_GAROU', 'LOUP_ALPHA', 'GRAND_MECHANT_LOUP', 'LOUP_INFECT'];
-    return wolfRoles.includes(roleId);
-};
 
 interface PlayerCircleNodeProps {
     player: Player;
@@ -22,6 +17,7 @@ interface PlayerCircleNodeProps {
     powerTargets?: string[];
     wolfVictimId?: string | null;
     getPlayerAvatar: (playerId: string, fallbackUrl?: string) => string;
+    nightActions?: any[];
 }
 
 export default function PlayerCircleNode({
@@ -37,7 +33,8 @@ export default function PlayerCircleNode({
     activePower,
     powerTargets,
     wolfVictimId,
-    getPlayerAvatar
+    getPlayerAvatar,
+    nightActions
 }: PlayerCircleNodeProps) {
     // ---- Géométrie Octogonale ----
     const angleDeg = (360 / totalPlayers) * index - 90;
@@ -80,6 +77,13 @@ export default function PlayerCircleNode({
     const isTargetedByPower = powerTargets?.includes(player.id);
     const isWolfVictim = wolfVictimId === player.id;
 
+    // Check if player is targeted by Witch's poison this night
+    const isPoisonTarget = nightActions?.some(a => a.powerId === 'POTION_POISON' && a.targetId === player.id && a.sourceId === me?.id);
+    const isHealed = nightActions?.some(a => a.powerId === 'POTION_SOIN' && a.targetId === player.id && a.sourceId === me?.id);
+
+    // If healed, remove the wolf victim status visually for the Witch so it stops pulsing
+    const displayAsWolfVictim = isWolfVictim && !isHealed;
+
     // Logic for targeting with power or normal vote
     const canVoteActual = (onVote && (
         (activePower && me?.isAlive && !isDead && (activePower !== 'FUSIL')) || // Regular power
@@ -93,10 +97,6 @@ export default function PlayerCircleNode({
     const canVote = mockCanVote !== undefined ? mockCanVote : canVoteActual;
 
     const isMe = me?.id === player.id;
-    if (isMe && currentPhase === 'NIGHT') {
-        const iAmWolf = isInWolfCamp(me?.role as RoleId);
-        console.log(`[VOTE_DEBUG] Me: ${me?.name} (Wolf: ${iAmWolf}) | Target: ${player.name} (T.Wolf: ${isTargetWolf}) | Phase: ${currentPhase} | canVote: ${canVote}`);
-    }
 
     // Determine which effects to show to this specific user
     const effects = player.effects || [];
@@ -122,10 +122,12 @@ export default function PlayerCircleNode({
         >
             <div className={`relative ${sizeClass} rounded-full flex items-center justify-center shadow-lg transition-all
                 ${player.id === game.hostId && currentPhase === 'LOBBY' ? 'border-[3px] border-[#D1A07A]' : 'border-[3px] border-slate-800'} 
-                ${isTargeted || isTargetedByPower ? 'border-dashed !border-4 !border-slate-900 shadow-[0_0_20px_rgba(0,0,0,0.6)] scale-105' : ''}
+                ${isTargeted || isTargetedByPower || isPoisonTarget ? 'border-dashed !border-4 !border-slate-900 shadow-[0_0_20px_rgba(0,0,0,0.6)] scale-105' : ''}
                 ${isTargetedByPower ? '!border-[#D1A07A]' : ''}
-                ${isWolfVictim ? '!border-red-600 shadow-[0_0_15px_#ef4444] animate-pulse scale-105' : ''}
-            `} title={isWolfVictim ? "Cible des Loups" : ""}>
+                ${displayAsWolfVictim ? '!border-red-600 shadow-[0_0_15px_#ef4444] animate-pulse scale-105' : ''}
+                ${isPoisonTarget ? '!border-purple-600 shadow-[0_0_15px_#9333ea]' : ''}
+                ${isHealed ? '!border-green-500 shadow-[0_0_15px_#22c55e]' : ''}
+            `} title={displayAsWolfVictim ? "Cible des Loups" : (isPoisonTarget ? "Cible de votre poison" : (isHealed ? "Sauvé par votre potion" : ""))}>
                 {/* MOCK: L'image de fond lune pour tout le monde */}
                 <div className={`absolute inset-0 bg-[#e3d1ae] rounded-full z-0 overflow-hidden ${isDead ? 'grayscale' : ''}`}></div>
                 <div className={`absolute inset-0 flex items-center justify-center opacity-30 z-0 select-none overflow-hidden ${isDead ? 'grayscale' : ''}`}>
@@ -143,8 +145,15 @@ export default function PlayerCircleNode({
 
                 {/* Couronne du maire */}
                 {game.mayorId === player.id && (
-                    <div className="absolute -top-4 -right-2 w-8 h-8 drop-shadow-md z-30 transform rotate-12" title="Maire actuel">
+                    <div className="absolute -top-4 -left-2 w-8 h-8 drop-shadow-md z-30 transform -rotate-15" title="Maire actuel">
                         <Image src="/assets/images/icones/couronne-icon.png" alt="Maire" width={32} height={32} />
+                    </div>
+                )}
+
+                {/* Badge Loup (Reconnaissance entre loups) */}
+                {isInWolfCamp(me?.role as RoleId) && isInWolfCamp(player.role as RoleId) && (
+                    <div className="absolute -top-3 -right-5 w-12 h-12 drop-shadow-lg z-30" title="Membre de la meute">
+                        <Image src="/assets/images/icones/Icone_Loup.png" alt="Loup" width={32} height={32} className="object-contain" />
                     </div>
                 )}
 
@@ -189,13 +198,24 @@ export default function PlayerCircleNode({
 
             {/* Piles de voteurs sous le nom */}
             {isTargeted && (
-                <div className="flex flex-wrap justify-center mt-1 gap-1 w-full max-w-[100px] absolute top-[110%]">
-                    {votersForThisPlayer.map((vp, vIdx) => (
-                        <div key={vIdx} className="relative w-5 h-5 rounded-full border-[1.5px] border-slate-700 overflow-hidden drop-shadow-sm transition-transform hover:scale-150 z-40" title={vp.name}>
-                            <Image src={getPlayerAvatar(vp.id, vp.avatarUrl)} alt={vp.name} fill className="object-cover" />
-                        </div>
-                    ))}
-                </div>
+                (currentPhase === 'NIGHT') ? (
+                    (isInWolfCamp(me?.role as RoleId)) ? (
+                        <div className="flex flex-wrap justify-center mt-1 gap-1 w-full max-w-[100px] absolute top-[110%]">
+                            {votersForThisPlayer.map((vp, vIdx) => (
+                                <div key={vIdx} className="relative w-5 h-5 rounded-full border-1 border-slate-700 overflow-hidden drop-shadow-sm transition-transform hover:scale-150 z-40" title={vp.name}>
+                                    <Image src={getPlayerAvatar(vp.id, vp.avatarUrl)} alt={vp.name} fill className="object-cover" />
+                                </div>
+                            ))}
+                        </div>) : ""
+                ) : (
+                    <div className="flex flex-wrap justify-center mt-1 gap-1 w-full max-w-[100px] absolute top-[110%]">
+                        {votersForThisPlayer.map((vp, vIdx) => (
+                            <div key={vIdx} className="relative w-5 h-5 rounded-full border-1 border-slate-700 overflow-hidden drop-shadow-sm transition-transform hover:scale-150 z-40" title={vp.name}>
+                                <Image src={getPlayerAvatar(vp.id, vp.avatarUrl)} alt={vp.name} fill className="object-cover" />
+                            </div>
+                        ))}
+                    </div>
+                )
             )}
         </div>
     );

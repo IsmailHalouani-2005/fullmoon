@@ -17,7 +17,7 @@ export default function RoleCard({
     onFlip,
     showCapacity = false,
     isMayor = false,
-    className = "w-[240px] sm:w-[320px]",
+    className = "w-[180px] sm:w-[240px]",
     frontImageSrc = "/assets/images/icones/Carte_Role.png"
 }: RoleCardProps) {
 
@@ -29,21 +29,21 @@ export default function RoleCard({
             onClick={onFlip}
         >
             {/* Front (Hidden state) */}
-            <div className="max-w-[684px] max-h-[1064px] absolute inset-0 backface-hidden rounded-xl shadow-2xl overflow-hidden bg-transparent flex items-center justify-center">
-                <Image src={frontImageSrc} alt="Dos de carte" fill className="object-cover max-w-[684px] max-h-[1064px]" />
+            <div className="max-w-[484px] max-h-[864px] absolute inset-0 backface-hidden rounded-xl shadow-2xl overflow-hidden bg-transparent flex items-center justify-center">
+                <Image src={frontImageSrc} alt="Dos de carte" fill className="object-cover max-w-[484px] max-h-[864px]" />
             </div>
 
             {/* Back (Revealed state) */}
-            <div className="max-w-[684px] max-h-[1064px] absolute inset-0 backface-hidden rotate-y-180 rounded-xl shadow-2xl overflow-hidden bg-primary flex flex-col items-center justify-center p-6 sm:p-8 text-dark text-center">
+            <div className="max-w-[484px] max-h-[864px] absolute inset-0 backface-hidden rotate-y-180 rounded-xl shadow-2xl overflow-hidden bg-primary flex flex-col items-center justify-center p-6 sm:p-8 text-dark text-center">
                 {roleDef ? (
                     <>
                         {/* Role Image */}
-                        <div className="relative w-20 h-20 sm:w-28 sm:h-28 drop-shadow-2xl mb-4">
+                        <div className="relative w-16 h-16 sm:w-20 sm:h-20 drop-shadow-2xl mb-4">
                             <Image src={roleDef.image || frontImageSrc} alt={roleDef.label || "Rôle"} fill className="object-contain" />
                         </div>
 
                         {/* Role Name */}
-                        <h3 className="text-3xl sm:text-4xl font-extrabold tracking-wide mb-3">{roleDef.label}</h3>
+                        <h3 className="text-md sm:text-lg font-extrabold tracking-wide mb-3">{roleDef.label}</h3>
 
                         {/* Camp Badge */}
                         <div className={`px-4 py-1.5 rounded-full mb-4 sm:mb-6 ${roleDef.camp === 'LOUPS' ? 'bg-[#e53e3e]' : (roleDef.camp === 'VILLAGE' ? 'bg-green-500' : 'bg-purple-500')}`}>
@@ -51,7 +51,7 @@ export default function RoleCard({
                         </div>
 
                         {/* Description */}
-                        <p className="text-xs sm:text-sm italic text-dark font-light leading-relaxed px-2 sm:px-4">"{roleDef.description}"</p>
+                        <p className="text-[10px] sm:text-xs italic text-dark font-light leading-relaxed px-2 sm:px-4">"{roleDef.description}"</p>
 
                         {/* Capacity (optional for testing/admin area) */}
                         {showCapacity && roleDef.capacity && (

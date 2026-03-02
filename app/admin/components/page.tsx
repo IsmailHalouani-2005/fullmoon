@@ -7,6 +7,7 @@ import RoleCard from '@/components/game/RoleCard';
 import PlayerCircleNode from '@/components/game/PlayerCircleNode';
 import ProfileAvatarHeader from '@/components/profile/ProfileAvatarHeader';
 import ProfileStats from '@/components/profile/ProfileStats';
+import RoleInfoModal from '@/components/room/edit/RoleInfoModal';
 import { Player, GameState, Phase } from '@/types/game';
 
 export default function ComponentsTestPage() {
@@ -14,6 +15,9 @@ export default function ComponentsTestPage() {
     const [isCardFlipped, setIsCardFlipped] = useState(false);
 
     const roleDef = ROLES[selectedRole];
+
+    // --- State pour le Modal Rôle ---
+    const [isModalOpen, setIsModalOpen] = useState(false);
 
     // --- State pour le Cercle Joueur ---
     const [playerCount, setPlayerCount] = useState<number>(5);
@@ -31,7 +35,9 @@ export default function ComponentsTestPage() {
         role: i === 0 ? 'VILLAGEOIS' : (i === 1 ? 'LOUP_GAROU' : null),
         hasVoted: mockTargetId === `mock-${i}` ? 'mock-0' : null,
         votesAgainst: mockTargetId === `mock-${i}` ? 1 : 0,
-        isAlive: i !== playerCount - 1
+        isAlive: i !== playerCount - 1,
+        usedPowers: [],
+        effects: []
     }));
 
     const mockGame: GameState = {
@@ -45,7 +51,9 @@ export default function ComponentsTestPage() {
         timer: 30,
         dayCount: 1,
         isPrivate: false,
-        secretCode: '1234'
+        secretCode: '1234',
+        nightActions: [],
+        lastActivity: Date.now()
     };
 
     const handleMockVote = (id: string) => {
@@ -56,11 +64,31 @@ export default function ComponentsTestPage() {
         }
     };
 
-    return (
-        <div className="min-h-screen bg-[#fafafa] p-8 font-montserrat flex flex-col items-center">
-            <h1 className="text-4xl font-extrabold text-slate-900 mb-8 font-enchanted">Testeur de Composants</h1>
+    const navItems = [
+        { id: 'role-card', label: 'Carte de Rôle' },
+        { id: 'player-circle', label: 'Cercle des Joueurs' },
+        { id: 'profile-components', label: 'Profil Joueur' },
+        { id: 'role-info-modal', label: 'Modal Info Rôle' },
+    ];
 
-            <div className="w-full max-w-5xl bg-white p-6 rounded-xl shadow-md border-2 border-slate-200">
+    return (
+        <div className="min-h-screen bg-[#fafafa] p-8 font-montserrat flex flex-col items-center relative">
+            <h1 className="text-4xl font-extrabold text-slate-900 mb-6 font-enchanted">Testeur de Composants</h1>
+
+            {/* Navigation Menu */}
+            <div className="w-full max-w-5xl bg-slate-900 rounded-xl p-4 shadow-md flex flex-wrap gap-4 justify-center mb-8 sticky top-4 z-50">
+                {navItems.map(item => (
+                    <button
+                        key={item.id}
+                        onClick={() => document.getElementById(item.id)?.scrollIntoView({ behavior: 'smooth' })}
+                        className="px-4 py-2 bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white rounded-md text-sm font-bold transition-all border border-slate-700 hover:border-slate-500"
+                    >
+                        {item.label}
+                    </button>
+                ))}
+            </div>
+
+            <div id="role-card" className="scroll-mt-28 w-full max-w-5xl bg-white p-6 rounded-xl shadow-md border-2 border-slate-200">
                 <h2 className="text-2xl font-bold mb-4 border-b pb-2">Carte de Révélation de Rôle</h2>
 
                 <div className="flex flex-col md:flex-row gap-8 items-start">
@@ -125,7 +153,7 @@ export default function ComponentsTestPage() {
             </div>
 
             {/* --- SECTION : CERCLE DES JOUEURS --- */}
-            <div className="w-full max-w-5xl bg-white p-6 rounded-xl shadow-md border-2 border-slate-200 mt-8">
+            <div id="player-circle" className="scroll-mt-28 w-full max-w-5xl bg-white p-6 rounded-xl shadow-md border-2 border-slate-200 mt-8">
                 <h2 className="text-2xl font-bold mb-4 border-b pb-2">Cercle des Joueurs</h2>
 
                 <div className="flex flex-col md:flex-row gap-8 items-start">
@@ -187,6 +215,7 @@ export default function ComponentsTestPage() {
                                     mockCanVote={circlePhase === 'DAY_VOTE' || circlePhase === 'MAYOR_ELECTION' || circlePhase === 'NIGHT'} // Force enable click on test
                                     onVote={handleMockVote}
                                     mockRoleDef={index === 0 ? ROLES['VILLAGEOIS'] : (index === 1 ? ROLES['LOUP_GAROU'] : undefined)}
+                                    getPlayerAvatar={() => "/assets/images/icones/Photo_Profil-transparent.png"}
                                 />
                             ))}
                         </div>
@@ -196,7 +225,7 @@ export default function ComponentsTestPage() {
             </div>
 
             {/* --- SECTION : COMPOSANTS DE PROFIL --- */}
-            <div className="w-full max-w-5xl bg-white p-6 rounded-xl shadow-md border-2 border-slate-200 mt-8">
+            <div id="profile-components" className="scroll-mt-28 w-full max-w-5xl bg-white p-6 rounded-xl shadow-md border-2 border-slate-200 mt-8">
                 <h2 className="text-2xl font-bold mb-4 border-b pb-2">Composants de Profil Joueur</h2>
 
                 <div className="flex flex-col gap-8 w-full bg-[#181a1b] p-8 rounded-xl relative border-4 border-slate-700">
@@ -238,6 +267,48 @@ export default function ComponentsTestPage() {
                             rank: "Loup Alpha"
                         }}
                     />
+                </div>
+            </div>
+
+            {/* --- SECTION : MODAL INFO ROLE --- */}
+            <div id="role-info-modal" className="scroll-mt-28 w-full max-w-5xl bg-white p-6 rounded-xl shadow-md border-2 border-slate-200 mt-8">
+                <h2 className="text-2xl font-bold mb-4 border-b pb-2">Modal Informations Rôle</h2>
+
+                <div className="flex flex-col md:flex-row gap-8 items-start">
+                    <div className="flex flex-col gap-4 w-full md:w-1/3">
+                        <div className="bg-slate-50 p-4 rounded-lg border">
+                            <label className="block text-sm font-bold text-slate-700 mb-2">Choisir un Rôle pour le modal :</label>
+                            <select
+                                className="w-full p-2 border border-slate-300 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-[#D1A07A] mb-4"
+                                value={selectedRole}
+                                onChange={(e) => {
+                                    setSelectedRole(e.target.value as RoleId);
+                                    setIsCardFlipped(false); // Optionnel, pour resetter la carte plus haut en même temps
+                                }}
+                            >
+                                {Object.values(ROLES).map(r => (
+                                    <option key={r.id} value={r.id}>
+                                        {r.label} ({r.camp})
+                                    </option>
+                                ))}
+                            </select>
+
+                            <button
+                                onClick={() => setIsModalOpen(true)}
+                                className="w-full bg-slate-800 text-white px-4 py-2 rounded-md hover:bg-slate-700 transition-colors font-bold uppercase text-sm tracking-wide"
+                            >
+                                Ouvrir le Modal
+                            </button>
+                        </div>
+                    </div>
+
+                    <div className="flex-1 p-8 bg-slate-100 rounded-xl border border-slate-300 text-center relative overflow-hidden min-h-[300px] flex items-center justify-center">
+                        <p className="text-slate-500 italic">Le modal s'ouvrira en plein écran par-dessus l'interface.</p>
+
+                        {isModalOpen && (
+                            <RoleInfoModal role={roleDef} onClose={() => setIsModalOpen(false)} />
+                        )}
+                    </div>
                 </div>
             </div>
 

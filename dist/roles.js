@@ -1,34 +1,7 @@
-export type RoleId =
-    | 'VILLAGEOIS' | 'VOYANTE' | 'SORCIERE' | 'CHASSEUR' | 'CUPIDON' | 'PETITE_FILLE'
-    | 'LOUP_GAROU' | 'LOUP_ALPHA' | 'GRAND_MECHANT_LOUP' | 'LOUP_INFECT' | 'LOUP_BLANC'
-    | 'ASSASSIN' | 'FOU' | 'PYROMANE' | 'EMPOISONNEUR';
-
-export type Camp = 'VILLAGE' | 'LOUPS' | 'SOLO';
-
-export type PowerId =
-    | 'FUSIL' | 'POTION_SOIN' | 'POTION_POISON' | 'COUP_DE_COEUR' | 'VISION_LUNAIRE'
-    | 'MORSURE_INFECTE' | 'DOUBLE_VOTE' | 'CARNAGE' | 'TRAHISON' | 'LAME_NOIRE'
-    | 'ESSENCE' | 'ALLUMETTE' | 'POISON_TOXIQUE';
-
-export interface Power {
-    id: PowerId;
-    label: string;
-    icon: string;
-    type: 'passive' | 'active' | 'one-time';
-    timing: 'night' | 'day' | 'death' | 'always';
-}
-
-export interface RoleDefinition {
-    id: RoleId;
-    label: string;
-    description: string;
-    capacity: string;
-    camp: Camp;
-    image: string;
-    powers?: Power[];
-}
-
-export const ROLES: Record<RoleId, RoleDefinition> = {
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.isInWolfCamp = exports.ROLES = void 0;
+exports.ROLES = {
     VILLAGEOIS: {
         id: 'VILLAGEOIS',
         label: "Villageois",
@@ -185,8 +158,10 @@ export const ROLES: Record<RoleId, RoleDefinition> = {
         ]
     }
 };
-
-export const isInWolfCamp = (roleId: RoleId | null | undefined): boolean => {
-    if (!roleId) return false;
-    return ROLES[roleId]?.camp === 'LOUPS';
+var isInWolfCamp = function (roleId) {
+    var _a;
+    if (!roleId)
+        return false;
+    return ((_a = exports.ROLES[roleId]) === null || _a === void 0 ? void 0 : _a.camp) === 'LOUPS';
 };
+exports.isInWolfCamp = isInWolfCamp;

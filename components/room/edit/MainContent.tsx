@@ -90,6 +90,9 @@ export default function MainContent({
             <h1 className="text-4xl sm:text-5xl font-enchanted font-extrabold tracking-wider mt-6 text-[#2C3338]">
                 {isCustom ? 'CHOISISSEZ LES RÔLES' : 'COMPOSITION DU VILLAGE'}
             </h1>
+            <p className="text-xs text-slate-500 font-medium italic">
+                (Cliquez sur les rôles pour les sélectionner)
+            </p>
 
             <div className={`w-full bg-white border-[3px] border-[#2C3338] rounded-xl p-8 transition-opacity duration-300 ${!isCustom ? 'opacity-80' : ''}`}>
                 <RoleGroup

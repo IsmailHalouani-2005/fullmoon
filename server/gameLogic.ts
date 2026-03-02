@@ -1,17 +1,9 @@
 import { Server, Socket } from "socket.io";
 import { ClientToServerEvents, ServerToClientEvents, GameState, Player, ChatMessage, Phase } from "../types/game";
-import { ROLES, RoleId, Camp } from '../types/roles';
+import { ROLES, RoleId, Camp, isInWolfCamp } from '../types/roles';
 import { distributeRoles, distributeCustomRoles, getCountsForJ } from '../lib/roleDistribution';
 import { io } from './index';
 
-const isInWolfCamp = (roleId: RoleId | null | undefined): boolean => {
-    if (!roleId) return false;
-    // Hardcoded list to ensure zero issues with metadata lookup
-    const wolfRoles = ['LOUP_GAROU', 'LOUP_ALPHA', 'GRAND_MECHANT_LOUP', 'LOUP_INFECT'];
-    const result = wolfRoles.includes(roleId);
-    if (result) console.log(`[CAMP_CHECK] roleId '${roleId}' IS in Wolf Camp.`);
-    return result;
-};
 
 // Shared games state so the HTTP layer can serve live stats
 let _games: Record<string, GameState> = {};
@@ -101,6 +93,14 @@ export function setupGameLogic(io: Server<ClientToServerEvents, ServerToClientEv
                 if (!existingPlayer.usedPowers) existingPlayer.usedPowers = [];
                 if (!existingPlayer.effects) existingPlayer.effects = [];
             }
+
+            // JOIN WOLF ROOM (For secure night chat)
+            const player = game.players.find(p => p.id === userId);
+            if (player && isInWolfCamp(player.role)) {
+                socket.join(`wolf_room_${roomCode}`);
+                console.log(`[SOCKET] ${player.name} joined wolf_room_${roomCode}`);
+            }
+
             emitGameState(roomCode, game, io);
         });
 
@@ -145,6 +145,14 @@ export function setupGameLogic(io: Server<ClientToServerEvents, ServerToClientEv
                     player.hasVoted = null;
                     player.usedPowers = [];
                     player.effects = [];
+                    // Also join the Wolf Room if applicable
+                    if (isInWolfCamp(player.role)) {
+                        const s = io.sockets.sockets.get(player.socketId);
+                        if (s) {
+                            s.join(`wolf_room_${roomCode}`);
+                            console.log(`[START_GAME] Joined wolf_room for ${player.name}`);
+                        }
+                    }
                     player.isMute = false;
                     delete player.deadAt;
                 });
@@ -163,27 +171,53 @@ export function setupGameLogic(io: Server<ClientToServerEvents, ServerToClientEv
             }
         });
 
-        socket.on("chat_message", (payload) => {
+        socket.on("chat_message", (payload, callback) => {
             const game = games[roomCode];
-            if (!game) return;
+            if (!game) {
+                if (callback) callback({ status: 'error', reason: 'Room not found' });
+                return;
+            }
             const sender = game.players.find(p => p.id === payload.senderId);
-            if (!sender || !sender.isAlive) return;
+            if (!sender || !sender.isAlive) {
+                if (callback) callback({ status: 'error', reason: 'Sender not found or dead' });
+                return;
+            }
 
             const isNightMsg = payload.chatType === 'night';
-            const senderInWolfCamp = isInWolfCamp(sender.role);
+            const explicitSenderWolf = sender.role === 'LOUP_GAROU' || sender.role === 'LOUP_ALPHA' || sender.role === 'GRAND_MECHANT_LOUP' || sender.role === 'LOUP_INFECT';
+            const senderInWolfCamp = isInWolfCamp(sender.role) || explicitSenderWolf;
+
+            console.log(`[SERVER_RECEIVE_CHAT] From: ${sender.name} | Role: ${sender.role} | Type: ${payload.chatType} | isNightMsg: ${isNightMsg} | senderInWolfCamp: ${senderInWolfCamp}`);
 
             if (isNightMsg) {
                 if (game.phase !== 'NIGHT' || !senderInWolfCamp) {
                     console.log(`[CHAT_BLOCKED] Night message from ${sender.name} (Role: ${sender.role}) blocked! Phase: ${game.phase}, InCamp: ${senderInWolfCamp}`);
+                    if (callback) callback({ status: 'error', reason: 'Night chat not allowed' });
                     return;
                 }
-                console.log(`[CHAT_WOLF_SUCCESS] Night message from ${sender.name} (${sender.role}) allowed.`);
             }
-            if (payload.chatType === 'day' && game.phase === 'NIGHT') return;
+            if (payload.chatType === 'day' && game.phase === 'NIGHT') {
+                if (callback) callback({ status: 'error', reason: 'Day chat not allowed at night' });
+                return;
+            }
 
             game.lastActivity = Date.now();
             game.chatMessages.push(payload);
-            io.to(roomCode).emit("chat_message", payload);
+
+            if (isNightMsg) {
+                // Emit explicitly to all wolves directly to bypass Socket rooms cache/issues
+                console.log(`[SERVER_BROADCAST_WOLF_CHAT] Broadcasting explicitly to all wolves.`);
+                game.players.forEach(p => {
+                    const explicitWolf = p.role === 'LOUP_GAROU' || p.role === 'LOUP_ALPHA' || p.role === 'GRAND_MECHANT_LOUP' || p.role === 'LOUP_INFECT';
+                    if ((isInWolfCamp(p.role) || explicitWolf) && p.socketId) {
+                        io.to(p.socketId).emit("chat_message", payload);
+                    }
+                });
+            } else {
+                io.to(roomCode).emit("chat_message", payload);
+            }
+
+            if (callback) callback({ status: 'success' });
         });
 
         socket.on("vote_player", (targetId) => {
@@ -200,9 +234,6 @@ export function setupGameLogic(io: Server<ClientToServerEvents, ServerToClientEv
             const isValidNightWolfVote = game.phase === 'NIGHT' && isInWolfCamp(voter.role) && !isTargetWolf;
 
             if (game.phase === 'MAYOR_ELECTION' || game.phase === 'DAY_VOTE' || isValidNightWolfVote) {
-                if (game.phase === 'NIGHT') {
-                    console.log(`[VOTE_WOLF_DEBUG] ${voter.name} (${voter.role}) voted for ${target.name}. Valid: ${isValidNightWolfVote}`);
-                }
 
                 if (game.votes[userId] === targetId) {
                     delete game.votes[userId];
@@ -299,6 +330,16 @@ export function setupGameLogic(io: Server<ClientToServerEvents, ServerToClientEv
                                 // Decide where to go next
                                 const next = game.nextPhase || (game.dayCount > 1 && !game.chatMessages.some(m => m.text.includes("Le village se réveille") && m.time > Date.now() - 60000) ? 'DAY_DISCUSSION' : 'NIGHT');
                                 delete game.nextPhase;
+
+                                if (next === 'NIGHT') {
+                                    game.players.forEach(p => {
+                                        if (p.effects.includes('poisoned')) {
+                                            p.isMute = false;
+                                            p.effects = p.effects.filter(e => e !== 'poisoned');
+                                        }
+                                    });
+                                }
+
                                 startPhase(roomCode, next as Phase, games, gameTimers, io);
                             }
                         }
@@ -425,7 +466,7 @@ function startPhase(roomCode: string, newPhase: Phase, games: Record<string, Gam
         case 'NIGHT': duration = 60; break;
         case 'DAY_DISCUSSION': duration = 60; break;
         case 'DAY_VOTE': duration = 30; break;
-        case 'HUNTER_SHOT': duration = 30; break;
+        case 'HUNTER_SHOT': duration = 10; break;
     }
 
     if (newPhase === 'DAY_DISCUSSION') {
@@ -621,8 +662,10 @@ function handlePhaseEnd(roomCode: string, endedPhase: Phase, games: Record<strin
                 io.to(roomCode).emit("chat_message", { senderId: 'system', senderName: 'Système', text: `Personne n'est mort cette nuit.`, time: Date.now(), chatType: 'system' });
             }
 
-            const vDetailsAtNight = checkVictory(game);
-            if (vDetailsAtNight) triggerGameOver(roomCode, vDetailsAtNight, games, gameTimers, io);
+            if (!anyHunterDiedAtNight) {
+                const vDetailsAtNight = checkVictory(game);
+                if (vDetailsAtNight) triggerGameOver(roomCode, vDetailsAtNight, games, gameTimers, io);
+            }
             break;
         case 'DAY_DISCUSSION':
             // Clear silences at the end of day? No, user said "cycle of day and night".
@@ -632,19 +675,25 @@ function handlePhaseEnd(roomCode: string, endedPhase: Phase, games: Record<strin
             break;
         case 'DAY_VOTE':
             const deadId = tallyVotes(game, false);
+            const deathsDay: string[] = [];
+            let fouWon = false;
+            let deadFouPlayer = null;
+
             if (deadId) {
                 const deadPlayer = game.players.find(p => p.id === deadId);
                 if (deadPlayer) {
                     deadPlayer.isAlive = false;
                     deadPlayer.deadAt = 'bûcher';
+                    deathsDay.push(deadPlayer.id);
+
                     const roleLabel = ROLES[deadPlayer.role as RoleId]?.label || 'Inconnu';
                     const deathMsg: ChatMessage = { senderId: 'system', senderName: 'Système', text: `Le village a condamné ${deadPlayer.name} au bûcher. Rôle : ${roleLabel}.`, time: Date.now(), chatType: 'system' };
                     game.chatMessages.push(deathMsg);
                     io.to(roomCode).emit("chat_message", deathMsg);
 
                     if (deadPlayer.role === 'FOU') {
-                        triggerGameOver(roomCode, { winner: 'FOU', players: [deadPlayer] }, games, gameTimers, io);
-                        return;
+                        fouWon = true;
+                        deadFouPlayer = deadPlayer;
                     }
 
                     if (deadPlayer.effects.includes('lover')) {
@@ -656,16 +705,25 @@ function handlePhaseEnd(roomCode: string, endedPhase: Phase, games: Record<strin
                             const suicideMsg: ChatMessage = { senderId: 'system', senderName: 'Système', text: `${partner.name} s'est suicidé(e) par amour. Rôle : ${partnerRole}.`, time: Date.now(), chatType: 'system' };
                             game.chatMessages.push(suicideMsg);
                             io.to(roomCode).emit("chat_message", suicideMsg);
+                            deathsDay.push(partner.id);
                         }
-                    }
-
-                    if (deadPlayer.role === 'CHASSEUR') {
-                        game.nextPhase = 'NIGHT';
-                        startPhase(roomCode, 'HUNTER_SHOT', games, gameTimers, io);
-                        return;
                     }
                 }
             }
+
+            if (fouWon && deadFouPlayer) {
+                triggerGameOver(roomCode, { winner: 'FOU', players: [deadFouPlayer] }, games, gameTimers, io);
+                return;
+            }
+
+            const anyHunterDiedAtDay = deathsDay.some(dId => game.players.find(p => p.id === dId)?.role === 'CHASSEUR');
+
+            if (anyHunterDiedAtDay) {
+                game.nextPhase = 'NIGHT';
+                startPhase(roomCode, 'HUNTER_SHOT', games, gameTimers, io);
+                return;
+            }
+
             const victoryDetails = checkVictory(game);
             if (victoryDetails) triggerGameOver(roomCode, victoryDetails, games, gameTimers, io);
             else {
@@ -681,9 +739,24 @@ function handlePhaseEnd(roomCode: string, endedPhase: Phase, games: Record<strin
             break;
         case 'HUNTER_SHOT':
             if (game.timer <= 0) {
-                const next = game.nextPhase || 'NIGHT';
-                delete game.nextPhase;
-                startPhase(roomCode, next, games, gameTimers, io);
+                const vDetails = checkVictory(game);
+                if (vDetails) {
+                    triggerGameOver(roomCode, vDetails, games, gameTimers, io);
+                } else {
+                    const next = game.nextPhase || 'NIGHT';
+                    delete game.nextPhase;
+
+                    if (next === 'NIGHT') {
+                        game.players.forEach(p => {
+                            if (p.effects.includes('poisoned')) {
+                                p.isMute = false;
+                                p.effects = p.effects.filter(e => e !== 'poisoned');
+                            }
+                        });
+                    }
+
+                    startPhase(roomCode, next, games, gameTimers, io);
+                }
             }
             break;
     }
@@ -762,21 +835,34 @@ function emitGameState(roomCode: string, game: GameState, io: Server) {
         const userId = socket.handshake.query.userId as string;
         const player = game.players.find(p => p.id === userId);
         const playerRole = player?.role;
-        const playerIsWolf = isInWolfCamp(playerRole);
+        const explicitWolf = playerRole === 'LOUP_GAROU' || playerRole === 'LOUP_ALPHA' || playerRole === 'GRAND_MECHANT_LOUP' || playerRole === 'LOUP_INFECT';
+        const playerIsWolf = isInWolfCamp(playerRole) || explicitWolf;
+
+        // Calculate actual dead counts across all roles before masking
+        const deadRolesCount: Partial<Record<RoleId, number>> = {};
+        game.players.forEach(p => {
+            if (!p.isAlive && p.role) {
+                deadRolesCount[p.role] = (deadRolesCount[p.role] ?? 0) + 1;
+            }
+        });
 
         // Tailor the GameState for this specific player
         const tailoredGame: GameState = JSON.parse(JSON.stringify(game));
+        tailoredGame.deadRolesCount = deadRolesCount;
 
-        if (game.phase === 'NIGHT') {
-            console.log(`[STATE_TAILOR] Tailoring to ${player?.name || 'Unknown'} (${playerRole}) | isWolf: ${playerIsWolf}`);
-        }
+        // Security: Filter messages so non-wolf players never even receive night chat data
+        tailoredGame.chatMessages = tailoredGame.chatMessages.filter(msg => {
+            if (msg.chatType === 'night') return playerIsWolf;
+            return true;
+        });
 
         // 0. Mask Roles for privacy (reveal dead players)
         tailoredGame.players.forEach(p => {
             const isTargetSelf = p.id === userId;
             const targetPlayerInGame = game.players.find(gp => gp.id === p.id);
             const isTargetDead = targetPlayerInGame && !targetPlayerInGame.isAlive;
-            const isTargetWolf = isInWolfCamp(p.role);
+            const explicitTargetWolf = p.role === 'LOUP_GAROU' || p.role === 'LOUP_ALPHA' || p.role === 'GRAND_MECHANT_LOUP' || p.role === 'LOUP_INFECT';
+            const isTargetWolf = isInWolfCamp(p.role) || explicitTargetWolf;
 
             // Show role if: it's me, same wolf pack, target is dead, or game is over
             const shouldReveal = isTargetSelf || (isTargetWolf && playerIsWolf) || isTargetDead || game.phase === 'GAME_OVER';
@@ -792,10 +878,18 @@ function emitGameState(roomCode: string, game: GameState, io: Server) {
             const voteEntries = Object.entries(game.votes);
             for (const [voterId, tId] of voteEntries) {
                 const voter = game.players.find(p => p.id === voterId);
-                const isVoterWolf = isInWolfCamp(voter?.role);
+                const explicitVoterWolf = voter?.role === 'LOUP_GAROU' || voter?.role === 'LOUP_ALPHA' || voter?.role === 'GRAND_MECHANT_LOUP' || voter?.role === 'LOUP_INFECT';
+                const isVoterWolf = isInWolfCamp(voter?.role) || explicitVoterWolf;
 
                 // Wolves see wolf votes. Everyone sees their own vote.
-                const shouldSee = (isVoterWolf && playerIsWolf) || voterId === userId;
+                const condWolves = (isVoterWolf && playerIsWolf);
+                const condSelf = voterId === userId;
+                const shouldSee = condWolves || condSelf;
+
+                if (game.phase === 'NIGHT') {
+                    console.log(`[VOTE_PARTITION] To: ${player?.name} | Voter: ${voter?.name} | IsVoterWolf: ${isVoterWolf} | MeIsWolf: ${playerIsWolf} | ShouldSee: ${shouldSee} (Wolves: ${condWolves}, Self: ${condSelf})`);
+                }
+
                 if (shouldSee) {
                     visibleVotes[voterId] = tId;
                 }
@@ -805,10 +899,14 @@ function emitGameState(roomCode: string, game: GameState, io: Server) {
                 console.log(`[PARTITION_DEBUG] ${player?.name} (${playerRole}) sees ${Object.keys(visibleVotes).length}/${voteEntries.length} votes. isWolf: ${playerIsWolf}`);
             }
 
+            // Hide other players' nightActions to prevent cheating via network inspection
+            tailoredGame.nightActions = tailoredGame.nightActions.filter(action => action.sourceId === userId);
+
             // Also hide 'hasVoted' property and vote counts for privacy
             tailoredGame.players.forEach(p => {
                 const isTargetSelf = p.id === userId;
-                const isTargetWolf = isInWolfCamp(p.role);
+                const explicitTargetWolf = p.role === 'LOUP_GAROU' || p.role === 'LOUP_ALPHA' || p.role === 'GRAND_MECHANT_LOUP' || p.role === 'LOUP_INFECT';
+                const isTargetWolf = isInWolfCamp(p.role) || explicitTargetWolf;
                 const isWolfGroup = isTargetWolf && playerIsWolf;
 
                 if (!isTargetSelf && !isWolfGroup) {

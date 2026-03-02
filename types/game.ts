@@ -51,6 +51,7 @@ export interface GameState {
     nextPhase?: Phase;
     wolfVictimId?: string | null;
     rolesCount?: Partial<Record<RoleId, number>>;
+    deadRolesCount?: Partial<Record<RoleId, number>>;
     lastActivity: number;
 }
 
@@ -61,7 +62,7 @@ export interface ClientToServerEvents {
     start_game: (config?: { rolesCount: Partial<Record<RoleId, number>>, isCustom?: boolean }) => void;
     vote_player: (targetId: string) => void;
     use_power: (payload: { powerId: PowerId; targetId?: string; targetId2?: string }) => void;
-    chat_message: (payload: ChatMessage) => void;
+    chat_message: (payload: ChatMessage, callback?: (response: { status: 'success' | 'error', reason?: string }) => void) => void;
 }
 
 export interface ServerToClientEvents {

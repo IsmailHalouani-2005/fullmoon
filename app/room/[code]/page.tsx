@@ -8,7 +8,7 @@ import { io, Socket } from 'socket.io-client';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { auth, db } from '@/lib/firebase';
 import { GameState, ServerToClientEvents, ClientToServerEvents, Player, Phase } from '@/types/game';
-import { ROLES, RoleId, PowerId } from "@/types/roles"; // Assure-toi que ce chemin est bon
+import { ROLES, RoleId, PowerId, isInWolfCamp } from "@/types/roles";
 import { distributeRoles, distributeCustomRoles } from '@/lib/roleDistribution';
 import { doc, getDoc, collection, query, onSnapshot, addDoc } from 'firebase/firestore';
 import { getDatabase, ref, onValue } from 'firebase/database';
@@ -54,19 +54,10 @@ export default function RoomPage() {
     const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
     const [chatInput, setChatInput] = useState("");
 
-    const isInWolfCamp = (roleId: RoleId | null | undefined): boolean => {
-        if (!roleId) return false;
-        const wolfRoles = ['LOUP_GAROU', 'LOUP_ALPHA', 'GRAND_MECHANT_LOUP', 'LOUP_INFECT'];
-        return wolfRoles.includes(roleId);
-    };
 
     const mePlayer = useMemo(() => {
         if (!user || !game?.players) return null;
         const p = game.players.find(p => p.id === user.uid) || null;
-        if (p) {
-            const isWolf = isInWolfCamp(p.role);
-            console.log(`[CLIENT_IDENTITY] ${p.name} | Role: ${p.role} | isMeWolf: ${isWolf}`);
-        }
         return p;
     }, [user, game?.players]);
 
@@ -85,6 +76,11 @@ export default function RoomPage() {
     // UI State
     const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
     const [gameOverData, setGameOverData] = useState<{ winner: string; players: Player[] } | null>(null);
+
+    // --- SORCIÈRE MODALS ---
+    const [witchHealTarget, setWitchHealTarget] = useState<string | null>(null);
+    const [witchPoisonTarget, setWitchPoisonTarget] = useState<string | null>(null);
+
     // Photo de profil lue depuis Firestore (pour les comptes email/password sans photoURL dans Firebase Auth)
     // undefined = fetch pas encore fait, null = fetch fait mais aucune photo, string = URL de la photo
     const [firestorePhotoURL, setFirestorePhotoURL] = useState<string | null | undefined>(undefined);
@@ -197,6 +193,7 @@ export default function RoomPage() {
         });
 
         newSocket.on('chat_message', (msg) => {
+            console.log(`[CLIENT_RECEIVE_CHAT] Received message from ${msg.senderName} (Type: ${msg.chatType}):`, msg);
             setChatMessages(prev => [...prev, msg]);
         });
 
@@ -382,12 +379,17 @@ export default function RoomPage() {
         const me = game.players.find(p => p.id === user.uid);
         if (me && !me.isAlive) return; // Un mort ne parle plus (sauf ongle système peut-être plus tard, mais simplifions)
 
+        const camp = me?.role ? ROLES[me.role as RoleId]?.camp : 'UNKNOWN';
+        console.log(`[CLIENT_SEND_CHAT] Text: "${chatInput}" | Sender: ${me?.name} | Role: ${me?.role} | Camp: ${camp} | Tab: ${activeChatTab}`);
+
         socket.emit('chat_message', {
             senderId: user.uid,
             senderName: user.displayName || user.email?.split('@')[0] || "Anonyme",
             text: chatInput,
             time: Date.now(),
             chatType: activeChatTab
+        }, (response) => {
+            console.log(`[SOCKET_RETURN] chat_message acknowledgement:`, response);
         });
         setChatInput("");
     };
@@ -436,12 +438,13 @@ export default function RoomPage() {
     };
 
     const handlePlayerClick = (playerId: string) => {
+        const me = game?.players.find(p => p.id === user?.uid);
+
         if (!activePower) {
             socket?.emit("vote_player", playerId);
             return;
         }
 
-        const me = game.players.find(p => p.id === user?.uid);
         const roleDef = me?.role ? ROLES[me.role as RoleId] : null;
         const power = roleDef?.powers?.find(p => p.id === activePower);
 
@@ -461,6 +464,20 @@ export default function RoomPage() {
                 setActivePower(null);
                 setPowerTargets([]);
             }
+        } else if (activePower === 'POTION_SOIN') {
+            if (playerId !== game.wolfVictimId) {
+                // Not ideal to use alert here still, maybe a custom temporary error?
+                // Let's stick to the prompt replacement for now, as requested "small modal asking if he wants to save"
+                alert("Vous ne pouvez utiliser cette potion que sur la victime des loups.");
+                return;
+            }
+            setWitchHealTarget(playerId);
+        } else if (activePower === 'POTION_POISON') {
+            if (me && playerId === me.id) {
+                alert("Vous ne pouvez pas vous empoisonner vous-même.");
+                return;
+            }
+            setWitchPoisonTarget(playerId);
         } else {
             // Single target powers
             socket?.emit('use_power', { powerId: activePower as PowerId, targetId: playerId });
@@ -498,9 +515,10 @@ export default function RoomPage() {
                             const roleDef = ROLES[rId as RoleId];
                             if (!roleDef || !totalCount || (totalCount as number) <= 0) return null;
 
-                            // Calculate alive count for this role
-                            const aliveCount = game.players.filter(p => p.role === rId && p.isAlive).length;
-                            const isDead = game.phase !== 'LOBBY' && aliveCount === 0;
+                            // Calculate alive count for this role from the new secure deadRolesCount object
+                            const deadCount = (game.deadRolesCount?.[rId as RoleId]) || 0;
+                            const aliveCount = (totalCount as number) - deadCount;
+                            const isDead = game.phase !== 'LOBBY' && aliveCount <= 0;
 
                             return (
                                 <div
@@ -552,8 +570,9 @@ export default function RoomPage() {
                             if (msg.chatType === 'night') {
                                 const isMeWolf = mePlayer?.role && isInWolfCamp(mePlayer.role as RoleId);
                                 const isMeSender = msg.senderId === user?.uid;
-                                // Wolves on night tab see it, OR the wolf sender sees it (even on general tab)
-                                return (activeChatTab === 'night' && isMeWolf) || (isMeSender && isMeWolf);
+                                const show = (activeChatTab === 'night' && isMeWolf) || (isMeSender && isMeWolf);
+                                console.log(`[CLIENT_RENDER_CHAT] msg: "${msg.text}" | tab: ${activeChatTab} | isMeWolf: ${isMeWolf} | role: ${mePlayer?.role} | show: ${show}`);
+                                return show;
                             }
                             return activeChatTab === 'day';
                         }).map((msg, idx) => {
@@ -714,14 +733,14 @@ export default function RoomPage() {
                         </div>
                     ) : currentPhase === 'ROLE_REVEAL' ? (
                         <div className="flex flex-col items-center justify-center z-200 font-montserrat perspective-1000">
-                            <h2 className="text-4xl sm:text-6xl font-extrabold tracking-widest mb-8 text-slate-900 font-enchanted drop-shadow-md">Découvrez votre Rôle</h2>
+                            <h2 className="text-4xl sm:text-2xl font-extrabold tracking-widest mb-8 text-slate-900 font-enchanted drop-shadow-md">Découvrez votre Rôle</h2>
 
                             <RoleCard
                                 roleId={user && game.players.find(p => p.id === user.uid)?.role ? game.players.find(p => p.id === user.uid)!.role! : undefined}
                                 isCardFlipped={isCardFlipped}
                                 onFlip={() => setIsCardFlipped(true)}
                                 isMayor={user ? game.mayorId === user.uid : false}
-                                className="w-[240px] sm:w-[320px]"
+                                className="w-[180px] sm:w-[240px]"
                             />
 
                             <p className="mt-8 text-sm text-slate-600 font-bold bg-white/70 px-4 py-2 rounded-full shadow-sm animate-pulse">
@@ -734,13 +753,15 @@ export default function RoomPage() {
                                 {(game.phase as string) === 'MAYOR_ELECTION' ? 'Élection du Maire' :
                                     (game.phase as string) === 'NIGHT' ? 'La Nuit Tombe' :
                                         (game.phase as string) === 'DAY_DISCUSSION' ? 'Le Jour se Lève' :
-                                            (game.phase as string) === 'DAY_VOTE' ? 'Le Bûcher' : 'Fin de Partie'}
+                                            (game.phase as string) === 'DAY_VOTE' ? 'Le Bûcher' :
+                                                (game.phase as string) === 'HUNTER_SHOT' ? 'Le Dernier Tir' : 'Fin de Partie'}
                             </h2>
                             <h5 className={`text-sm tracking-widest mb-2 italic drop-shadow-sm ${currentPhase === 'NIGHT' ? 'text-white drop-shadow-[0_0_15px_rgba(255,255,255,0.3)]' : 'text-slate-900'}`}>
                                 {(game.phase as string) === 'MAYOR_ELECTION' ? "Votez un joueur pour qu'il devienne le Maire" :
                                     (game.phase as string) === 'NIGHT' ? "Utilisez vos pouvoirs" :
                                         (game.phase as string) === 'DAY_DISCUSSION' ? "Discutez et débattez entre vous" :
-                                            (game.phase as string) === 'DAY_VOTE' ? "Votez pour le joueur à exécuter" : "Fin de Partie"}
+                                            (game.phase as string) === 'DAY_VOTE' ? "Votez pour le joueur à exécuter" :
+                                                (game.phase as string) === 'HUNTER_SHOT' ? "Le Chasseur prépare son arme..." : "Fin de Partie"}
                             </h5>
                             <div className="text-3xl font-extrabold text-[#D1A07A] drop-shadow-md mt-4">
                                 {game.timer}s
@@ -772,12 +793,17 @@ export default function RoomPage() {
                                                     const usedPowers = mePlayer.usedPowers || [];
                                                     const isUsed = usedPowers.includes(power.id);
 
+                                                    // Sorcière : si une potion est utilisée cette nuit, bloquer l'autre pendant cette nuit
+                                                    const usedPotionThisNight = game.nightActions?.some(a => a.sourceId === user.uid && (a.powerId === 'POTION_SOIN' || a.powerId === 'POTION_POISON'));
+                                                    const isPotion = power.id === 'POTION_SOIN' || power.id === 'POTION_POISON';
+                                                    const isTemporarilyBlocked = isPotion && usedPotionThisNight && !game.nightActions.some(a => a.powerId === power.id); // L'autre potion est bloquée
+
                                                     // Only show/enable FUSIL during HUNTER_SHOT, others during NIGHT
                                                     const isTimingCorrect = power.id === 'FUSIL'
                                                         ? currentPhase === 'HUNTER_SHOT'
                                                         : (power.timing === 'night' && currentPhase === 'NIGHT');
 
-                                                    const canUse = !isUsed && isTimingCorrect && (power.id === 'FUSIL' ? true : mePlayer.isAlive);
+                                                    const canUse = !isUsed && !isTemporarilyBlocked && isTimingCorrect && (power.id === 'FUSIL' ? true : mePlayer.isAlive);
                                                     const isActive = activePower === power.id;
 
                                                     // If the power isn't relevant to this moment at all, skip rendering it? 
@@ -788,7 +814,7 @@ export default function RoomPage() {
                                                         (power.icon != "") ? (
                                                             <div
                                                                 key={power.id}
-                                                                className={`relative z-1000 group flex flex-col items-center cursor-pointer transition-all ${!canUse ? 'opacity-30 grayscale cursor-not-allowed' : 'hover:scale-110'}`}
+                                                                className={`relative z-[1000] group flex flex-col items-center cursor-pointer transition-all ${!canUse ? 'opacity-30 grayscale cursor-not-allowed' : 'hover:scale-110'}`}
                                                                 onClick={() => canUse && handlePowerClick(power.id)}
                                                             >
                                                                 <div className={`w-10 h-10 rounded-full border-2 p-1 flex items-center justify-center transition-colors ${isActive ? 'border-[#D1A07A] bg-[#D1A07A]/20 shadow-[0_0_10px_#D1A07A]' : 'border-slate-600 bg-black/20'}`}>
@@ -828,6 +854,7 @@ export default function RoomPage() {
                             activePower={activePower}
                             powerTargets={powerTargets}
                             wolfVictimId={game.wolfVictimId}
+                            nightActions={game.nightActions}
                         />
                     ))}
 
@@ -993,6 +1020,68 @@ export default function RoomPage() {
                                 </div>
                             </div>
                         ))}
+                    </div>
+                </div>
+            )}
+
+            {/* --- MODAL POTION DE VIE --- */}
+            {witchHealTarget && (
+                <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[2000] p-4 font-montserrat" onClick={() => { setWitchHealTarget(null); setActivePower(null); }}>
+                    <div className="bg-[#2C3338] text-white max-w-sm w-full rounded-2xl p-6 border-2 border-[#D1A07A] shadow-2xl relative text-center" onClick={e => e.stopPropagation()}>
+                        <h3 className="text-2xl font-enchanted font-extrabold text-[#D1A07A] mb-4">Potion de Vie</h3>
+                        <p className="text-sm text-slate-300 mb-6">
+                            Voulez-vous vraiment sauver <span className="font-bold text-white">{game?.players.find(p => p.id === witchHealTarget)?.name}</span> de la mort ciblée par les loups ?
+                        </p>
+                        <div className="flex justify-center gap-4">
+                            <button
+                                onClick={() => { setWitchHealTarget(null); setActivePower(null); }}
+                                className="px-4 py-2 rounded-lg bg-slate-700 text-slate-200 hover:bg-slate-600 transition-colors text-sm font-bold"
+                            >
+                                Annuler
+                            </button>
+                            <button
+                                onClick={() => {
+                                    socket?.emit('use_power', { powerId: 'POTION_SOIN', targetId: witchHealTarget });
+                                    setWitchHealTarget(null);
+                                    setActivePower(null);
+                                    setPowerTargets([]);
+                                }}
+                                className="px-4 py-2 rounded-lg bg-[#D1A07A] text-dark hover:bg-[#b08465] transition-colors text-sm font-extrabold"
+                            >
+                                Oui, Sauver
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* --- MODAL POTION DE MORT --- */}
+            {witchPoisonTarget && (
+                <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[2000] p-4 font-montserrat" onClick={() => { setWitchPoisonTarget(null); setActivePower(null); }}>
+                    <div className="bg-[#2C3338] text-white max-w-sm w-full rounded-2xl p-6 border-2 border-purple-500 shadow-2xl relative text-center" onClick={e => e.stopPropagation()}>
+                        <h3 className="text-2xl font-enchanted font-extrabold text-purple-400 mb-4">Potion de Mort</h3>
+                        <p className="text-sm text-slate-300 mb-6">
+                            Voulez-vous vraiment empoisonner <span className="font-bold text-white">{game?.players.find(p => p.id === witchPoisonTarget)?.name}</span> ? Cette action est irréversible.
+                        </p>
+                        <div className="flex justify-center gap-4">
+                            <button
+                                onClick={() => { setWitchPoisonTarget(null); setActivePower(null); }}
+                                className="px-4 py-2 rounded-lg bg-slate-700 text-slate-200 hover:bg-slate-600 transition-colors text-sm font-bold"
+                            >
+                                Annuler
+                            </button>
+                            <button
+                                onClick={() => {
+                                    socket?.emit('use_power', { powerId: 'POTION_POISON', targetId: witchPoisonTarget });
+                                    setWitchPoisonTarget(null);
+                                    setActivePower(null);
+                                    setPowerTargets([]);
+                                }}
+                                className="px-4 py-2 rounded-lg bg-purple-600 text-white hover:bg-purple-500 transition-colors text-sm font-extrabold"
+                            >
+                                Oui, Empoisonner
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}
