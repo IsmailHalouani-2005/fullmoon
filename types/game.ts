@@ -55,6 +55,7 @@ export interface GameState {
     lastActivity: number;
     lovers?: string[];
     areLoversSameCamp?: boolean;
+    gmlVictimId?: string | null;
 }
 
 // -- Events Socket.io (Typage strict) --

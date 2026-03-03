@@ -16,6 +16,7 @@ interface PlayerCircleNodeProps {
     activePower?: string | null;
     powerTargets?: string[];
     wolfVictimId?: string | null;
+    gmlVictimId?: string | null;
     getPlayerAvatar: (playerId: string, fallbackUrl?: string) => string;
     nightActions?: any[];
 }
@@ -33,6 +34,7 @@ export default function PlayerCircleNode({
     activePower,
     powerTargets,
     wolfVictimId,
+    gmlVictimId,
     getPlayerAvatar,
     nightActions
 }: PlayerCircleNodeProps) {
@@ -88,9 +90,13 @@ export default function PlayerCircleNode({
     const canSeeWolfVictim = isInWolfCamp(me?.role as RoleId) || witchCanSeeVictim || me?.role === 'PETITE_FILLE';
     const displayAsWolfVictim = isWolfVictim && !isHealed && canSeeWolfVictim;
 
+    // GML Victim
+    const isGmlVictim = gmlVictimId === player.id && me?.role === 'GRAND_MECHANT_LOUP';
+
     // Logic for targeting with power or normal vote
     const canVoteActual = (onVote && (
-        (activePower && me?.isAlive && !isDead && (activePower !== 'FUSIL')) || // Regular power
+        (activePower && activePower !== 'FUSIL' && activePower !== 'GRIFFURE_MORTELLE' && me?.isAlive && !isDead) || // Regular power
+        (activePower === 'GRIFFURE_MORTELLE' && me?.isAlive && !isDead && me?.id !== player.id) || // GML cannot target himself
         (activePower === 'FUSIL' && !me?.isAlive && me?.deadAt && !isDead) || // Hunter power
         (!activePower && (
             currentPhase === 'MAYOR_ELECTION' ||
@@ -126,13 +132,14 @@ export default function PlayerCircleNode({
         >
             <div className={`relative ${sizeClass} rounded-full flex items-center justify-center shadow-lg transition-all
                 ${player.id === game.hostId && currentPhase === 'LOBBY' ? 'border-[3px] border-[#D1A07A]' : 'border-[3px] border-slate-800'} 
-                ${isTargeted || isTargetedByPower || isPoisonTarget || isCupidonTarget ? ((currentPhase === 'NIGHT') ? "border-dashed !border-4 border-white shadow-[0_0_20px_rgba(255,255,255,0.6)] scale-105" : 'border-dashed !border-4 border-slate-900 shadow-[0_0_20px_rgba(0,0,0,0.6)] scale-105') : ''}
+                ${isTargeted || isTargetedByPower || isPoisonTarget || isCupidonTarget || isGmlVictim ? ((currentPhase === 'NIGHT') ? "border-dashed !border-4 border-white shadow-[0_0_20px_rgba(255,255,255,0.6)] scale-105" : 'border-dashed !border-4 border-slate-900 shadow-[0_0_20px_rgba(0,0,0,0.6)] scale-105') : ''}
                 ${isTargetedByPower ? (activePower === 'COUP_DE_COEUR' ? '!border-[#ff69b4] shadow-[0_0_15px_#ff69b4] animate-pulse' : '!border-[#D1A07A]') : ''}
                 ${isCupidonTarget ? '!border-[#ff69b4] shadow-[0_0_15px_#ff69b4] animate-pulse scale-105' : ''}
                 ${displayAsWolfVictim ? '!border-red-600 shadow-[0_0_15px_#ef4444] animate-pulse scale-105' : ''}
+                ${isGmlVictim ? '!border-dashed !border-red-900 shadow-[0_0_15px_#7f1d1d] animate-pulse scale-105' : ''}
                 ${isPoisonTarget ? '!border-purple-600 shadow-[0_0_15px_#9333ea]' : ''}
                 ${isHealed ? '!border-green-500 shadow-[0_0_15px_#22c55e]' : ''}
-            `} title={displayAsWolfVictim ? "Cible des Loups" : (isPoisonTarget ? "Cible de votre poison" : (isHealed ? "Sauvé par votre potion" : ""))}>
+            `} title={displayAsWolfVictim ? "Cible des Loups" : (isGmlVictim ? "Carnage (Votre 2e cible)" : (isPoisonTarget ? "Cible de votre poison" : (isHealed ? "Sauvé par votre potion" : "")))}>
                 {/* MOCK: L'image de fond lune pour tout le monde */}
                 <div className={`absolute inset-0 bg-[#e3d1ae] rounded-full z-0 overflow-hidden ${isDead ? 'grayscale' : ''}`}></div>
                 <div className={`absolute inset-0 flex items-center justify-center opacity-30 z-0 select-none overflow-hidden ${isDead ? 'grayscale' : ''}`}>

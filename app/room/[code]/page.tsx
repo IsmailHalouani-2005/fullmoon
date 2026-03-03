@@ -833,12 +833,37 @@ export default function RoomPage() {
                                                     const isPotion = power.id === 'POTION_SOIN' || power.id === 'POTION_POISON';
                                                     const isTemporarilyBlocked = isPotion && usedPotionThisNight && !game.nightActions.some(a => a.powerId === power.id); // L'autre potion est bloquée
 
+                                                    // GML Specific: canGMLKill logic
+                                                    let canGMLKill = true;
+                                                    let gmlDisableMessage = "Seconde attaque (Carnage)";
+                                                    if (power.id === 'GRIFFURE_MORTELLE') {
+                                                        const initialWolvesCount = (game.rolesCount?.['LOUP_GAROU'] || 0) +
+                                                            (game.rolesCount?.['LOUP_ALPHA'] || 0) +
+                                                            (game.rolesCount?.['GRAND_MECHANT_LOUP'] || 0) +
+                                                            (game.rolesCount?.['LOUP_INFECT'] || 0);
+
+                                                        let currentWolvesAlive = 0;
+                                                        game.players.forEach(p => {
+                                                            if (p.isAlive && (p.role === 'LOUP_GAROU' || p.role === 'LOUP_ALPHA' || p.role === 'GRAND_MECHANT_LOUP' || p.role === 'LOUP_INFECT')) {
+                                                                currentWolvesAlive++;
+                                                            }
+                                                        });
+
+                                                        if (initialWolvesCount <= 1) {
+                                                            canGMLKill = false;
+                                                            gmlDisableMessage = "Carnage bloqué : Vous avez commencé la partie seul.";
+                                                        } else if (currentWolvesAlive < initialWolvesCount) {
+                                                            canGMLKill = false;
+                                                            gmlDisableMessage = "Carnage perdu : Un loup de la meute est mort.";
+                                                        }
+                                                    }
+
                                                     // Only show/enable FUSIL during HUNTER_SHOT, others during NIGHT
                                                     const isTimingCorrect = power.id === 'FUSIL'
                                                         ? currentPhase === 'HUNTER_SHOT'
                                                         : (power.timing === 'night' && currentPhase === 'NIGHT');
 
-                                                    const canUse = !isUsed && !isTemporarilyBlocked && isTimingCorrect && (power.id === 'FUSIL' ? true : mePlayer.isAlive);
+                                                    const canUse = !isUsed && !isTemporarilyBlocked && isTimingCorrect && (power.id === 'FUSIL' ? true : mePlayer.isAlive) && canGMLKill;
                                                     const isActive = activePower === power.id;
 
                                                     // If the power isn't relevant to this moment at all, skip rendering it? 
@@ -857,7 +882,7 @@ export default function RoomPage() {
                                                                 </div>
                                                                 {/* Tooltip or Label */}
                                                                 <span className="absolute -bottom-6 w-max bg-black/80 text-white text-[8px] px-2 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity">
-                                                                    {power.label}
+                                                                    {power.id === 'GRIFFURE_MORTELLE' ? gmlDisableMessage : power.label}
                                                                 </span>
                                                                 {isActive && (
                                                                     <div className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full animate-ping"></div>
@@ -873,6 +898,13 @@ export default function RoomPage() {
                                         {activePower === 'COUP_DE_COEUR' && (
                                             <div className="mt-3 text-[#ff69b4] font-bold text-xs sm:text-sm animate-pulse drop-shadow-md bg-black/40 px-3 py-1 rounded-full border border-[#ff69b4]/50">
                                                 {powerTargets.length === 0 ? "Choisissez le premier amoureux" : "Choisissez le deuxième amoureux"}
+                                            </div>
+                                        )}
+
+                                        {/* Helper text for Grand Méchant Loup */}
+                                        {activePower === 'GRIFFURE_MORTELLE' && (
+                                            <div className="mt-3 text-[#7f1d1d] font-bold text-xs sm:text-sm animate-pulse drop-shadow-md bg-black/40 px-3 py-1 rounded-full border border-[#7f1d1d]/50">
+                                                Choisissez une autre victime à tuer
                                             </div>
                                         )}
                                     </div>
@@ -896,6 +928,7 @@ export default function RoomPage() {
                             activePower={activePower}
                             powerTargets={powerTargets}
                             wolfVictimId={game.wolfVictimId}
+                            gmlVictimId={game.gmlVictimId}
                             nightActions={game.nightActions}
                         />
                     ))}

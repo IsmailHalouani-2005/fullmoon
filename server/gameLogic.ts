@@ -370,6 +370,32 @@ export function setupGameLogic(io: Server<ClientToServerEvents, ServerToClientEv
                         }
                     }
                     break;
+                case 'GRIFFURE_MORTELLE':
+                    // Update real-time victim for UI
+                    game.gmlVictimId = payload.targetId || null;
+
+                    // Toggle logic: If we send the same target again, we clear it
+                    const existingGmlActionIdx = game.nightActions.findIndex(a => a.sourceId === userId && a.powerId === 'GRIFFURE_MORTELLE');
+                    if (existingGmlActionIdx !== -1) {
+                        const existingTarget = game.nightActions[existingGmlActionIdx].targetId;
+                        if (existingTarget === payload.targetId) {
+                            game.nightActions.splice(existingGmlActionIdx, 1);
+                            game.gmlVictimId = null;
+                            emitGameState(roomCode, game, io);
+                            return;
+                        }
+                    }
+
+                    game.nightActions = game.nightActions.filter(a => a.sourceId !== userId || a.powerId !== 'GRIFFURE_MORTELLE');
+                    if (payload.targetId) {
+                        game.nightActions.push({
+                            type: 'power',
+                            powerId: 'GRIFFURE_MORTELLE',
+                            sourceId: userId,
+                            targetId: payload.targetId
+                        });
+                    }
+                    break;
                 default:
                     // Store other night actions for dawn resolution
                     game.nightActions = game.nightActions.filter(a => a.sourceId !== userId || a.powerId !== payload.powerId);
@@ -609,6 +635,27 @@ function handlePhaseEnd(roomCode: string, endedPhase: Phase, games: Record<strin
                                 game.chatMessages.push(loverMsg);
                                 // Broadcast it, but emitGameState will filter it so only lovers see it
                                 io.to(roomCode).emit("chat_message", loverMsg);
+                            }
+                        }
+                        break;
+                    case 'GRIFFURE_MORTELLE':
+                        // Check if the GML can still kill
+                        // Condition: Initial wolves > 1 && Current wolves == Initial wolves
+                        const initialWolvesCount = (game.rolesCount?.['LOUP_GAROU'] || 0) +
+                            (game.rolesCount?.['LOUP_ALPHA'] || 0) +
+                            (game.rolesCount?.['GRAND_MECHANT_LOUP'] || 0) +
+                            (game.rolesCount?.['LOUP_INFECT'] || 0);
+
+                        let currentWolvesAlive = 0;
+                        game.players.forEach(p => {
+                            if (p.isAlive && (p.role === 'LOUP_GAROU' || p.role === 'LOUP_ALPHA' || p.role === 'GRAND_MECHANT_LOUP' || p.role === 'LOUP_INFECT')) {
+                                currentWolvesAlive++;
+                            }
+                        });
+
+                        if (initialWolvesCount > 1 && currentWolvesAlive === initialWolvesCount) {
+                            if (action.targetId && action.targetId !== wolfVictimId && action.targetId !== protectedId) {
+                                deaths.push(action.targetId);
                             }
                         }
                         break;
@@ -891,6 +938,14 @@ function emitGameState(roomCode: string, game: GameState, io: Server) {
     const sockets = io.sockets.adapter.rooms.get(roomCode);
     if (!sockets) return;
 
+    // Calculate actual dead counts across all roles before masking
+    const deadRolesCount: Partial<Record<RoleId, number>> = {};
+    game.players.forEach(p => {
+        if (!p.isAlive && p.role) {
+            deadRolesCount[p.role] = (deadRolesCount[p.role] ?? 0) + 1;
+        }
+    });
+
     for (const socketId of sockets) {
         const socket = io.sockets.sockets.get(socketId);
         if (!socket) continue;
@@ -901,19 +956,10 @@ function emitGameState(roomCode: string, game: GameState, io: Server) {
         const explicitWolf = playerRole === 'LOUP_GAROU' || playerRole === 'LOUP_ALPHA' || playerRole === 'GRAND_MECHANT_LOUP' || playerRole === 'LOUP_INFECT';
         const playerIsWolf = isInWolfCamp(playerRole) || explicitWolf;
 
-        // Calculate actual dead counts across all roles before masking
-        const deadRolesCount: Partial<Record<RoleId, number>> = {};
-        game.players.forEach(p => {
-            if (!p.isAlive && p.role) {
-                deadRolesCount[p.role] = (deadRolesCount[p.role] ?? 0) + 1;
-            }
-        });
-
         // Tailor the GameState for this specific player
         const tailoredGame: GameState = JSON.parse(JSON.stringify(game));
         tailoredGame.deadRolesCount = deadRolesCount;
 
-        // Security: Filter messages
         tailoredGame.chatMessages = tailoredGame.chatMessages.map(msg => {
             if (msg.chatType === 'night' && playerRole === 'PETITE_FILLE' && msg.senderId !== 'system') {
                 return { ...msg, senderId: 'loup_anim', senderName: 'Loup Inconnu' };
@@ -1003,9 +1049,15 @@ function emitGameState(roomCode: string, game: GameState, io: Server) {
             if (!canSeeVictim) {
                 tailoredGame.wolfVictimId = null;
             }
+
+            // GML: Only the Grand Méchant Loup himself can see his second victim
+            if (playerRole !== 'GRAND_MECHANT_LOUP') {
+                tailoredGame.gmlVictimId = null;
+            }
         } else {
             // Not night? Clear victim indicator for all
             tailoredGame.wolfVictimId = null;
+            tailoredGame.gmlVictimId = null;
         }
 
         socket.emit('update_game', tailoredGame);

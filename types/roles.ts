@@ -7,7 +7,7 @@ export type Camp = 'VILLAGE' | 'LOUPS' | 'SOLO';
 
 export type PowerId =
     | 'FUSIL' | 'POTION_SOIN' | 'POTION_POISON' | 'COUP_DE_COEUR' | 'VISION_LUNAIRE'
-    | 'MORSURE_INFECTE' | 'DOUBLE_VOTE' | 'CARNAGE' | 'TRAHISON' | 'LAME_NOIRE'
+    | 'MORSURE_INFECTE' | 'DOUBLE_VOTE' | 'GRIFFURE_MORTELLE' | 'TRAHISON' | 'LAME_NOIRE'
     | 'ESSENCE' | 'ALLUMETTE' | 'POISON_TOXIQUE';
 
 export interface Power {
@@ -117,7 +117,7 @@ export const ROLES: Record<RoleId, RoleDefinition> = {
         camp: 'LOUPS',
         image: "/assets/images/roles/werwolves/Grand_Mechant_Loup.png",
         powers: [
-            { id: 'CARNAGE', label: "Carnage", icon: "", type: 'active', timing: 'night' }
+            { id: 'GRIFFURE_MORTELLE', label: "Carnage", icon: "/assets/images/icones/powers/griffure_mortel.png", type: 'active', timing: 'night' }
         ]
     },
     LOUP_INFECT: {

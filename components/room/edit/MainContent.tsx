@@ -91,7 +91,7 @@ export default function MainContent({
                 {isCustom ? 'CHOISISSEZ LES RÔLES' : 'COMPOSITION DU VILLAGE'}
             </h1>
             <p className="text-xs text-slate-500 font-medium italic">
-                (Cliquez sur les rôles pour les sélectionner)
+                (Cliquez sur les rôles pour voir les détails)
             </p>
 
             <div className={`w-full bg-white border-[3px] border-[#2C3338] rounded-xl p-8 transition-opacity duration-300 ${!isCustom ? 'opacity-80' : ''}`}>
