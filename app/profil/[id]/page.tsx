@@ -5,7 +5,7 @@ import { useRouter, useParams } from 'next/navigation';
 import Image from 'next/image';
 import Header from '../../../components/Header';
 import { db, auth } from '../../../lib/firebase';
-import { doc, getDoc, deleteDoc, setDoc, collection, addDoc, query, where, getDocs, onSnapshot } from 'firebase/firestore';
+import { doc, getDoc, deleteDoc, setDoc, collection, addDoc, query, where, getDocs, onSnapshot, getCountFromServer } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
 import PrivateChat from '../../../components/PrivateChat';
 import ProfileAvatarHeader from '../../../components/profile/ProfileAvatarHeader';
@@ -24,6 +24,7 @@ export default function PlayerProfilePage() {
     const [isBlocked, setIsBlocked] = useState(false);
     const [hasBlockedMe, setHasBlockedMe] = useState(false);
     const [hasPendingRequest, setHasPendingRequest] = useState(false);
+    const [playerRank, setPlayerRank] = useState<number | null>(null);
 
     // --- Private Chat State ---
     const [showChat, setShowChat] = useState(false);
@@ -43,7 +44,19 @@ export default function PlayerProfilePage() {
                 // Fetch target player data
                 const docSnap = await getDoc(doc(db, "users", playerId));
                 if (docSnap.exists()) {
-                    setPlayerData(docSnap.data());
+                    const data = docSnap.data();
+                    setPlayerData(data);
+
+                    // Fetch dynamic rank
+                    if (data.stats?.points !== undefined) {
+                        try {
+                            const qRank = query(collection(db, "users"), where("stats.points", ">", data.stats.points));
+                            const snapshot = await getCountFromServer(qRank);
+                            setPlayerRank(snapshot.data().count + 1);
+                        } catch (rankError) {
+                            console.error("Error fetching player rank:", rankError);
+                        }
+                    }
                 } else {
                     setPlayerData(null);
                 }
@@ -279,7 +292,12 @@ export default function PlayerProfilePage() {
                     <div className="w-full h-px bg-white/10 relative z-10 mx-auto max-w-[90%]"></div>
 
                     {/* Stats Wrapper */}
-                    <ProfileStats stats={stats} />
+                    <ProfileStats
+                        stats={{
+                            ...playerData.stats,
+                            rank: playerRank
+                        }}
+                    />
 
                 </div>
             </main>

@@ -233,19 +233,39 @@ export default function RoomPage() {
                     const s = currentData.stats || {
                         wins: 0, losses: 0, gamesPlayed: 0,
                         kills: 0, saves: 0, powerUses: 0, daysSurvived: 0, points: 0,
-                        fled: 0
+                        fled: 0, villageWins: 0, villageLosses: 0,
+                        werewolfWins: 0, werewolfLosses: 0,
+                        soloWins: 0, soloLosses: 0
                     };
 
-                    await updateDoc(userRef, {
-                        "stats.wins": s.wins + (hasWon ? 1 : 0),
-                        "stats.losses": s.losses + (!hasWon ? 1 : 0),
+                    // Determine camp
+                    const isVillage = myRole?.camp === 'VILLAGE' && !myPlayerObj.effects?.includes('infected');
+                    const isWolf = myRole?.camp === 'LOUPS' || myPlayerObj.effects?.includes('infected');
+                    const isSolo = !isVillage && !isWolf;
+
+                    const updates: any = {
+                        "stats.wins": (s.wins || 0) + (hasWon ? 1 : 0),
+                        "stats.losses": (s.losses || 0) + (!hasWon ? 1 : 0),
                         "stats.gamesPlayed": (s.gamesPlayed || 0) + 1,
                         "stats.kills": (s.kills || 0) + (myPlayerObj.stats?.kills || 0),
                         "stats.saves": (s.saves || 0) + (myPlayerObj.stats?.saves || 0),
                         "stats.powerUses": (s.powerUses || 0) + (myPlayerObj.stats?.powerUses || 0),
                         "stats.daysSurvived": (s.daysSurvived || 0) + (myPlayerObj.stats?.daysSurvived || 0),
                         "stats.points": (s.points || 0) + (myPlayerObj.stats?.points || 0),
-                    });
+                    };
+
+                    if (isVillage) {
+                        if (hasWon) updates["stats.villageWins"] = (s.villageWins || 0) + 1;
+                        else updates["stats.villageLosses"] = (s.villageLosses || 0) + 1;
+                    } else if (isWolf) {
+                        if (hasWon) updates["stats.werewolfWins"] = (s.werewolfWins || 0) + 1;
+                        else updates["stats.werewolfLosses"] = (s.werewolfLosses || 0) + 1;
+                    } else {
+                        if (hasWon) updates["stats.soloWins"] = (s.soloWins || 0) + 1;
+                        else updates["stats.soloLosses"] = (s.soloLosses || 0) + 1;
+                    }
+
+                    await updateDoc(userRef, updates);
                 }
 
                 // If I am the host, also penalize disconnected players

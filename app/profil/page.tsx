@@ -6,14 +6,16 @@ import Image from 'next/image';
 import Header from '../../components/Header';
 import { auth, db, storage } from '../../lib/firebase';
 import { onAuthStateChanged, signOut, updateProfile, updateEmail, updatePassword, linkWithPopup, GoogleAuthProvider, deleteUser } from 'firebase/auth';
-import { doc, getDoc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, deleteDoc, collection, query, where, getCountFromServer } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import ProfileStats from '../../components/profile/ProfileStats';
 
 export default function ProfilePage() {
     const router = useRouter();
     const [loading, setLoading] = useState(true);
     const [user, setUser] = useState<any>(null);
     const [userData, setUserData] = useState<any>(null);
+    const [userRank, setUserRank] = useState<number | null>(null);
 
     // Form fields
     const [pseudo, setPseudo] = useState('');
@@ -39,6 +41,17 @@ export default function ProfilePage() {
                 const data = docSnap.data();
                 setUserData(data);
                 setPseudo(data.pseudo || currentUser.displayName || '');
+
+                // Fetch dynamic rank
+                if (data.stats?.points !== undefined) {
+                    try {
+                        const q = query(collection(db, "users"), where("stats.points", ">", data.stats.points));
+                        const snapshot = await getCountFromServer(q);
+                        setUserRank(snapshot.data().count + 1);
+                    } catch (rankError) {
+                        console.error("Error fetching rank:", rankError);
+                    }
+                }
             } else {
                 setPseudo(currentUser.displayName || '');
             }
@@ -373,99 +386,12 @@ export default function ProfilePage() {
                     </div>
 
                     {/* Card 2: Stats */}
-                    <div className="bg-[#2A2F32] rounded-xl p-8 shadow-2xl flex flex-col md:flex-row justify-between gap-12">
-
-                        {/* Stats Wrapper */}
-                        <div className="flex-1 flex flex-col">
-                            <h3 className="text-white font-bold text-xl mb-6">Statistiques de jeu</h3>
-
-                            <div className="flex flex-col gap-3 text-sm text-white/80">
-                                <div className="flex justify-between items-center bg-[#111315] p-3 rounded-lg border border-white/5">
-                                    <span className="font-enchanted text-2xl text-[#D1A07A] pt-1 tracking-wider">Points</span>
-                                    <span className="text-xl font-bold text-[#D1A07A]">{stats.points || 0}</span>
-                                </div>
-                                <div className="flex justify-between items-center">
-                                    <span className="flex-1">Total des parties</span>
-                                    <span className="w-8 text-right font-bold">{totalGames}</span>
-                                </div>
-                                <div className="flex justify-between items-center">
-                                    <span className="flex-1 text-green-400">Total des victoires</span>
-                                    <span className="w-16 text-center text-green-400 font-bold">{winRate}%</span>
-                                    <span className="w-8 text-right font-bold">{totalWins}</span>
-                                </div>
-                                <div className="flex justify-between items-center">
-                                    <span className="flex-1 text-red-400">Total des défaites</span>
-                                    <span className="w-16 text-center text-red-400 font-bold">{lossRate}%</span>
-                                    <span className="w-8 text-right font-bold">{totalLosses}</span>
-                                </div>
-                                <div className="flex justify-between items-center">
-                                    <span className="flex-1 text-orange-400">Total des fuites</span>
-                                    <span className="w-16 text-center text-orange-400 font-bold">{leaveRate}%</span>
-                                    <span className="w-8 text-right font-bold text-orange-400">{totalLeaves}</span>
-                                </div>
-                            </div>
-
-                            <h3 className="text-white font-bold text-lg mt-8 mb-4">Faits d'Armes</h3>
-                            <div className="flex flex-col gap-2 text-sm text-white/70">
-                                <div className="flex justify-between items-center">
-                                    <span>Jours survécus</span>
-                                    <span className="font-bold">{stats.daysSurvived || 0}</span>
-                                </div>
-                                <div className="flex justify-between items-center">
-                                    <span>Pouvoirs utilisés</span>
-                                    <span className="font-bold">{stats.powerUses || 0}</span>
-                                </div>
-                                <div className="flex justify-between items-center">
-                                    <span>Meurtres commis</span>
-                                    <span className="font-bold text-red-400">{stats.kills || 0}</span>
-                                </div>
-                                <div className="flex justify-between items-center">
-                                    <span>Vies sauvées</span>
-                                    <span className="font-bold text-blue-400">{stats.saves || 0}</span>
-                                </div>
-                            </div>
-
-                            <p className="text-white font-bold text-xl mt-8 pt-4 border-t border-white/10">Rang actuel : <br /><span className="text-[#D1A07A] text-2xl font-extrabold uppercase">{stats.rank || "Non classé"}</span></p>
-                        </div>
-
-                        {/* Stats Équipe */}
-                        <div className="flex-1 flex flex-col">
-                            <h3 className="text-white font-bold text-xl mb-6">Statistiques d'équipe</h3>
-
-                            <div className="flex flex-col gap-3 text-sm text-white/80">
-                                <div className="flex justify-between items-center">
-                                    <span>Victoires avec le village</span>
-                                    <span>{stats.villageWins}</span>
-                                </div>
-                                <div className="flex justify-between items-center">
-                                    <span>Défaites avec le village</span>
-                                    <span>{stats.villageLosses}</span>
-                                </div>
-
-                                <div className="h-px bg-white/10 my-1 w-full"></div>
-
-                                <div className="flex justify-between items-center">
-                                    <span>Victoires avec les loups-garous</span>
-                                    <span>{stats.werewolfWins}</span>
-                                </div>
-                                <div className="flex justify-between items-center">
-                                    <span>Défaites avec les loups-garous</span>
-                                    <span>{stats.werewolfLosses}</span>
-                                </div>
-
-                                <div className="h-px bg-white/10 my-1 w-full"></div>
-
-                                <div className="flex justify-between items-center">
-                                    <span>Victoires en solitaire</span>
-                                    <span>{stats.soloWins}</span>
-                                </div>
-                                <div className="flex justify-between items-center">
-                                    <span>Défaites en solitaire</span>
-                                    <span>{stats.soloLosses}</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+                    <ProfileStats
+                        stats={{
+                            ...stats,
+                            rank: userRank
+                        }}
+                    />
 
                     {/* Card 3: Danger Zone */}
                     <div className="bg-[#2A2F32] rounded-xl p-8 shadow-2xl flex flex-col md:flex-row justify-between items-center gap-8 md:gap-0">

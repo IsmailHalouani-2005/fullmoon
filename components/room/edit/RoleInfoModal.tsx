@@ -10,10 +10,10 @@ interface RoleInfoModalProps {
 
 const POWER_DESCRIPTIONS = [
     { pouvoir: 'FUSIL', label: "Avant de mourir, vous pouvez choisir un joueur de votre choix pour l'abattre.", role: 'CHASSEUR' },
-    { pouvoir: 'POTION_SOIN', label: "Sauve la victime ciblée par les loups de la mort. (Choissiez le pour appliquer le soin.)", role: 'SORCIERE' },
+    { pouvoir: 'POTION_SOIN', label: "Sauve la victime ciblée par les loups de la mort. (Choissiez la victime pour appliquer le soin.)", role: 'SORCIERE' },
     { pouvoir: 'POTION_POISON', label: "Tue un joueur de votre choix la nuit. (Choissiez le pour appliquer le poison.)", role: 'SORCIERE' },
     { pouvoir: 'COUP_DE_COEUR', label: "Rend deux joueurs amoureux au premier tour. (Choissiez deux joueurs pour appliquer le coup de coeur.)", role: 'CUPIDON' },
-    { pouvoir: 'VISION_LUNAIRE', label: "Dévoile l'identité secrète d'un joueur. (Choissiez le pour appliquer la vision lunaire.)", role: 'VOYANTE' },
+    { pouvoir: 'VISION_LUNAIRE', label: "Dévoile l'identité secrète d'un joueur. (Choissiez un joueur pour appliquer la vision lunaire.)", role: 'VOYANTE' },
     { pouvoir: 'MORSURE_INFECTE', label: "Contamine la victime des loups pour qu'elle devienne loup à son tour. (Choissiez le pour appliquer la morsure infecte.)", role: 'LOUP_INFECT' },
     { pouvoir: 'DOUBLE_VOTE', label: "Votre vote au bûcher compte double.", role: 'LOUP_ALPHA' },
     { pouvoir: 'GRIFFURE_MORTELLE', label: "Tant qu'aucun loup ne meurt, vous pouvez chasser une victime supplémentaire. (Choissisez une différente victime de plus).", role: 'GRAND_MECHANT_LOUP' },
