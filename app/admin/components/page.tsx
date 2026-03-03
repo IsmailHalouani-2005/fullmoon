@@ -2,12 +2,14 @@
 
 import { useState } from 'react';
 import Image from 'next/image';
+import Link from 'next/link';
 import { ROLES, RoleId } from "@/types/roles";
 import RoleCard from '@/components/game/RoleCard';
 import PlayerCircleNode from '@/components/game/PlayerCircleNode';
 import ProfileAvatarHeader from '@/components/profile/ProfileAvatarHeader';
 import ProfileStats from '@/components/profile/ProfileStats';
 import RoleInfoModal from '@/components/room/edit/RoleInfoModal';
+import LoversModal from '@/components/game/LoversModal';
 import { Player, GameState, Phase } from '@/types/game';
 
 export default function ComponentsTestPage() {
@@ -18,6 +20,11 @@ export default function ComponentsTestPage() {
 
     // --- State pour le Modal Rôle ---
     const [isModalOpen, setIsModalOpen] = useState(false);
+
+    // --- State pour le Modal Amoureux ---
+    const [isLoverModalOpen, setIsLoverModalOpen] = useState(false);
+    const [loverName, setLoverName] = useState('Joueur Alpha');
+    const [isSameCamp, setIsSameCamp] = useState(false);
 
     // --- State pour le Cercle Joueur ---
     const [playerCount, setPlayerCount] = useState<number>(5);
@@ -69,11 +76,23 @@ export default function ComponentsTestPage() {
         { id: 'player-circle', label: 'Cercle des Joueurs' },
         { id: 'profile-components', label: 'Profil Joueur' },
         { id: 'role-info-modal', label: 'Modal Info Rôle' },
+        { id: 'lover-info-modal', label: 'Modal Amoureux (Cupidon)' }
     ];
 
     return (
         <div className="min-h-screen bg-[#fafafa] p-8 font-montserrat flex flex-col items-center relative">
-            <h1 className="text-4xl font-extrabold text-slate-900 mb-6 font-enchanted">Testeur de Composants</h1>
+            <div className="w-full max-w-5xl flex items-center justify-between mb-6">
+                <h1 className="text-4xl font-extrabold text-slate-900 font-enchanted">Testeur de Composants</h1>
+                <Link
+                    href="/admin"
+                    className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-white px-5 py-2.5 rounded-xl font-bold uppercase tracking-wider text-sm transition-all shadow-md hover:shadow-lg"
+                >
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" />
+                    </svg>
+                    Retour à l'Admin
+                </Link>
+            </div>
 
             {/* Navigation Menu */}
             <div className="w-full max-w-5xl bg-slate-900 rounded-xl p-4 shadow-md flex flex-wrap gap-4 justify-center mb-8 sticky top-4 z-50">
@@ -308,6 +327,58 @@ export default function ComponentsTestPage() {
                         {isModalOpen && (
                             <RoleInfoModal role={roleDef} onClose={() => setIsModalOpen(false)} />
                         )}
+                    </div>
+                </div>
+            </div>
+
+            {/* --- SECTION : MODAL AMOUREUX --- */}
+            <div id="lover-info-modal" className="scroll-mt-28 w-full max-w-5xl bg-white p-6 rounded-xl shadow-md border-2 border-slate-200 mt-8 mb-20">
+                <h2 className="text-2xl font-bold mb-4 border-b pb-2">Modal Informations Amoureux (Cupidon)</h2>
+
+                <div className="flex flex-col md:flex-row gap-8 items-start">
+                    <div className="flex flex-col gap-4 w-full md:w-1/3">
+                        <div className="bg-slate-50 p-4 rounded-lg border">
+                            <label className="block text-sm font-bold text-slate-700 mb-2">Options du Modal Amoureux :</label>
+
+                            <div className="mb-4">
+                                <label className="block text-xs text-slate-500 mb-1">Nom du Partenaire :</label>
+                                <input
+                                    type="text"
+                                    className="w-full p-2 border border-slate-300 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-[#ff69b4]"
+                                    value={loverName}
+                                    onChange={(e) => setLoverName(e.target.value)}
+                                />
+                            </div>
+
+                            <div className="mb-4 flex items-center gap-2">
+                                <input
+                                    type="checkbox"
+                                    id="isSameCampCheckbox"
+                                    checked={isSameCamp}
+                                    onChange={(e) => setIsSameCamp(e.target.checked)}
+                                    className="w-4 h-4 cursor-pointer accent-[#ff69b4]"
+                                />
+                                <label htmlFor="isSameCampCheckbox" className="text-sm cursor-pointer select-none">Même Camp (Victoire Équipe)</label>
+                            </div>
+
+                            <button
+                                onClick={() => setIsLoverModalOpen(true)}
+                                className="w-full bg-[#ff69b4] text-white px-4 py-2 rounded-md hover:bg-pink-500 transition-colors font-bold uppercase text-sm tracking-wide shadow-[0_0_10px_rgba(255,105,180,0.5)]"
+                            >
+                                Ouvrir le Modal Amoureux
+                            </button>
+                        </div>
+                    </div>
+
+                    <div className="flex-1 p-8 bg-slate-100 rounded-xl border border-slate-300 text-center relative overflow-hidden min-h-[300px] flex items-center justify-center">
+                        <p className="text-slate-500 italic">Le modal s'ouvrira en plein écran par-dessus l'interface.</p>
+
+                        <LoversModal
+                            isOpen={isLoverModalOpen}
+                            onClose={() => setIsLoverModalOpen(false)}
+                            loverName={loverName}
+                            isSameCamp={isSameCamp}
+                        />
                     </div>
                 </div>
             </div>

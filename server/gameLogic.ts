@@ -206,11 +206,20 @@ export function setupGameLogic(io: Server<ClientToServerEvents, ServerToClientEv
 
             if (isNightMsg) {
                 // Emit explicitly to all wolves directly to bypass Socket rooms cache/issues
-                console.log(`[SERVER_BROADCAST_WOLF_CHAT] Broadcasting explicitly to all wolves.`);
+                console.log(`[SERVER_BROADCAST_WOLF_CHAT] Broadcasting explicitly to all wolves and Petite Fille.`);
+
+                const anonymizedPayload = {
+                    ...payload,
+                    senderId: 'loup_anim',
+                    senderName: 'Loup Inconnu',
+                };
+
                 game.players.forEach(p => {
                     const explicitWolf = p.role === 'LOUP_GAROU' || p.role === 'LOUP_ALPHA' || p.role === 'GRAND_MECHANT_LOUP' || p.role === 'LOUP_INFECT';
                     if ((isInWolfCamp(p.role) || explicitWolf) && p.socketId) {
                         io.to(p.socketId).emit("chat_message", payload);
+                    } else if (p.role === 'PETITE_FILLE' && p.socketId) {
+                        io.to(p.socketId).emit("chat_message", anonymizedPayload);
                     }
                 });
             } else {
@@ -294,14 +303,30 @@ export function setupGameLogic(io: Server<ClientToServerEvents, ServerToClientEv
 
             switch (payload.powerId) {
                 case 'VISION_LUNAIRE':
+                    // We only allow one vision per night.
+                    // We check if the Seer has already used 'VISION_LUNAIRE' tonight.
+                    const alreadySeenTonight = game.nightActions.some(a => a.sourceId === userId && a.powerId === 'VISION_LUNAIRE');
+                    if (alreadySeenTonight) {
+                        socket.emit("error", "Vous ne pouvez utiliser votre pouvoir qu'une seule fois par nuit.");
+                        return;
+                    }
+
                     const target = game.players.find(p => p.id === payload.targetId);
                     if (target) {
-                        caster.usedPowers.push('VISION_LUNAIRE');
+                        // Push to night actions to remember she did it tonight
+                        game.nightActions.push({
+                            type: 'power',
+                            powerId: 'VISION_LUNAIRE',
+                            sourceId: userId,
+                            targetId: payload.targetId
+                        });
+
+                        // Optionally emit a system chat just for her
                         const roleLabel = target.role ? ROLES[target.role].label : "Inconnu";
                         socket.emit("chat_message", {
                             senderId: 'system',
                             senderName: 'Système',
-                            text: `Vision: ${target.name} est ${roleLabel}.`,
+                            text: `Vision : Le rôle de ${target.name} vous a été révélé.`,
                             time: Date.now(),
                             chatType: 'system'
                         });
@@ -558,8 +583,32 @@ function handlePhaseEnd(roomCode: string, endedPhase: Phase, games: Record<strin
                             const p2 = game.players.find(p => p.id === action.targetId2);
                             if (p1 && p2) {
                                 p1.effects.push('lover');
-                                p2.effects.push('lover');
+                                if (p1.id !== p2.id) p2.effects.push('lover');
+                                game.lovers = [p1.id, p2.id];
                                 caster.usedPowers.push('COUP_DE_COEUR');
+
+                                // Send a special highlighted chat message to the lovers
+                                const camp1 = ROLES[p1.role as RoleId]?.camp;
+                                const camp2 = ROLES[p2.role as RoleId]?.camp;
+                                const isSameCamp = camp1 === camp2;
+                                game.areLoversSameCamp = isSameCamp;
+
+                                let msgText = `Cupidon vous a uni(e) avec ${p2.name}. `;
+                                if (p1.id !== p2.id) {
+                                    msgText = `Cupidon a uni ${p1.name} et ${p2.name}. `;
+                                    if (isSameCamp) {
+                                        msgText += `Vous êtes du même camp, gagnez ensemble !`;
+                                    } else {
+                                        msgText += `Vos camps s'opposent. Vous devez désormais gagner SEULS !`;
+                                    }
+                                } else {
+                                    msgText = `Cupidon, vous vous êtes choisi vous-même. Vous restez seul mais profitez de l'animation !`;
+                                }
+
+                                const loverMsg: ChatMessage = { senderId: 'system', senderName: 'Cupidon', text: msgText, time: Date.now(), chatType: 'lover' };
+                                game.chatMessages.push(loverMsg);
+                                // Broadcast it, but emitGameState will filter it so only lovers see it
+                                io.to(roomCode).emit("chat_message", loverMsg);
                             }
                         }
                         break;
@@ -794,17 +843,31 @@ function checkVictory(game: GameState): { winner: string, players: Player[] } | 
 
     if (vivants.length === 0) return { winner: 'NONE', players: [] };
 
+    // Lovers victory (Amour Impossible)
+    let hasMixedCoupleAlive = false;
+    const loversAlive = vivants.filter(p => p.effects?.includes('lover'));
+    if (loversAlive.length === 2) {
+        const camp1 = loversAlive[0].role ? ROLES[loversAlive[0].role as RoleId]?.camp : null;
+        const camp2 = loversAlive[1].role ? ROLES[loversAlive[1].role as RoleId]?.camp : null;
+        if (camp1 !== camp2) {
+            hasMixedCoupleAlive = true;
+            if (vivants.length === 2) {
+                return { winner: 'AMOUR', players: loversAlive };
+            }
+        }
+    }
+
     // Solo victory
     if (vivants.length === 1 && solosDangereuxVivants.length === 1) return { winner: solosDangereuxVivants[0].role || 'SOLO', players: [solosDangereuxVivants[0]] };
 
     // Village victory
-    if (loupsVivants.length === 0 && solosDangereuxVivants.length === 0) {
+    if (loupsVivants.length === 0 && solosDangereuxVivants.length === 0 && !hasMixedCoupleAlive) {
         const allVillageois = game.players.filter(p => p.role && (!isInWolfCamp(p.role as RoleId) && !['LOUP_BLANC', 'ASSASSIN', 'PYROMANE', 'EMPOISONNEUR'].includes(p.role as string) || p.role === 'FOU') && !p.effects?.includes('infected'));
         return { winner: 'VILLAGEOIS', players: allVillageois };
     }
 
     // Wolf victory
-    if (loupsVivants.length >= villageoisVivants.length && solosDangereuxVivants.length === 0) {
+    if (loupsVivants.length >= villageoisVivants.length && solosDangereuxVivants.length === 0 && !hasMixedCoupleAlive) {
         const allLoups = game.players.filter(p => (p.role && isInWolfCamp(p.role as RoleId)) || p.effects?.includes('infected'));
         return { winner: 'LOUPS', players: allLoups };
     }
@@ -850,9 +913,15 @@ function emitGameState(roomCode: string, game: GameState, io: Server) {
         const tailoredGame: GameState = JSON.parse(JSON.stringify(game));
         tailoredGame.deadRolesCount = deadRolesCount;
 
-        // Security: Filter messages so non-wolf players never even receive night chat data
-        tailoredGame.chatMessages = tailoredGame.chatMessages.filter(msg => {
-            if (msg.chatType === 'night') return playerIsWolf;
+        // Security: Filter messages
+        tailoredGame.chatMessages = tailoredGame.chatMessages.map(msg => {
+            if (msg.chatType === 'night' && playerRole === 'PETITE_FILLE' && msg.senderId !== 'system') {
+                return { ...msg, senderId: 'loup_anim', senderName: 'Loup Inconnu' };
+            }
+            return msg;
+        }).filter(msg => {
+            if (msg.chatType === 'night') return playerIsWolf || playerRole === 'PETITE_FILLE';
+            if (msg.chatType === 'lover') return tailoredGame.lovers?.includes(userId) || playerRole === 'CUPIDON';
             return true;
         });
 
@@ -864,11 +933,25 @@ function emitGameState(roomCode: string, game: GameState, io: Server) {
             const explicitTargetWolf = p.role === 'LOUP_GAROU' || p.role === 'LOUP_ALPHA' || p.role === 'GRAND_MECHANT_LOUP' || p.role === 'LOUP_INFECT';
             const isTargetWolf = isInWolfCamp(p.role) || explicitTargetWolf;
 
-            // Show role if: it's me, same wolf pack, target is dead, or game is over
-            const shouldReveal = isTargetSelf || (isTargetWolf && playerIsWolf) || isTargetDead || game.phase === 'GAME_OVER';
+            // Did the current player (Seer) use their power on this target *tonight*?
+            const isSeenBySeerThisNight = game.phase === 'NIGHT' && playerRole === 'VOYANTE' && game.nightActions.some(a => a.sourceId === userId && a.powerId === 'VISION_LUNAIRE' && a.targetId === p.id);
+
+            // Show role if: it's me, same wolf pack, target is dead, game is over, or Seer vision tonight
+            const shouldReveal = isTargetSelf || (isTargetWolf && playerIsWolf) || isTargetDead || game.phase === 'GAME_OVER' || isSeenBySeerThisNight;
 
             if (!shouldReveal) {
                 p.role = null;
+            }
+
+            // Cupidon Logic: Only Cupid and the two lovers can see the `lover` effect and `game.lovers`.
+            const isLover = tailoredGame.lovers?.includes(userId);
+            const isCupidon = playerRole === 'CUPIDON';
+            if (!isLover && !isCupidon && game.phase !== 'GAME_OVER') {
+                if (tailoredGame.lovers) {
+                    tailoredGame.lovers = undefined;
+                    tailoredGame.areLoversSameCamp = undefined;
+                }
+                p.effects = p.effects.filter(e => e !== 'lover');
             }
         });
 

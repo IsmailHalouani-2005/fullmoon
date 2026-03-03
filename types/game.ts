@@ -24,7 +24,7 @@ export interface ChatMessage {
     senderName: string;
     text: string;
     time: number;
-    chatType: 'day' | 'night' | 'system';
+    chatType: 'day' | 'night' | 'system' | 'lover';
 }
 
 export interface GameAction {
@@ -53,6 +53,8 @@ export interface GameState {
     rolesCount?: Partial<Record<RoleId, number>>;
     deadRolesCount?: Partial<Record<RoleId, number>>;
     lastActivity: number;
+    lovers?: string[];
+    areLoversSameCamp?: boolean;
 }
 
 // -- Events Socket.io (Typage strict) --

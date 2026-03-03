@@ -25,8 +25,18 @@ export default function GroupChat({ groupId, onClose }: GroupChatProps) {
     const [newMessage, setNewMessage] = useState("");
     const [currentUser, setCurrentUser] = useState<any>(null);
     const [currentData, setCurrentData] = useState<any>(null);
+    const [isAutoScrollEnabled, setIsAutoScrollEnabled] = useState(true);
 
     const messagesEndRef = useRef<HTMLDivElement>(null);
+    const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+    const handleScroll = () => {
+        if (!scrollContainerRef.current) return;
+        const { scrollTop, scrollHeight, clientHeight } = scrollContainerRef.current;
+        // Check if we are at the bottom (allow 50px threshold)
+        const isAtBottom = scrollHeight - scrollTop - clientHeight < 50;
+        setIsAutoScrollEnabled(isAtBottom);
+    };
 
     // Get current user and their data
     useEffect(() => {
@@ -57,14 +67,17 @@ export default function GroupChat({ groupId, onClose }: GroupChatProps) {
                 ...doc.data()
             })) as Message[];
             setMessages(msgs);
-            // Wait for render to scroll
-            setTimeout(() => {
-                messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-            }, 100);
         });
 
         return () => unsubscribe();
     }, [groupId]);
+
+    // Auto-scroll when messages change, but ONLY if auto-scroll is enabled
+    useEffect(() => {
+        if (isAutoScrollEnabled) {
+            messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+        }
+    }, [messages, isAutoScrollEnabled]);
 
     // Mark messages as read when viewing them
     useEffect(() => {
@@ -116,6 +129,7 @@ export default function GroupChat({ groupId, onClose }: GroupChatProps) {
             await updateDoc(doc(db, "groups", groupId), updates);
 
             setNewMessage("");
+            setIsAutoScrollEnabled(true); // Always auto-scroll when sending a message
         } catch (error) {
             console.error("Error sending group message:", error);
         }
@@ -143,7 +157,11 @@ export default function GroupChat({ groupId, onClose }: GroupChatProps) {
             </div>
 
             {/* Messages Area */}
-            <div className="flex-1 p-4 overflow-y-auto custom-scrollbar flex flex-col gap-4 bg-dark">
+            <div
+                ref={scrollContainerRef}
+                onScroll={handleScroll}
+                className="flex-1 p-4 overflow-y-auto custom-scrollbar flex flex-col gap-4 bg-dark"
+            >
                 {messages.length === 0 ? (
                     <div className="flex-1 flex flex-col items-center justify-center text-center opacity-50 px-4">
                         <Image src="/assets/images/icones/chat-icon.png" alt="" width={40} height={40} className="mb-2 opacity-50" />

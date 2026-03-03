@@ -65,7 +65,7 @@ export default function PlayerCircleNode({
     }
 
     const isDead = !player.isAlive;
-    const roleDef = mockRoleDef || (player.role ? ROLES[player.role] : null);
+    const roleDef = mockRoleDef || (player.role ? ROLES[player.role as RoleId] : null);
 
     // Use game.votes for better synchronicity
     const votersForThisPlayer = game.players.filter(p => (game.votes || {})[p.id] === player.id);
@@ -80,9 +80,13 @@ export default function PlayerCircleNode({
     // Check if player is targeted by Witch's poison this night
     const isPoisonTarget = nightActions?.some(a => a.powerId === 'POTION_POISON' && a.targetId === player.id && a.sourceId === me?.id);
     const isHealed = nightActions?.some(a => a.powerId === 'POTION_SOIN' && a.targetId === player.id && a.sourceId === me?.id);
+    const isCupidonTarget = nightActions?.some(a => a.powerId === 'COUP_DE_COEUR' && (a.targetId === player.id || a.targetId2 === player.id) && a.sourceId === me?.id);
 
-    // If healed, remove the wolf victim status visually for the Witch so it stops pulsing
-    const displayAsWolfVictim = isWolfVictim && !isHealed;
+    // If healed, remove the wolf victim status visually for the Witch so it stops pulsing.
+    // Also, ONLY Wolves, the Witch (if she hasn't used her heal potion), and the Little Girl should see the wolf victim.
+    const witchCanSeeVictim = me?.role === 'SORCIERE' && !me?.usedPowers?.includes('POTION_SOIN');
+    const canSeeWolfVictim = isInWolfCamp(me?.role as RoleId) || witchCanSeeVictim || me?.role === 'PETITE_FILLE';
+    const displayAsWolfVictim = isWolfVictim && !isHealed && canSeeWolfVictim;
 
     // Logic for targeting with power or normal vote
     const canVoteActual = (onVote && (
@@ -122,8 +126,9 @@ export default function PlayerCircleNode({
         >
             <div className={`relative ${sizeClass} rounded-full flex items-center justify-center shadow-lg transition-all
                 ${player.id === game.hostId && currentPhase === 'LOBBY' ? 'border-[3px] border-[#D1A07A]' : 'border-[3px] border-slate-800'} 
-                ${isTargeted || isTargetedByPower || isPoisonTarget ? 'border-dashed !border-4 !border-slate-900 shadow-[0_0_20px_rgba(0,0,0,0.6)] scale-105' : ''}
-                ${isTargetedByPower ? '!border-[#D1A07A]' : ''}
+                ${isTargeted || isTargetedByPower || isPoisonTarget || isCupidonTarget ? ((currentPhase === 'NIGHT') ? "border-dashed !border-4 border-white shadow-[0_0_20px_rgba(255,255,255,0.6)] scale-105" : 'border-dashed !border-4 border-slate-900 shadow-[0_0_20px_rgba(0,0,0,0.6)] scale-105') : ''}
+                ${isTargetedByPower ? (activePower === 'COUP_DE_COEUR' ? '!border-[#ff69b4] shadow-[0_0_15px_#ff69b4] animate-pulse' : '!border-[#D1A07A]') : ''}
+                ${isCupidonTarget ? '!border-[#ff69b4] shadow-[0_0_15px_#ff69b4] animate-pulse scale-105' : ''}
                 ${displayAsWolfVictim ? '!border-red-600 shadow-[0_0_15px_#ef4444] animate-pulse scale-105' : ''}
                 ${isPoisonTarget ? '!border-purple-600 shadow-[0_0_15px_#9333ea]' : ''}
                 ${isHealed ? '!border-green-500 shadow-[0_0_15px_#22c55e]' : ''}
@@ -157,33 +162,33 @@ export default function PlayerCircleNode({
                     </div>
                 )}
 
-                {/* Badge Rôle (Uniquement si mort) */}
-                {(isDead && roleDef) && (
+                {/* Badge Rôle (Si mort, ou bien révélé à la voyante pendant la nuit) */}
+                {roleDef && (isDead || (!isDead && currentPhase === 'NIGHT' && me?.role === 'VOYANTE')) && (
                     <div className="absolute -bottom-3 -right-3 w-12 h-12 rounded-full z-30 overflow-hidden" title={roleDef.label}>
-                        <Image src={roleDef.image} alt={roleDef.label} fill className="object-contain p-1" />
+                        <Image src={roleDef.image || "/assets/images/icones/Carte_Role.png"} alt={roleDef.label} fill className="object-contain p-1" />
                     </div>
                 )}
 
                 {/* Effect Icons Section */}
-                <div className="absolute -left-2 top-0 flex flex-col gap-1 z-40">
+                <div className="absolute -left-2 -bottom-2 flex flex-col gap-1 z-40">
                     {showInfected && (
-                        <div className="w-6 h-6 drop-shadow-md animate-pulse" title="Infecté">
-                            <Image src="/assets/images/icones/powers/Morsure.png" alt="Infecté" width={24} height={24} />
+                        <div className="w-10 h-10 drop-shadow-md animate-pulse" title="Infecté">
+                            <Image src="/assets/images/icones/powers/Morsure.png" alt="Infecté" width={50} height={50} />
                         </div>
                     )}
                     {showPoisoned && (
-                        <div className="w-6 h-6 drop-shadow-md" title="Empoisonné (Muet)">
-                            <Image src="/assets/images/icones/powers/Poison_Toxique.png" alt="Muet" width={24} height={24} />
+                        <div className="w-10 h-10 drop-shadow-md" title="Empoisonné (Muet)">
+                            <Image src="/assets/images/icones/powers/Poison_Toxique.png" alt="Muet" width={50} height={50} />
                         </div>
                     )}
                     {showGasoline && (
-                        <div className="w-6 h-6 drop-shadow-md" title="Recouvert d'essence">
-                            <Image src="/assets/images/icones/powers/Essence.png" alt="Essence" width={24} height={24} />
+                        <div className="w-10 h-10 drop-shadow-md" title="Recouvert d'essence">
+                            <Image src="/assets/images/icones/powers/Essence.png" alt="Essence" width={50} height={50} />
                         </div>
                     )}
                     {showLover && (
-                        <div className="w-6 h-6 drop-shadow-md animate-bounce" title="Amoureux">
-                            <Image src="/assets/images/icones/powers/Coup_De_Coeur.png" alt="Amour" width={24} height={24} />
+                        <div className="w-10 h-10 drop-shadow-md" title="Amoureux">
+                            <Image src="/assets/images/icones/powers/coup_coeur.png" alt="Amour" width={50} height={50} />
                         </div>
                     )}
                 </div>
@@ -193,7 +198,6 @@ export default function PlayerCircleNode({
                 <span className={`font-extrabold mr-1 ${currentPhase === 'NIGHT' ? 'text-slate-400' : 'text-slate-500'}`}>{index + 1}</span>
                 {player.name}
                 {isMe && <span className="ml-1 text-[8px] opacity-70">(Moi)</span>}
-                <span className="ml-1 text-[6px] opacity-40 select-none">v2.5</span>
             </p>
 
             {/* Piles de voteurs sous le nom */}

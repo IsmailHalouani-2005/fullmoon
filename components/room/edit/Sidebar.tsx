@@ -89,7 +89,7 @@ export default function Sidebar({
                 className="bg-[#2C3338] text-white p-3.5 rounded-lg text-center font-bold tracking-widest relative group overflow-hidden transition-transform active:scale-[0.98] border border-slate-800"
                 onClick={copyCode}
             >
-                <span className="block group-hover:opacity-10 transition-opacity flex justify-center gap-2 items-end pb-6">
+                <span className="block group-hover:opacity-10 transition-opacity flex justify-center gap-2 items-end">
                     <span className="text-xs text-slate-400 uppercase tracking-wider mb-1">Code Secret</span>
                     <span className="text-lg tracking-widest">{secretCode}</span>
                 </span>

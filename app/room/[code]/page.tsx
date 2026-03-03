@@ -16,6 +16,7 @@ import RoleInfoModal from '@/components/room/edit/RoleInfoModal';
 import RoleCard from '@/components/game/RoleCard';
 import PlayerCircleNode from '@/components/game/PlayerCircleNode';
 import LoadingScreen from '@/components/room/LoadingScreen';
+import LoversModal from '@/components/game/LoversModal';
 
 export default function RoomPage() {
     const params = useParams();
@@ -34,6 +35,16 @@ export default function RoomPage() {
     const [powerTargets, setPowerTargets] = useState<string[]>([]);
 
     const chatEndRef = useRef<HTMLDivElement>(null);
+    const chatScrollContainerRef = useRef<HTMLDivElement>(null);
+    const [isChatAutoScrollEnabled, setIsChatAutoScrollEnabled] = useState(true);
+
+    const handleChatScroll = () => {
+        if (!chatScrollContainerRef.current) return;
+        const { scrollTop, scrollHeight, clientHeight } = chatScrollContainerRef.current;
+        // Check if we are at the bottom (allow 50px threshold)
+        const isAtBottom = scrollHeight - scrollTop - clientHeight < 50;
+        setIsChatAutoScrollEnabled(isAtBottom);
+    };
 
     // Chat State
     interface ChatMessage {
@@ -41,7 +52,7 @@ export default function RoomPage() {
         senderName: string;
         text: string;
         time: number;
-        chatType?: 'day' | 'night' | 'system';
+        chatType?: 'day' | 'night' | 'system' | 'lover';
     }
     const getCampColor = (camp: string) => {
         switch (camp) {
@@ -63,8 +74,10 @@ export default function RoomPage() {
 
     // Auto-scroll effect
     useEffect(() => {
-        chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }, [chatMessages, activeChatTab]);
+        if (isChatAutoScrollEnabled) {
+            chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+        }
+    }, [chatMessages, activeChatTab, isChatAutoScrollEnabled]);
 
     // Invitations State
     const [isInviteOpen, setIsInviteOpen] = useState(false);
@@ -76,6 +89,7 @@ export default function RoomPage() {
     // UI State
     const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
     const [gameOverData, setGameOverData] = useState<{ winner: string; players: Player[] } | null>(null);
+    const [hasSeenLoverModal, setHasSeenLoverModal] = useState(false);
 
     // --- SORCIÈRE MODALS ---
     const [witchHealTarget, setWitchHealTarget] = useState<string | null>(null);
@@ -389,8 +403,8 @@ export default function RoomPage() {
             time: Date.now(),
             chatType: activeChatTab
         }, (response) => {
-            console.log(`[SOCKET_RETURN] chat_message acknowledgement:`, response);
         });
+        setIsChatAutoScrollEnabled(true);
         setChatInput("");
     };
 
@@ -456,7 +470,6 @@ export default function RoomPage() {
                 setPowerTargets(prev => prev.filter(id => id !== playerId));
             } else if (powerTargets.length < 1) {
                 setPowerTargets([playerId]);
-                alert("Sélectionnez le deuxième amoureux");
             } else if (powerTargets.length === 1) {
                 const p1 = powerTargets[0];
                 const p2 = playerId;
@@ -563,15 +576,20 @@ export default function RoomPage() {
                         </button>
                     </div>
 
-                    <div className="flex-1 overflow-y-auto p-4 space-y-2 relative z-10 w-full flex flex-col">
+                    <div
+                        ref={chatScrollContainerRef}
+                        onScroll={handleChatScroll}
+                        className="flex-1 overflow-y-auto p-4 space-y-2 relative z-10 w-full flex flex-col"
+                    >
                         <div className="mt-auto"></div>
                         {chatMessages.filter(msg => {
-                            if (msg.chatType === 'system') return true;
+                            if (msg.chatType === 'system' || msg.chatType === 'lover') return true;
                             if (msg.chatType === 'night') {
                                 const isMeWolf = mePlayer?.role && isInWolfCamp(mePlayer.role as RoleId);
+                                const isPetiteFille = mePlayer?.role === 'PETITE_FILLE';
                                 const isMeSender = msg.senderId === user?.uid;
-                                const show = (activeChatTab === 'night' && isMeWolf) || (isMeSender && isMeWolf);
-                                console.log(`[CLIENT_RENDER_CHAT] msg: "${msg.text}" | tab: ${activeChatTab} | isMeWolf: ${isMeWolf} | role: ${mePlayer?.role} | show: ${show}`);
+                                const show = (activeChatTab === 'night' && (isMeWolf || isPetiteFille)) || (isMeSender && isMeWolf);
+                                console.log(`[CLIENT_RENDER_CHAT] msg: "${msg.text}" | tab: ${activeChatTab} | isMeWolf: ${isMeWolf} | isPF: ${isPetiteFille} | show: ${show}`);
                                 return show;
                             }
                             return activeChatTab === 'day';
@@ -595,12 +613,26 @@ export default function RoomPage() {
                                 numberRegex.test(msg.text)
                             );
 
-                            if (msg.senderId === 'system') {
+                            if (msg.chatType === 'system') {
                                 return (
                                     <div key={idx} className="flex justify-center w-full py-1">
                                         <span className={`text-xs font-medium italic px-3 py-1 rounded-full shadow-sm text-center ${currentPhase === 'NIGHT' ? 'bg-slate-900 text-white' : 'bg-slate-200/50 text-slate-500'}`}>
                                             {msg.text}
                                         </span>
+                                    </div>
+                                );
+                            }
+
+                            if (msg.chatType === 'lover') {
+                                return (
+                                    <div key={idx} className="flex justify-center w-full py-2">
+                                        <div className="flex items-center gap-2 px-4 py-2 bg-[#ff69b4]/20 border border-[#ff69b4]/50 rounded-lg shadow-[0_0_15px_rgba(255,105,180,0.4)] animate-pulse">
+                                            <span className="text-[#ff69b4] drop-shadow-md text-lg">💘</span>
+                                            <span className="text-sm font-bold text-[#ff69b4] drop-shadow-md text-center">
+                                                {msg.text}
+                                            </span>
+                                            <span className="text-[#ff69b4] drop-shadow-md text-lg">💘</span>
+                                        </div>
                                     </div>
                                 );
                             }
@@ -611,7 +643,7 @@ export default function RoomPage() {
                                         <Image src={avatar} alt={msg.senderName} fill className="object-cover" />
                                     </div>
                                     <div className="flex-1 text-[13px] leading-snug overflow-hidden">
-                                        <span className={`font-extrabold ${currentPhase === 'NIGHT' ? 'text-white' : 'text-slate-900'}`}>{msg.senderName} {senderNumber} : </span>
+                                        <span className={`font-extrabold ${currentPhase === 'NIGHT' ? 'text-white' : 'text-slate-900'}`}>{msg.senderName}{msg.senderId !== 'loup_anim' ? ` ${senderNumber}` : ''} : </span>
                                         <span className={`break-words hyphens-auto ${currentPhase === 'NIGHT' ? 'text-white' : 'text-slate-700'} ${isMentioned ? 'font-medium' : ''}`} style={{ wordBreak: 'break-word', hyphens: 'auto' }} lang="fr">{msg.text}</span>
                                     </div>
                                 </div>
@@ -622,8 +654,9 @@ export default function RoomPage() {
                     {/* Input Chat */}
                     {(() => {
                         const isDeadPlayer = mePlayer ? !mePlayer.isAlive : false;
+                        const isMePetiteFille = mePlayer?.role === 'PETITE_FILLE';
 
-                        // Condition de parole stricte : Les morts se taisent.
+                        // Condition de parole stricte : Les morts se taisent. Les petites filles se taisent la nuit.
                         const canChat = game ? (!isDeadPlayer && (
                             currentPhase === 'LOBBY' ||
                             (activeChatTab === 'day' && currentPhase !== 'NIGHT') ||
@@ -640,7 +673,7 @@ export default function RoomPage() {
                                         ${currentPhase === 'NIGHT' ? 'bg-slate-800 text-white shadow-[0_0_10px_-1px_#000] focus:border-slate-500 placeholder-slate-500' : 'bg-white shadow-[0_0_10px_-1px_#E0C09C] focus:border-slate-500 text-slate-900'}
                                         ${!canChat ? 'opacity-50 cursor-not-allowed italic' : ''}
                                     `}
-                                    placeholder={!canChat ? "Vous ne pouvez pas parler..." : (activeChatTab === 'night' ? "Hurlez avec les loups..." : "Écrivez au village...")}
+                                    placeholder={!canChat ? (isMePetiteFille && activeChatTab === 'night' ? "Chut... Écoutez les loups en silence." : "Vous ne pouvez pas parler...") : (activeChatTab === 'night' ? "Hurlez avec les loups..." : "Écrivez au village...")}
                                     value={chatInput}
                                     onChange={(e) => setChatInput(e.target.value)}
                                 />
@@ -733,7 +766,7 @@ export default function RoomPage() {
                         </div>
                     ) : currentPhase === 'ROLE_REVEAL' ? (
                         <div className="flex flex-col items-center justify-center z-200 font-montserrat perspective-1000">
-                            <h2 className="text-4xl sm:text-2xl font-extrabold tracking-widest mb-8 text-slate-900 font-enchanted drop-shadow-md">Découvrez votre Rôle</h2>
+                            <h2 className="text-4xl sm:text-2xl font-extrabold tracking-widest mb-2 text-slate-900 font-enchanted drop-shadow-md">Découvrez votre Rôle</h2>
 
                             <RoleCard
                                 roleId={user && game.players.find(p => p.id === user.uid)?.role ? game.players.find(p => p.id === user.uid)!.role! : undefined}
@@ -743,7 +776,7 @@ export default function RoomPage() {
                                 className="w-[180px] sm:w-[240px]"
                             />
 
-                            <p className="mt-8 text-sm text-slate-600 font-bold bg-white/70 px-4 py-2 rounded-full shadow-sm animate-pulse">
+                            <p className="mt-2 text-sm text-slate-600 font-bold bg-white/70 px-4 py-2 rounded-full shadow-sm animate-pulse">
                                 {!isCardFlipped ? "Cliquez sur la carte pour la retourner" : "La partie commence bientôt..."}
                             </p>
                         </div>
@@ -791,7 +824,9 @@ export default function RoomPage() {
                                             <div className="mt-1 flex gap-4">
                                                 {(roleDef.powers || []).map(power => {
                                                     const usedPowers = mePlayer.usedPowers || [];
-                                                    const isUsed = usedPowers.includes(power.id);
+                                                    const isUsedOneTime = power.type === 'one-time' && usedPowers.includes(power.id);
+                                                    const isUsedThisNight = game.nightActions?.some(a => a.sourceId === user?.uid && a.powerId === power.id);
+                                                    const isUsed = isUsedOneTime || (power.type === 'active' && isUsedThisNight);
 
                                                     // Sorcière : si une potion est utilisée cette nuit, bloquer l'autre pendant cette nuit
                                                     const usedPotionThisNight = game.nightActions?.some(a => a.sourceId === user.uid && (a.powerId === 'POTION_SOIN' || a.powerId === 'POTION_POISON'));
@@ -833,6 +868,13 @@ export default function RoomPage() {
                                                 })}
                                             </div>
                                         )}
+
+                                        {/* Helper text for Cupidon */}
+                                        {activePower === 'COUP_DE_COEUR' && (
+                                            <div className="mt-3 text-[#ff69b4] font-bold text-xs sm:text-sm animate-pulse drop-shadow-md bg-black/40 px-3 py-1 rounded-full border border-[#ff69b4]/50">
+                                                {powerTargets.length === 0 ? "Choisissez le premier amoureux" : "Choisissez le deuxième amoureux"}
+                                            </div>
+                                        )}
                                     </div>
                                 );
                             })()}
@@ -865,10 +907,34 @@ export default function RoomPage() {
             </main>
 
             {/* Pop-up d'information sur le rôle (Plein Écran) */}
-            {/* Pop-up d'information sur le rôle (Plein Écran) */}
             {selectedRole && ROLES[selectedRole] && (
                 <RoleInfoModal role={ROLES[selectedRole]!} onClose={() => setSelectedRole(null)} />
             )}
+
+            {/* Modal des Amoureux */}
+            {(() => {
+                const amILover = game?.lovers?.includes(mePlayer?.id || '');
+                if (amILover && !hasSeenLoverModal) {
+                    const partnerId = game.lovers?.find((id: string) => id !== mePlayer?.id);
+                    // Si Cupidon s'est lié lui-même (p1===p2), partnerId sera undefined ou le même
+                    const actualPartnerId = partnerId || mePlayer?.id;
+                    const partner = game.players.find((p: any) => p.id === actualPartnerId);
+
+                    if (partner) {
+                        const isSameCamp = game?.areLoversSameCamp ?? true;
+
+                        return (
+                            <LoversModal
+                                isOpen={true}
+                                onClose={() => setHasSeenLoverModal(true)}
+                                loverName={partner.name}
+                                isSameCamp={isSameCamp}
+                            />
+                        );
+                    }
+                }
+                return null;
+            })()}
 
             {/* Modal Confirmation de départ */}
             {showLeaveConfirm && (
@@ -909,14 +975,21 @@ export default function RoomPage() {
                             <h2 className={`text-4xl sm:text-5xl font-extrabold tracking-widest mb-4 uppercase drop-shadow-md 
                                 ${gameOverData.winner === 'VILLAGEOIS' ? 'text-green-500' :
                                     gameOverData.winner === 'LOUPS' ? 'text-red-500' :
-                                        'text-blue-400'}`}
+                                        gameOverData.winner === 'AMOUR' ? 'text-[#ff69b4]' :
+                                            'text-blue-400'}`}
                             >
-                                Victoire {gameOverData.winner === 'VILLAGEOIS' ? 'du Village' : gameOverData.winner === 'LOUPS' ? 'des Loups-Garous' : 'en Solo'} !
+                                Victoire {gameOverData.winner === 'VILLAGEOIS' ? 'du Village' : gameOverData.winner === 'LOUPS' ? 'des Loups-Garous' : gameOverData.winner === 'AMOUR' ? 'des Amoureux' : 'en Solo'} !
                             </h2>
 
-                            {gameOverData.winner !== 'VILLAGEOIS' && gameOverData.winner !== 'LOUPS' && (
+                            {gameOverData.winner !== 'VILLAGEOIS' && gameOverData.winner !== 'LOUPS' && gameOverData.winner !== 'AMOUR' && (
                                 <p className="text-xl text-slate-300 font-bold mb-6">
                                     Le rôle <span className="text-[#D1A07A] uppercase">{ROLES[gameOverData.winner as RoleId]?.label || gameOverData.winner}</span> a triomphé !
+                                </p>
+                            )}
+
+                            {gameOverData.winner === 'AMOUR' && (
+                                <p className="text-xl text-slate-300 font-bold mb-6">
+                                    L'amour triomphe toujours ! Le couple a survécu malgré ses différences.
                                 </p>
                             )}
 
