@@ -237,6 +237,11 @@ export function setupGameLogic(io: Server<ClientToServerEvents, ServerToClientEv
             const target = game.players.find(p => p.id === targetId);
             if (!voter || !voter.isAlive || !target) return;
 
+            if (voter.effects.includes('poisoned')) {
+                socket.emit("error", "Vous êtes empoisonné et ne pouvez pas voter.");
+                return;
+            }
+
             const targetRoleDef = target.role ? ROLES[target.role as RoleId] : null;
             const isTargetWolf = targetRoleDef?.camp === 'LOUPS' || target.role === 'GRAND_MECHANT_LOUP' || target.role === 'LOUP_INFECT' || target.effects?.includes('infected');
 
@@ -283,6 +288,11 @@ export function setupGameLogic(io: Server<ClientToServerEvents, ServerToClientEv
             // Exception for Hunter: he can be dead but must be in HUNTER_SHOT phase
             if (!caster.isAlive && game.phase !== 'HUNTER_SHOT') return;
             if (game.phase === 'HUNTER_SHOT' && caster.role !== 'CHASSEUR') return;
+
+            if (caster.effects.includes('poisoned')) {
+                socket.emit("error", "Vous êtes sous l'effet du poison toxique et ne pouvez pas utiliser de pouvoir !");
+                return;
+            }
 
             const roleDef = caster.role ? ROLES[caster.role] : null;
             const powerIdx = roleDef?.powers?.findIndex(p => p.id === payload.powerId);
@@ -360,12 +370,7 @@ export function setupGameLogic(io: Server<ClientToServerEvents, ServerToClientEv
                                 delete game.nextPhase;
 
                                 if (next === 'NIGHT') {
-                                    game.players.forEach(p => {
-                                        if (p.effects.includes('poisoned')) {
-                                            p.isMute = false;
-                                            p.effects = p.effects.filter(e => e !== 'poisoned');
-                                        }
-                                    });
+                                    // Removed premature poison clearing
                                 }
 
                                 startPhase(roomCode, next as Phase, games, gameTimers, io);
@@ -483,6 +488,34 @@ export function setupGameLogic(io: Server<ClientToServerEvents, ServerToClientEv
                         sourceId: userId,
                         // pas de targetId puisque l'allumette vise toutes les cibles arrosées par défaut
                     });
+                    break;
+                case 'POISON_TOXIQUE':
+                    if (payload.targetId === userId) {
+                        socket.emit("error", "Vous ne pouvez pas vous empoisonner vous-même !");
+                        return;
+                    }
+
+                    if (payload.targetId === game.lastPoisonedId) {
+                        socket.emit("error", "Vous ne pouvez pas empoisonner le même joueur deux nuits de suite !");
+                        return;
+                    }
+
+                    const existingPoisonIdx = game.nightActions.findIndex(a => a.sourceId === userId && a.powerId === 'POISON_TOXIQUE' && a.targetId === payload.targetId);
+                    if (existingPoisonIdx !== -1) {
+                        game.nightActions.splice(existingPoisonIdx, 1);
+                        emitGameState(roomCode, game, io);
+                        return;
+                    }
+
+                    game.nightActions = game.nightActions.filter(a => a.sourceId !== userId || a.powerId !== 'POISON_TOXIQUE');
+                    if (payload.targetId) {
+                        game.nightActions.push({
+                            type: 'power',
+                            powerId: 'POISON_TOXIQUE',
+                            sourceId: userId,
+                            targetId: payload.targetId
+                        });
+                    }
                     break;
                 default:
                     // Store other night actions for dawn resolution
@@ -660,6 +693,14 @@ function handlePhaseEnd(roomCode: string, endedPhase: Phase, games: Record<strin
             startPhase(roomCode, 'NIGHT', games, gameTimers, io);
             break;
         case 'NIGHT':
+            // Clear all existing poisons from previous cycle before applying new ones.
+            game.players.forEach(p => {
+                if (p.effects.includes('poisoned')) {
+                    p.isMute = false;
+                    p.effects = p.effects.filter(e => e !== 'poisoned');
+                }
+            });
+
             let wolfVictimId = tallyVotes(game);
             const deaths: string[] = [];
             let infectedId: string | null = null;
@@ -777,9 +818,14 @@ function handlePhaseEnd(roomCode: string, endedPhase: Phase, games: Record<strin
                     case 'POISON_TOXIQUE':
                         if (action.targetId) {
                             const target = game.players.find(p => p.id === action.targetId);
-                            if (target) {
+                            if (target && target.isAlive) {
                                 target.isMute = true;
                                 target.effects.push('poisoned');
+                                game.lastPoisonedId = target.id;
+
+                                const publicPoisonMsg: ChatMessage = { senderId: 'system', senderName: 'Système', text: `Une fiole toxique a été brisée cette nuit... ${target.name} a été empoisonné(e) et perd toutes ses facultés pour aujourd'hui et la nuit prochaine.`, time: Date.now(), chatType: 'poisoned' };
+                                game.chatMessages.push(publicPoisonMsg);
+                                io.to(roomCode).emit("chat_message", publicPoisonMsg);
                             }
                         }
                         break;
@@ -867,7 +913,10 @@ function handlePhaseEnd(roomCode: string, endedPhase: Phase, games: Record<strin
 
             game.nightActions = [];
 
-            const anyHunterDiedAtNight = uniqueDeaths.some(dId => game.players.find(p => p.id === dId)?.role === 'CHASSEUR');
+            const anyHunterDiedAtNight = uniqueDeaths.some(dId => {
+                const p = game.players.find(player => player.id === dId);
+                return p?.role === 'CHASSEUR' && !p?.effects.includes('poisoned');
+            });
 
             if (anyHunterDiedAtNight) {
                 game.nextPhase = 'DAY_DISCUSSION';
@@ -942,7 +991,10 @@ function handlePhaseEnd(roomCode: string, endedPhase: Phase, games: Record<strin
                 return;
             }
 
-            const anyHunterDiedAtDay = deathsDay.some(dId => game.players.find(p => p.id === dId)?.role === 'CHASSEUR');
+            const anyHunterDiedAtDay = deathsDay.some(dId => {
+                const p = game.players.find(player => player.id === dId);
+                return p?.role === 'CHASSEUR' && !p?.effects.includes('poisoned');
+            });
 
             if (anyHunterDiedAtDay) {
                 game.nextPhase = 'NIGHT';
@@ -953,13 +1005,6 @@ function handlePhaseEnd(roomCode: string, endedPhase: Phase, games: Record<strin
             const victoryDetails = checkVictory(game);
             if (victoryDetails) triggerGameOver(roomCode, victoryDetails, games, gameTimers, io);
             else {
-                // Clear poisons
-                game.players.forEach(p => {
-                    if (p.effects.includes('poisoned')) {
-                        p.isMute = false;
-                        p.effects = p.effects.filter(e => e !== 'poisoned');
-                    }
-                });
                 startPhase(roomCode, 'NIGHT', games, gameTimers, io);
             }
             break;
@@ -973,12 +1018,7 @@ function handlePhaseEnd(roomCode: string, endedPhase: Phase, games: Record<strin
                     delete game.nextPhase;
 
                     if (next === 'NIGHT') {
-                        game.players.forEach(p => {
-                            if (p.effects.includes('poisoned')) {
-                                p.isMute = false;
-                                p.effects = p.effects.filter(e => e !== 'poisoned');
-                            }
-                        });
+                        // Removed premature poison clearing
                     }
 
                     startPhase(roomCode, next, games, gameTimers, io);

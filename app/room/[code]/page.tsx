@@ -53,7 +53,7 @@ export default function RoomPage() {
         senderName: string;
         text: string;
         time: number;
-        chatType?: 'day' | 'night' | 'system' | 'lover' | 'highlighted';
+        chatType?: 'day' | 'night' | 'system' | 'lover' | 'highlighted' | 'poisoned';
     }
     const getCampColor = (camp: string) => {
         switch (camp) {
@@ -518,6 +518,18 @@ export default function RoomPage() {
             socket?.emit('use_power', { powerId: activePower as PowerId, targetId: playerId });
             setActivePower(null);
             setPowerTargets([]);
+        } else if (activePower === 'POISON_TOXIQUE') {
+            if (me && playerId === me.id) {
+                alert("Vous ne pouvez pas vous empoisonner vous-même !");
+                return;
+            }
+            if (playerId === game.lastPoisonedId) {
+                alert("Vous ne pouvez pas empoisonner le même joueur deux nuits de suite !");
+                return;
+            }
+            socket?.emit('use_power', { powerId: activePower as PowerId, targetId: playerId });
+            setActivePower(null);
+            setPowerTargets([]);
         } else {
             // Single target powers
             socket?.emit('use_power', { powerId: activePower as PowerId, targetId: playerId });
@@ -682,6 +694,24 @@ export default function RoomPage() {
                                 );
                             }
 
+                            if (msg.chatType === 'poisoned') {
+                                return (
+                                    <div key={idx} className="flex justify-center w-full py-2">
+                                        <div className="flex items-center gap-2 px-4 py-2 bg-purple-900/40 border border-purple-500/50 rounded-lg shadow-[0_0_15px_rgba(147,51,234,0.3)]">
+                                            <div className="relative w-6 h-6 drop-shadow-md shrink-0">
+                                                <Image src="/assets/images/icones/powers/Effet_Empoisonnement.png" alt="Poison" fill className="object-contain" />
+                                            </div>
+                                            <span className="text-sm font-semibold text-purple-300 drop-shadow-sm text-center">
+                                                {msg.text}
+                                            </span>
+                                            <div className="relative w-6 h-6 drop-shadow-md shrink-0">
+                                                <Image src="/assets/images/icones/powers/Effet_Empoisonnement.png" alt="Poison" fill className="object-contain" />
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            }
+
                             return (
                                 <div key={idx} className={`flex items-start gap-2 w-full p-2 rounded-lg transition-all ${isMentioned ? (currentPhase === 'NIGHT' ? 'bg-amber-900/50 ring-2 ring-amber-500' : 'bg-amber-200 ring-2 ring-amber-500') : (currentPhase === 'NIGHT' ? 'bg-slate-800' : 'bg-white border border-slate-200 shadow-sm')}`}>
                                     <div className="relative w-6 h-6 rounded-full overflow-hidden flex-shrink-0 border border-slate-300 -mt-0.5">
@@ -710,24 +740,33 @@ export default function RoomPage() {
 
                         return (
                             <form onSubmit={handleSendMessage} className={`p-3 flex items-center gap-2 relative z-10 transition-colors duration-1000 ${currentPhase === 'NIGHT' ? 'bg-[#1f202e]' : 'bg-[#FCF8E8]'}`}>
-                                <input
-                                    type="text"
-                                    maxLength={300}
-                                    disabled={!canChat}
-                                    className={`flex-1 rounded-lg px-4 py-3 text-sm focus:outline-none transition-colors duration-500
-                                        ${currentPhase === 'NIGHT' ? 'bg-slate-800 text-white shadow-[0_0_10px_-1px_#000] focus:border-slate-500 placeholder-slate-500' : 'bg-white shadow-[0_0_10px_-1px_#E0C09C] focus:border-slate-500 text-slate-900'}
-                                        ${!canChat ? 'opacity-50 cursor-not-allowed italic' : ''}
-                                    `}
-                                    placeholder={!canChat ? (isMePetiteFille && activeChatTab === 'night' ? "Chut... Écoutez les loups en silence." : "Vous ne pouvez pas parler...") : (activeChatTab === 'night' ? "Hurlez avec les loups..." : "Écrivez au village...")}
-                                    value={chatInput}
-                                    onChange={(e) => setChatInput(e.target.value)}
-                                />
-                                <button type="submit" disabled={!canChat} className={`p-2 flex items-center justify-center transition-colors ${canChat ? (currentPhase === 'NIGHT' ? 'text-slate-400 hover:text-white' : 'text-slate-800 hover:text-slate-600') : 'text-slate-500/50 cursor-not-allowed'}`}>
-                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                        <line x1="22" y1="2" x2="11" y2="13"></line>
-                                        <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
-                                    </svg>
-                                </button>
+                                {mePlayer?.effects?.includes('poisoned') ? (
+                                    <div className="flex-1 rounded-lg px-4 py-3 text-sm flex items-center gap-2 bg-purple-900/10 border border-purple-500/30 text-purple-600 font-bold shadow-inner">
+                                        <Image src="/assets/images/icones/powers/Effet_Empoisonnement.png" alt="Poison" width={20} height={20} />
+                                        Le poison vous mutile. Vous ne pouvez pas parler aujourd'hui.
+                                    </div>
+                                ) : (
+                                    <>
+                                        <input
+                                            type="text"
+                                            maxLength={300}
+                                            disabled={!canChat}
+                                            className={`flex-1 rounded-lg px-4 py-3 text-sm focus:outline-none transition-colors duration-500
+                                                ${currentPhase === 'NIGHT' ? 'bg-slate-800 text-white shadow-[0_0_10px_-1px_#000] focus:border-slate-500 placeholder-slate-500' : 'bg-white shadow-[0_0_10px_-1px_#E0C09C] focus:border-slate-500 text-slate-900'}
+                                                ${!canChat ? 'opacity-50 cursor-not-allowed italic' : ''}
+                                            `}
+                                            placeholder={!canChat ? (isMePetiteFille && activeChatTab === 'night' ? "Chut... Écoutez les loups en silence." : "Vous ne pouvez pas parler...") : (activeChatTab === 'night' ? "Hurlez avec les loups..." : "Écrivez au village...")}
+                                            value={chatInput}
+                                            onChange={(e) => setChatInput(e.target.value)}
+                                        />
+                                        <button type="submit" disabled={!canChat} className={`p-2 flex items-center justify-center transition-colors ${canChat ? (currentPhase === 'NIGHT' ? 'text-slate-400 hover:text-white' : 'text-slate-800 hover:text-slate-600') : 'text-slate-500/50 cursor-not-allowed'}`}>
+                                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                <line x1="22" y1="2" x2="11" y2="13"></line>
+                                                <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                                            </svg>
+                                        </button>
+                                    </>
+                                )}
                             </form>
                         );
                     })()}
@@ -932,7 +971,8 @@ export default function RoomPage() {
                                                         }
                                                     }
 
-                                                    const canUse = !isUsed && !isTemporarilyBlocked && isTimingCorrect && (power.id === 'FUSIL' ? true : mePlayer.isAlive) && canGMLKill && canPyromaneUse;
+                                                    const isPoisonedBlocked = mePlayer?.effects?.includes('poisoned');
+                                                    const canUse = !isUsed && !isTemporarilyBlocked && !isPoisonedBlocked && isTimingCorrect && (power.id === 'FUSIL' ? true : mePlayer.isAlive) && canGMLKill && canPyromaneUse;
                                                     const isActive = activePower === power.id;
 
                                                     // If the power isn't relevant to this moment at all, skip rendering it? 
@@ -1002,6 +1042,13 @@ export default function RoomPage() {
                                         {activePower === 'ESSENCE' && (
                                             <div className="mt-3 text-orange-400 font-bold text-xs sm:text-sm animate-pulse drop-shadow-md bg-black/40 px-3 py-1 rounded-full border border-orange-500/50 text-center">
                                                 Choisissez un joueur à arroser d'essence
+                                            </div>
+                                        )}
+
+                                        {/* Helper text for Empoisonneur */}
+                                        {activePower === 'POISON_TOXIQUE' && (
+                                            <div className="mt-3 text-purple-400 font-bold text-xs sm:text-sm animate-pulse drop-shadow-md bg-black/40 px-3 py-1 rounded-full border border-purple-500/50 text-center">
+                                                Choisissez un joueur à empoisonner
                                             </div>
                                         )}
 

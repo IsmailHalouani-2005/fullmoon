@@ -104,9 +104,10 @@ export default function PlayerCircleNode({
 
     // Logic for targeting with power or normal vote
     const canVoteActual = (onVote && (
-        (activePower && activePower !== 'FUSIL' && activePower !== 'GRIFFURE_MORTELLE' && activePower !== 'ESSENCE' && me?.isAlive && !isDead) || // Regular power
+        (activePower && activePower !== 'FUSIL' && activePower !== 'GRIFFURE_MORTELLE' && activePower !== 'ESSENCE' && activePower !== 'POISON_TOXIQUE' && me?.isAlive && !isDead) || // Regular power
         (activePower === 'GRIFFURE_MORTELLE' && me?.isAlive && !isDead && me?.id !== player.id) || // GML cannot target himself
         (activePower === 'ESSENCE' && me?.isAlive && !isDead && me?.id !== player.id && !effects.includes('gasoline')) || // Pyromane cannot target himself or already gasoline
+        (activePower === 'POISON_TOXIQUE' && me?.isAlive && !isDead && me?.id !== player.id && game.lastPoisonedId !== player.id) || // Empoisonneur cannot target himself or last poisoned
         (activePower === 'FUSIL' && !me?.isAlive && me?.deadAt && !isDead) || // Hunter power
         (!activePower && (
             currentPhase === 'MAYOR_ELECTION' ||
@@ -137,6 +138,7 @@ export default function PlayerCircleNode({
     const isLoupBlancVote = currentPhase === 'NIGHT' && me?.role === 'LOUP_BLANC' && !meEffects.includes('infected') && game.votes[me.id] === player.id;
     const isAssassinVote = currentPhase === 'NIGHT' && me?.role === 'ASSASSIN' && !meEffects.includes('infected') && game.votes[me.id] === player.id;
     const isEssenceTarget = currentPhase === 'NIGHT' && me?.role === 'PYROMANE' && nightActions?.some(a => a.powerId === 'ESSENCE' && a.targetId === player.id && a.sourceId === me?.id);
+    const isPoisonTargetSelection = currentPhase === 'NIGHT' && me?.role === 'EMPOISONNEUR' && nightActions?.some(a => a.powerId === 'POISON_TOXIQUE' && a.targetId === player.id && a.sourceId === me?.id);
 
     return (
         <div
@@ -149,16 +151,16 @@ export default function PlayerCircleNode({
         >
             <div className={`relative ${sizeClass} rounded-full flex items-center justify-center shadow-lg transition-all
                 ${player.id === game.hostId && currentPhase === 'LOBBY' ? 'border-[3px] border-[#D1A07A]' : 'border-[3px] border-slate-800'} 
-                ${isTargeted || isTargetedByPower || isPoisonTarget || isCupidonTarget || isGmlVictim || isInfectedTarget || isLoupBlancVote || isAssassinVote || isEssenceTarget ? ((currentPhase === 'NIGHT') ? "border-dashed !border-4 border-white shadow-[0_0_20px_rgba(255,255,255,0.6)] scale-105" : 'border-dashed !border-4 border-slate-900 shadow-[0_0_20px_rgba(0,0,0,0.6)] scale-105') : ''}
+                ${isTargeted || isTargetedByPower || isPoisonTarget || isPoisonTargetSelection || isCupidonTarget || isGmlVictim || isInfectedTarget || isLoupBlancVote || isAssassinVote || isEssenceTarget ? ((currentPhase === 'NIGHT') ? "border-dashed !border-4 border-white shadow-[0_0_20px_rgba(255,255,255,0.6)] scale-105" : 'border-dashed !border-4 border-slate-900 shadow-[0_0_20px_rgba(0,0,0,0.6)] scale-105') : ''}
                 ${isTargetedByPower ? (activePower === 'COUP_DE_COEUR' ? '!border-[#ff69b4] shadow-[0_0_15px_#ff69b4] animate-pulse' : (activePower === 'MORSURE_INFECTE' ? '!border-green-500 shadow-[0_0_15px_#22c55e] animate-pulse' : '!border-[#D1A07A]')) : ''}
                 ${isCupidonTarget ? '!border-[#ff69b4] shadow-[0_0_15px_#ff69b4] animate-pulse scale-105' : ''}
                 ${displayAsWolfVictim ? ((isInfectedTarget) ? '!border-green-600 shadow-[0_0_15px_#22c55e] animate-pulse scale-105' : '!border-red-600 shadow-[0_0_15px_#ef4444] animate-pulse scale-105') : ''}
                 ${isGmlVictim || isLoupBlancVote ? '!border-dashed !border-red-900 shadow-[0_0_15px_#7f1d1d] animate-pulse scale-105' : ''}
                 ${isAssassinVote ? '!border-dashed !border-blue-800 shadow-[0_0_15px_#000000] animate-pulse scale-105' : ''}
                 ${isEssenceTarget ? '!border-dashed !border-[#fbbf24] shadow-[0_0_15px_#fbbf24] animate-pulse scale-105' : ''}
-                ${isPoisonTarget ? '!border-purple-600 shadow-[0_0_15px_#9333ea]' : ''}
+                ${isPoisonTarget || isPoisonTargetSelection ? '!border-purple-600 shadow-[0_0_15px_#9333ea]' : ''}
                 ${isHealed ? '!border-green-500 shadow-[0_0_15px_#22c55e]' : ''}
-            `} title={displayAsWolfVictim ? "Cible des Loups" : (isGmlVictim ? "Carnage (Votre 2e cible)" : (isAssassinVote ? "Lame Noire (Votre cible)" : (isLoupBlancVote ? "Trahison (Votre cible)" : (isInfectedTarget ? "Cible de l'infection" : (isPoisonTarget ? "Cible de votre poison" : (isHealed ? "Sauvé par votre potion" : (isEssenceTarget ? "Cible de l'arrosage" : "")))))))}>
+            `} title={displayAsWolfVictim ? "Cible des Loups" : (isGmlVictim ? "Carnage (Votre 2e cible)" : (isAssassinVote ? "Lame Noire (Votre cible)" : (isLoupBlancVote ? "Trahison (Votre cible)" : (isInfectedTarget ? "Cible de l'infection" : (isPoisonTarget || isPoisonTargetSelection ? "Cible de votre poison" : (isHealed ? "Sauvé par votre potion" : (isEssenceTarget ? "Cible de l'arrosage" : "")))))))}>
                 {/* MOCK: L'image de fond lune pour tout le monde */}
                 <div className={`absolute inset-0 bg-[#e3d1ae] rounded-full z-0 overflow-hidden ${isDead ? 'grayscale' : ''}`}></div>
                 <div className={`absolute inset-0 flex items-center justify-center opacity-30 z-0 select-none overflow-hidden ${isDead ? 'grayscale' : ''}`}>
