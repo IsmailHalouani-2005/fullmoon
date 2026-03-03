@@ -816,6 +816,7 @@ export default function PlayPage() {
                 .filter(v =>
                     v.players && v.players.length > 0 &&                          // au moins un joueur
                     v.gameStarted !== true &&                                      // partie pas encore lancée (en lobby)
+                    v.phase !== 'GAME_OVER' &&                                          // pas terminée
                     (v.maxPlayers - v.players.length) >= partySize &&             // assez de place
                     !v.players.some((p: any) => p.uid === user.uid)              // pas déjà dedans
                 )
@@ -962,7 +963,8 @@ export default function PlayPage() {
                                 />
                             </div>
                             <h2 className="font-bold text-2xl text-dark tracking-wide">{userData?.pseudo || "Joueur"}</h2>
-                            <p className="text-dark/70 text-lg font-semibold">{userData?.points || 0} pts</p>
+                            <p className="text-dark/70 text-lg font-semibold">{userData?.stats?.points || 0} pts</p>
+                            {/* Optionnel: Si vous vouliez rajouter le niveau, ce serait ici */}
                         </div>
                     </div>
                 </div>
@@ -1012,7 +1014,14 @@ export default function PlayPage() {
                                 (activeTab === 'Amis' && friends.some(f => f.id === v.hostId))
                             ).filter(v =>
                                 v.name?.toLowerCase().includes(searchVillage.toLowerCase())
-                            );
+                            ).filter(v => {
+                                // 1. Finished games ("Fin") should not be visible to anyone unless they are IN the game
+                                const isUserInGroup = v.players?.some((p: any) => p.uid === user?.uid);
+                                if (v.phase === 'GAME_OVER') {
+                                    return isUserInGroup; // Hide from outside, show to players inside
+                                }
+                                return true;
+                            });
 
                             return (
                                 <>
@@ -1037,52 +1046,74 @@ export default function PlayPage() {
                                         </div>
                                     ) : (
                                         /* Real Village Cards from Firestore */
-                                        filteredVillages.map((village) => (
-                                            <div
-                                                key={village.id}
-                                                className="flex relative items-center rounded-lg shadow-sm border border-dark/20 pr-4 transition-transform hover:-translate-y-1 cursor-pointer"
-                                                style={{ background: 'linear-gradient(to right, #E3D1A5 15%, #F9F4DF 15%)' }}
-                                                onClick={() => {
-                                                    if (village.isPrivate) {
-                                                        setSelectedPrivateVillage(village);
-                                                        setInputSecretCode("");
-                                                        setJoiningError("");
-                                                    } else {
-                                                        handleJoinVillage(village);
-                                                    }
-                                                }}
-                                            >
-                                                {/* Big Profile Overhang */}
-                                                <div className="absolute left-0 w-24 h-24 rounded-full border-[3px] border-dark overflow-hidden flex-shrink-0 z-10">
-                                                    <Image src={hostAvatars[village.hostId] || village.hostPhoto || "/assets/images/icones/Photo_Profil-transparent.png"} alt="Avatar" fill className="object-cover" />
-                                                </div>
+                                        filteredVillages.map((village) => {
+                                            // Determine Badge Color and Text based on game state
+                                            const isStarted = village.gameStarted;
+                                            const isFinished = village.phase === 'GAME_OVER';
 
-                                                <div className="flex-1 pl-28 py-6 pr-4 flex justify-between items-center">
-                                                    <div className="flex flex-col">
-                                                        <h3 className="font-enchanted text-4xl tracking-wide font-bold text-dark leading-tight line-clamp-1">{village.name}</h3>
-                                                        <p className="text-dark/60 text-sm flex items-center gap-1">
-                                                            {village.mode} <Image src={village.isMicro ? '/assets/images/icones/microphone-icon.png' : '/assets/images/icones/non_microphone-icon.png'} alt={village.isMicro ? 'Micro activé' : 'Micro désactivé'} width={14} height={14} className="inline-block" />
-                                                        </p>
-                                                        <p className="font-bold text-sm mt-1">{village.hostPseudo}</p>
+                                            // LOBBY (not started) -> Green
+                                            // IN PROGRESS -> Orange
+                                            // FINISHED -> Red
+                                            const badgeColor = isFinished ? 'bg-red-500' : (isStarted ? 'bg-orange-500' : 'bg-green-500');
+
+                                            return (
+                                                <div
+                                                    key={village.id}
+                                                    className={`flex relative items-center rounded-lg shadow-sm border border-dark/20 pr-4 transition-transform hover:-translate-y-1 ${isStarted ? 'cursor-not-allowed opacity-80' : 'cursor-pointer'}`}
+                                                    style={{ background: 'linear-gradient(to right, #E3D1A5 15%, #F9F4DF 15%)' }}
+                                                    onClick={() => {
+                                                        const isUserInGroup = village.players?.some((p: any) => p.uid === user?.uid);
+
+                                                        // If it's already started and user is NOT inside, block join
+                                                        if (isStarted && !isUserInGroup) {
+                                                            alert("Ce village est déjà en partie !");
+                                                            return;
+                                                        }
+
+                                                        if (village.isPrivate) {
+                                                            setSelectedPrivateVillage(village);
+                                                            setInputSecretCode("");
+                                                            setJoiningError("");
+                                                        } else {
+                                                            handleJoinVillage(village);
+                                                        }
+                                                    }}
+                                                >
+                                                    {/* Big Profile Overhang */}
+                                                    <div className="absolute left-0 w-24 h-24 rounded-full border-[3px] border-dark overflow-hidden flex-shrink-0 z-10">
+                                                        <Image src={hostAvatars[village.hostId] || village.hostPhoto || "/assets/images/icones/Photo_Profil-transparent.png"} alt="Avatar" fill className="object-cover" />
                                                     </div>
-                                                    <div className="flex flex-col items-center">
-                                                        <span className="font-enchanted tracking-wide text-2xl text-dark">{village.isPrivate ? 'Privé' : 'Publique'}</span>
-                                                        <span className="bg-[#E0C09C] text-dark font-bold text-xs px-3 py-1 rounded-full flex items-center gap-1.5">
-                                                            {/* Affichage du count : socket en priorité, Firestore en fallback */}
-                                                            {livePlayerCounts[village.id] !== undefined ? (
-                                                                <>
-                                                                    <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse flex-shrink-0" title="Joueurs connectés en direct" />
-                                                                    {livePlayerCounts[village.id]}
-                                                                </>
-                                                            ) : (
-                                                                village.players?.length || 1
-                                                            )}
-                                                            {' / '}{village.maxPlayers || 16}
-                                                        </span>
+
+                                                    <div className="flex-1 pl-28 py-6 pr-4 flex justify-between items-center">
+                                                        <div className="flex flex-col">
+                                                            <h3 className="font-enchanted text-4xl tracking-wide font-bold text-dark leading-tight line-clamp-1">{village.name}</h3>
+                                                            <p className="text-dark/60 text-sm flex items-center gap-1 mt-1">
+                                                                {village.mode} <Image src={village.isMicro ? '/assets/images/icones/microphone-icon.png' : '/assets/images/icones/non_microphone-icon.png'} alt={village.isMicro ? 'Micro activé' : 'Micro désactivé'} width={14} height={14} className="inline-block" />
+                                                            </p>
+                                                            <p className="font-bold text-sm mt-1">{village.hostPseudo}</p>
+                                                        </div>
+                                                        <div className="flex flex-col items-center">
+                                                            <span className="font-enchanted tracking-wide text-2xl text-dark">{village.isPrivate ? 'Privé' : 'Publique'}</span>
+                                                            <span className="bg-[#E0C09C] text-dark font-bold text-xs px-3 py-1 rounded-full flex items-center gap-1.5">
+                                                                {/* Affichage du count : socket en priorité, Firestore en fallback */}
+                                                                {livePlayerCounts[village.id] !== undefined ? (
+                                                                    <>
+                                                                        <span className={`w-1.5 h-1.5 rounded-full ${badgeColor} animate-pulse flex-shrink-0`} title="Joueurs connectés en direct" />
+                                                                        {livePlayerCounts[village.id]}
+                                                                    </>
+                                                                ) : (
+                                                                    <>
+                                                                        <span className={`w-1.5 h-1.5 rounded-full ${badgeColor} flex-shrink-0`} title="Joueurs" />
+                                                                        {village.players?.length || 1}
+                                                                    </>
+                                                                )}
+                                                                {' / '}{village.maxPlayers || 16}
+                                                            </span>
+                                                        </div>
                                                     </div>
                                                 </div>
-                                            </div>
-                                        ))
+                                            );
+                                        })
                                     )}
                                 </>
                             );

@@ -17,6 +17,17 @@ export interface Player {
     usedPowers: PowerId[];
     effects: string[]; // e.g., 'infected', 'gasoline', 'poisoned', 'lover'
     isMute?: boolean;  // From poisoner
+    stats: {
+        kills: number;
+        saves: number;
+        daysSurvived: number;
+        powerUses: number;
+        points: number;
+        wins?: number;
+        losses?: number;
+        fled?: number;
+        gamesPlayed?: number;
+    };
 }
 
 export interface ChatMessage {
@@ -59,6 +70,7 @@ export interface GameState {
     gmlVictimId?: string | null;
     infectedVictimId?: string | null;
     lastPoisonedId?: string | null;
+    disconnectedPlayers?: { id: string; name: string }[];
 }
 
 // -- Events Socket.io (Typage strict) --

@@ -13,6 +13,7 @@ export type PowerId =
 export interface Power {
     id: PowerId;
     label: string;
+    description: string;
     icon: string;
     type: 'passive' | 'active' | 'one-time';
     timing: 'night' | 'day' | 'death' | 'always';
@@ -45,7 +46,7 @@ export const ROLES: Record<RoleId, RoleDefinition> = {
         camp: 'VILLAGE',
         image: "/assets/images/roles/villagers/Voyante.png",
         powers: [
-            { id: 'VISION_LUNAIRE', label: "Vision", icon: "/assets/images/icones/powers/super_oeil_magique.png", type: 'active', timing: 'night' }
+            { id: 'VISION_LUNAIRE', label: "Vision", description: "Découvrez la véritable identité d'un joueur chaque nuit.", icon: "/assets/images/icones/powers/super_oeil_magique.png", type: 'active', timing: 'night' }
         ]
     },
     SORCIERE: {
@@ -56,8 +57,8 @@ export const ROLES: Record<RoleId, RoleDefinition> = {
         camp: 'VILLAGE',
         image: "/assets/images/roles/villagers/Sorciere.png",
         powers: [
-            { id: 'POTION_SOIN', label: "Soin", icon: "/assets/images/icones/powers/Potion_Soin.png", type: 'one-time', timing: 'night' },
-            { id: 'POTION_POISON', label: "Poison", icon: "/assets/images/icones/powers/Potion_Poison.png", type: 'one-time', timing: 'night' }
+            { id: 'POTION_SOIN', label: "Soin", description: "Sauvez la victime des loups-garous (usage unique).", icon: "/assets/images/icones/powers/Potion_Soin.png", type: 'one-time', timing: 'night' },
+            { id: 'POTION_POISON', label: "Poison", description: "Éliminez définitivement un joueur de votre choix (usage unique).", icon: "/assets/images/icones/powers/Potion_Poison.png", type: 'one-time', timing: 'night' }
         ]
     },
     CHASSEUR: {
@@ -68,7 +69,7 @@ export const ROLES: Record<RoleId, RoleDefinition> = {
         camp: 'VILLAGE',
         image: "/assets/images/roles/villagers/Chasseur.png",
         powers: [
-            { id: 'FUSIL', label: "Tir", icon: "/assets/images/icones/powers/fusil.png", type: 'active', timing: 'death' }
+            { id: 'FUSIL', label: "Tir", description: "Éliminez un joueur de votre choix au moment de votre mort.", icon: "/assets/images/icones/powers/fusil.png", type: 'active', timing: 'death' }
         ]
     },
     CUPIDON: {
@@ -79,7 +80,7 @@ export const ROLES: Record<RoleId, RoleDefinition> = {
         camp: 'VILLAGE',
         image: "/assets/images/roles/villagers/Cupidon.png",
         powers: [
-            { id: 'COUP_DE_COEUR', label: "Mariage", icon: "/assets/images/roles/villagers/coup_coeur.png", type: 'one-time', timing: 'night' }
+            { id: 'COUP_DE_COEUR', label: "Mariage", description: "Liez deux joueurs par un amour éternel. S'il l'un meurt, l'autre succombe.", icon: "/assets/images/roles/villagers/coup_coeur.png", type: 'one-time', timing: 'night' }
         ]
     },
     PETITE_FILLE: {
@@ -106,7 +107,7 @@ export const ROLES: Record<RoleId, RoleDefinition> = {
         camp: 'LOUPS',
         image: "/assets/images/roles/werwolves/Loup_Alpha.png",
         powers: [
-            { id: 'DOUBLE_VOTE', label: "Double Vote", icon: "", type: 'passive', timing: 'night' }
+            { id: 'DOUBLE_VOTE', label: "Double Vote", description: "Votre vote compte double lors du conseil nocturne des loups.", icon: "/assets/images/icones/powers/griffure_mortel.png", type: 'passive', timing: 'night' }
         ]
     },
     GRAND_MECHANT_LOUP: {
@@ -117,7 +118,7 @@ export const ROLES: Record<RoleId, RoleDefinition> = {
         camp: 'LOUPS',
         image: "/assets/images/roles/werwolves/Grand_Mechant_Loup.png",
         powers: [
-            { id: 'GRIFFURE_MORTELLE', label: "Carnage", icon: "/assets/images/icones/powers/griffure_mortel.png", type: 'active', timing: 'night' }
+            { id: 'GRIFFURE_MORTELLE', label: "Carnage", description: "Tant qu'aucun autre loup n'est mort, dévorez une seconde victime.", icon: "/assets/images/icones/powers/griffure_mortel.png", type: 'active', timing: 'night' }
         ]
     },
     LOUP_INFECT: {
@@ -128,7 +129,7 @@ export const ROLES: Record<RoleId, RoleDefinition> = {
         camp: 'LOUPS',
         image: "/assets/images/roles/werwolves/Loup_Infect.png",
         powers: [
-            { id: 'MORSURE_INFECTE', label: "Infection", icon: "/assets/images/icones/powers/morsure_infecte.png", type: 'one-time', timing: 'night' }
+            { id: 'MORSURE_INFECTE', label: "Infection", description: "Transformez la victime des loups en loup-garou au lieu de la tuer (usage unique).", icon: "/assets/images/icones/powers/morsure_infecte.png", type: 'one-time', timing: 'night' }
         ]
     },
     LOUP_BLANC: {
@@ -139,7 +140,7 @@ export const ROLES: Record<RoleId, RoleDefinition> = {
         camp: 'SOLO',
         image: "/assets/images/roles/werwolves/Loup_Blanc.png",
         powers: [
-            { id: 'TRAHISON', label: "Trahison", icon: "", type: 'active', timing: 'night' }
+            { id: 'TRAHISON', label: "Trahison", description: "Une nuit sur deux, dévorez l'un de vos semblables.", icon: "/assets/images/icones/powers/morsure.png", type: 'active', timing: 'night' }
         ]
     },
     ASSASSIN: {
@@ -150,7 +151,7 @@ export const ROLES: Record<RoleId, RoleDefinition> = {
         camp: 'SOLO',
         image: "/assets/images/roles/solos/Assassin.png",
         powers: [
-            { id: 'LAME_NOIRE', label: "Assassinat", icon: "/assets/images/icones/powers/lame_noire.png", type: 'active', timing: 'night' }
+            { id: 'LAME_NOIRE', label: "Assassinat", description: "Éliminez une cible chaque nuit. Traverse les protections magiques.", icon: "/assets/images/icones/powers/lame_noire.png", type: 'active', timing: 'night' }
         ]
     },
     FOU: {
@@ -169,8 +170,8 @@ export const ROLES: Record<RoleId, RoleDefinition> = {
         camp: 'SOLO',
         image: "/assets/images/roles/solos/Pyromane.png",
         powers: [
-            { id: 'ESSENCE', label: "Arrosage", icon: "/assets/images/icones/powers/essance_bidon.png", type: 'active', timing: 'night' },
-            { id: 'ALLUMETTE', label: "Incendie", icon: "/assets/images/icones/powers/allumette.png", type: 'active', timing: 'night' }
+            { id: 'ESSENCE', label: "Arrosage", description: "Marquez un joueur avec de l'essence pour un futur brasier.", icon: "/assets/images/icones/powers/essance_bidon.png", type: 'active', timing: 'night' },
+            { id: 'ALLUMETTE', label: "Incendie", description: "Déclenchez l'incendie de tous les joueurs aspergés d'essence.", icon: "/assets/images/icones/powers/allumette.png", type: 'active', timing: 'night' }
         ]
     },
     EMPOISONNEUR: {
@@ -181,7 +182,7 @@ export const ROLES: Record<RoleId, RoleDefinition> = {
         camp: 'SOLO',
         image: "/assets/images/roles/solos/Empoisonneur.png",
         powers: [
-            { id: 'POISON_TOXIQUE', label: "Toxique", icon: "/assets/images/icones/powers/poison_toxique.png", type: 'active', timing: 'night' }
+            { id: 'POISON_TOXIQUE', label: "Toxique", description: "Privez une cible de son vote et ses capacités pour un cycle complet.", icon: "/assets/images/icones/powers/poison_toxique.png", type: 'active', timing: 'night' }
         ]
     }
 };

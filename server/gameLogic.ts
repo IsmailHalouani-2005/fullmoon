@@ -73,7 +73,10 @@ export function setupGameLogic(io: Server<ClientToServerEvents, ServerToClientEv
                     votesAgainst: 0,
                     hasVoted: null,
                     usedPowers: [],
-                    effects: []
+                    effects: [],
+                    stats: {
+                        kills: 0, saves: 0, daysSurvived: 0, powerUses: 0, points: 0, fled: 0, wins: 0, losses: 0, gamesPlayed: 0
+                    }
                 });
 
                 const joinMsg: ChatMessage = {
@@ -155,6 +158,7 @@ export function setupGameLogic(io: Server<ClientToServerEvents, ServerToClientEv
                     }
                     player.isMute = false;
                     delete player.deadAt;
+                    player.stats = { kills: 0, saves: 0, daysSurvived: 0, powerUses: 0, points: 0 };
                 });
 
                 // Calculate and store the actual roles distributed for the UI grid
@@ -554,26 +558,37 @@ export function setupGameLogic(io: Server<ClientToServerEvents, ServerToClientEv
                 disconnectTimeouts[userId] = setTimeout(() => {
                     const currentGame = games[roomCode];
                     if (!currentGame) return;
+
                     const playerIndex = currentGame.players.findIndex(p => p.id === userId);
-                    if (playerIndex !== -1) {
-                        const disconnectedName = currentGame.players[playerIndex].name;
-                        currentGame.players.splice(playerIndex, 1);
-                        const leaveMsg: ChatMessage = {
-                            senderId: 'system',
-                            senderName: 'Système',
-                            text: `${disconnectedName} a quitté définitivement le village.`,
-                            time: Date.now(),
-                            chatType: 'system'
-                        };
-                        currentGame.chatMessages.push(leaveMsg);
-                        io.to(roomCode).emit("chat_message", leaveMsg);
-                        if (currentGame.players.length === 0) {
-                            delete games[roomCode];
-                            if (gameTimers[roomCode]) clearInterval(gameTimers[roomCode]);
-                        } else {
-                            if (currentGame.hostId === userId) currentGame.hostId = currentGame.players[0].id;
-                            emitGameState(roomCode, currentGame, io);
-                        }
+                    if (playerIndex === -1) return; // Player already removed or reconnected elsewhere
+
+                    const disconnectedName = currentGame.players[playerIndex].name;
+
+                    // Push to disconnectedPlayers array to keep track for point deductions
+                    if (!currentGame.disconnectedPlayers) {
+                        currentGame.disconnectedPlayers = [];
+                    }
+                    // Only add if the game has started
+                    if (currentGame.phase !== 'LOBBY' && currentGame.phase !== 'GAME_OVER') {
+                        currentGame.disconnectedPlayers.push({ id: userId, name: disconnectedName });
+                    }
+
+                    currentGame.players.splice(playerIndex, 1);
+                    const leaveMsg: ChatMessage = {
+                        senderId: 'system',
+                        senderName: 'Système',
+                        text: `${disconnectedName} a quitté définitivement le village.`,
+                        time: Date.now(),
+                        chatType: 'system'
+                    };
+                    currentGame.chatMessages.push(leaveMsg);
+                    io.to(roomCode).emit("chat_message", leaveMsg);
+                    if (currentGame.players.length === 0) {
+                        delete games[roomCode];
+                        if (gameTimers[roomCode]) clearInterval(gameTimers[roomCode]);
+                    } else {
+                        if (currentGame.hostId === userId) currentGame.hostId = currentGame.players[0].id;
+                        emitGameState(roomCode, currentGame, io);
                     }
                     delete disconnectTimeouts[userId];
                 }, 60000);
@@ -643,6 +658,14 @@ function startPhase(roomCode: string, newPhase: Phase, games: Record<string, Gam
 
     if (newPhase === 'DAY_DISCUSSION') {
         game.dayCount += 1;
+
+        // Increase daysSurvived for all living players
+        game.players.forEach(p => {
+            if (p.isAlive) {
+                p.stats.daysSurvived += 1;
+            }
+        });
+
         const msg: ChatMessage = { senderId: 'system', senderName: 'Système', text: `Début du Jour ${game.dayCount}. Le village se réveille.`, time: Date.now(), chatType: 'system' };
         game.chatMessages.push(msg);
         io.to(roomCode).emit("chat_message", msg);
@@ -682,11 +705,28 @@ function handlePhaseEnd(roomCode: string, endedPhase: Phase, games: Record<strin
             startPhase(roomCode, 'MAYOR_ELECTION', games, gameTimers, io);
             break;
         case 'MAYOR_ELECTION':
-            const electedMayorId = tallyVotes(game, true);
+            let electedMayorId = tallyVotes(game, true);
+            let isRandomMayor = false;
+
+            if (!electedMayorId) {
+                const alivePlayers = game.players.filter(p => p.isAlive);
+                if (alivePlayers.length > 0) {
+                    const randomPlayer = alivePlayers[Math.floor(Math.random() * alivePlayers.length)];
+                    electedMayorId = randomPlayer.id;
+                    isRandomMayor = true;
+                }
+            }
+
             if (electedMayorId) {
                 game.mayorId = electedMayorId;
                 const mayorName = game.players.find(p => p.id === electedMayorId)?.name;
-                const mayorMsg: ChatMessage = { senderId: 'system', senderName: 'Système', text: `${mayorName} a été élu Maire !`, time: Date.now(), chatType: 'system' };
+
+                let text = `${mayorName} a été élu Maire !`;
+                if (isRandomMayor) {
+                    text = `Personne n'ayant été départagé pour les élections, ${mayorName} a été désigné(e) Maire au hasard !`;
+                }
+
+                const mayorMsg: ChatMessage = { senderId: 'system', senderName: 'Système', text, time: Date.now(), chatType: 'system' };
                 game.chatMessages.push(mayorMsg);
                 io.to(roomCode).emit("chat_message", mayorMsg);
             }
@@ -716,20 +756,25 @@ function handlePhaseEnd(roomCode: string, endedPhase: Phase, games: Record<strin
                         if (!caster.usedPowers.includes('POTION_SOIN')) {
                             if (action.targetId === wolfVictimId) {
                                 protectedId = action.targetId;
+                                caster.stats.saves += 1;
                             }
                             caster.usedPowers.push('POTION_SOIN');
+                            caster.stats.powerUses += 1;
                         }
                         break;
                     case 'POTION_POISON':
                         if (action.targetId && !caster.usedPowers.includes('POTION_POISON')) {
                             deaths.push(action.targetId);
                             caster.usedPowers.push('POTION_POISON');
+                            caster.stats.kills += 1;
+                            caster.stats.powerUses += 1;
                         }
                         break;
                     case 'MORSURE_INFECTE':
                         if (action.targetId === wolfVictimId) {
                             infectedId = action.targetId;
                             caster.usedPowers.push('MORSURE_INFECTE');
+                            caster.stats.powerUses += 1;
                         }
                         break;
                     case 'COUP_DE_COEUR':
@@ -741,6 +786,7 @@ function handlePhaseEnd(roomCode: string, endedPhase: Phase, games: Record<strin
                                 if (p1.id !== p2.id) p2.effects.push('lover');
                                 game.lovers = [p1.id, p2.id];
                                 caster.usedPowers.push('COUP_DE_COEUR');
+                                caster.stats.powerUses += 1;
 
                                 // Send a special highlighted chat message to the lovers
                                 const camp1 = ROLES[p1.role as RoleId]?.camp;
@@ -785,18 +831,25 @@ function handlePhaseEnd(roomCode: string, endedPhase: Phase, games: Record<strin
                         if (initialWolvesCount > 1 && currentWolvesAlive === initialWolvesCount) {
                             if (action.targetId && action.targetId !== wolfVictimId && action.targetId !== protectedId) {
                                 deaths.push(action.targetId);
+                                caster.stats.kills += 1;
+                                caster.stats.powerUses += 1;
                             }
                         }
                         break;
                     case 'LAME_NOIRE':
                     case 'TRAHISON':
-                        if (action.targetId) deaths.push(action.targetId);
+                        if (action.targetId) {
+                            deaths.push(action.targetId);
+                            caster.stats.kills += 1;
+                            caster.stats.powerUses += 1;
+                        }
                         break;
                     case 'ESSENCE':
                         if (action.targetId) {
                             const target = game.players.find(p => p.id === action.targetId);
                             if (target && !target.effects.includes('gasoline')) {
                                 target.effects.push('gasoline');
+                                caster.stats.powerUses += 1;
                                 // Avertir la cible uniquement
                                 const privateGasolineMsg: ChatMessage = { senderId: 'system', senderName: 'Système', text: `Une odeur forte vous réveille... Vous avez été aspergé d'essence dans la nuit !`, time: Date.now(), chatType: 'highlighted', targetId: target.id };
                                 game.chatMessages.push(privateGasolineMsg);
@@ -808,9 +861,11 @@ function handlePhaseEnd(roomCode: string, endedPhase: Phase, games: Record<strin
                         break;
                     case 'ALLUMETTE':
                         // Tuer tout le monde recouvert d'essence et enlever l'effet
+                        caster.stats.powerUses += 1;
                         game.players.forEach(p => {
                             if (p.effects.includes('gasoline')) {
                                 deaths.push(p.id);
+                                caster.stats.kills += 1;
                                 p.effects = p.effects.filter(e => e !== 'gasoline');
                             }
                         });
@@ -822,6 +877,7 @@ function handlePhaseEnd(roomCode: string, endedPhase: Phase, games: Record<strin
                                 target.isMute = true;
                                 target.effects.push('poisoned');
                                 game.lastPoisonedId = target.id;
+                                caster.stats.powerUses += 1;
 
                                 const publicPoisonMsg: ChatMessage = { senderId: 'system', senderName: 'Système', text: `Une fiole toxique a été brisée cette nuit... ${target.name} a été empoisonné(e) et perd toutes ses facultés pour aujourd'hui et la nuit prochaine.`, time: Date.now(), chatType: 'poisoned' };
                                 game.chatMessages.push(publicPoisonMsg);
@@ -865,6 +921,7 @@ function handlePhaseEnd(roomCode: string, endedPhase: Phase, games: Record<strin
 
                     if (isTargetWolf) {
                         deaths.push(lbTargetId);
+                        loupBlanc.stats.kills += 1;
                     }
                 }
             }
@@ -876,6 +933,7 @@ function handlePhaseEnd(roomCode: string, endedPhase: Phase, games: Record<strin
                 // L'Assassin ignore la protection (protectedId) de la Sorcière
                 if (assassinTargetId) {
                     deaths.push(assassinTargetId);
+                    assassin.stats.kills += 1;
                 }
             }
 
@@ -1102,9 +1160,36 @@ function triggerGameOver(roomCode: string, victoryDetails: { winner: string, pla
     const game = games[roomCode];
     if (!game) return;
     if (gameTimers[roomCode]) clearInterval(gameTimers[roomCode]);
+
+    // Calculate final points for all players
+    const winningIds = victoryDetails.players.map(p => p.id);
+    game.players.forEach(p => {
+        let points = 0;
+        points += p.stats.powerUses * 1;
+        points += p.stats.kills * 2;
+        points += p.stats.saves * 3;
+        points += p.stats.daysSurvived * 1;
+
+        if (winningIds.includes(p.id)) {
+            points += 10;
+        }
+
+        p.stats.points = points;
+    });
+
+    // Update the victoryDetails with the newly calculated points for winners
+    victoryDetails.players = victoryDetails.players.map(vp => game.players.find(p => p.id === vp.id) || vp);
+
+    // Prepare payload including disconnected players for the host to handle penalty
+    const gameOverPayload = {
+        winner: victoryDetails.winner,
+        players: game.players, // Send all players with their stats so we can show them in UI
+        disconnectedPlayers: game.disconnectedPlayers || []
+    };
+
     setTimeout(() => {
         game.phase = 'GAME_OVER';
-        io.to(roomCode).emit('game_over', victoryDetails);
+        io.to(roomCode).emit('game_over', gameOverPayload);
         emitGameState(roomCode, game, io);
     }, 4500);
 }

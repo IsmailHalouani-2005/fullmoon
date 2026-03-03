@@ -223,13 +223,27 @@ export default function ProfilePage() {
         werewolfLosses: 0,
         soloWins: 0,
         soloLosses: 0,
+        kills: 0,
+        saves: 0,
+        daysSurvived: 0,
+        powerUses: 0,
+        points: 0,
+        fled: 0,
+        gamesPlayed: 0,
+        wins: 0,
+        losses: 0,
         rank: "Non classé"
     };
 
-    const totalGames = stats.totalWins + stats.totalLosses + stats.totalLeaves;
-    const winRate = totalGames > 0 ? Math.round((stats.totalWins / totalGames) * 100) : 0;
-    const lossRate = totalGames > 0 ? Math.round((stats.totalLosses / totalGames) * 100) : 0;
-    const leaveRate = totalGames > 0 ? Math.round((stats.totalLeaves / totalGames) * 100) : 0;
+    // Use wins/losses/fled directly from new stats, fallback to old ones if new is 0
+    const totalWins = stats.wins || stats.totalWins || 0;
+    const totalLosses = stats.losses || stats.totalLosses || 0;
+    const totalLeaves = stats.fled || stats.totalLeaves || 0;
+    const totalGames = stats.gamesPlayed || (totalWins + totalLosses + totalLeaves);
+
+    const winRate = totalGames > 0 ? Math.round((totalWins / totalGames) * 100) : 0;
+    const lossRate = totalGames > 0 ? Math.round((totalLosses / totalGames) * 100) : 0;
+    const leaveRate = totalGames > 0 ? Math.round((totalLeaves / totalGames) * 100) : 0;
 
     const isLinkedWithGoogle = user?.providerData?.some((provider: any) => provider.providerId === 'google.com');
 
@@ -366,24 +380,52 @@ export default function ProfilePage() {
                             <h3 className="text-white font-bold text-xl mb-6">Statistiques de jeu</h3>
 
                             <div className="flex flex-col gap-3 text-sm text-white/80">
-                                <div className="flex justify-between items-center">
-                                    <span className="flex-1">Total des victoires</span>
-                                    <span className="w-16 text-center">{winRate}%</span>
-                                    <span className="w-8 text-right">{stats.totalWins}</span>
+                                <div className="flex justify-between items-center bg-[#111315] p-3 rounded-lg border border-white/5">
+                                    <span className="font-enchanted text-2xl text-[#D1A07A] pt-1 tracking-wider">Points</span>
+                                    <span className="text-xl font-bold text-[#D1A07A]">{stats.points || 0}</span>
                                 </div>
                                 <div className="flex justify-between items-center">
-                                    <span className="flex-1">Total des défaites</span>
-                                    <span className="w-16 text-center">{lossRate}%</span>
-                                    <span className="w-8 text-right">{stats.totalLosses}</span>
+                                    <span className="flex-1">Total des parties</span>
+                                    <span className="w-8 text-right font-bold">{totalGames}</span>
                                 </div>
                                 <div className="flex justify-between items-center">
-                                    <span className="flex-1">Total des fuites</span>
-                                    <span className="w-16 text-center">{leaveRate}%</span>
-                                    <span className="w-8 text-right">{stats.totalLeaves}</span>
+                                    <span className="flex-1 text-green-400">Total des victoires</span>
+                                    <span className="w-16 text-center text-green-400 font-bold">{winRate}%</span>
+                                    <span className="w-8 text-right font-bold">{totalWins}</span>
+                                </div>
+                                <div className="flex justify-between items-center">
+                                    <span className="flex-1 text-red-400">Total des défaites</span>
+                                    <span className="w-16 text-center text-red-400 font-bold">{lossRate}%</span>
+                                    <span className="w-8 text-right font-bold">{totalLosses}</span>
+                                </div>
+                                <div className="flex justify-between items-center">
+                                    <span className="flex-1 text-orange-400">Total des fuites</span>
+                                    <span className="w-16 text-center text-orange-400 font-bold">{leaveRate}%</span>
+                                    <span className="w-8 text-right font-bold text-orange-400">{totalLeaves}</span>
                                 </div>
                             </div>
 
-                            <p className="text-white font-bold text-xl mt-8">Rang : <span className="text-white/70 text-lg">{stats.rank || "Non classé"}</span></p>
+                            <h3 className="text-white font-bold text-lg mt-8 mb-4">Faits d'Armes</h3>
+                            <div className="flex flex-col gap-2 text-sm text-white/70">
+                                <div className="flex justify-between items-center">
+                                    <span>Jours survécus</span>
+                                    <span className="font-bold">{stats.daysSurvived || 0}</span>
+                                </div>
+                                <div className="flex justify-between items-center">
+                                    <span>Pouvoirs utilisés</span>
+                                    <span className="font-bold">{stats.powerUses || 0}</span>
+                                </div>
+                                <div className="flex justify-between items-center">
+                                    <span>Meurtres commis</span>
+                                    <span className="font-bold text-red-400">{stats.kills || 0}</span>
+                                </div>
+                                <div className="flex justify-between items-center">
+                                    <span>Vies sauvées</span>
+                                    <span className="font-bold text-blue-400">{stats.saves || 0}</span>
+                                </div>
+                            </div>
+
+                            <p className="text-white font-bold text-xl mt-8 pt-4 border-t border-white/10">Rang actuel : <br /><span className="text-[#D1A07A] text-2xl font-extrabold uppercase">{stats.rank || "Non classé"}</span></p>
                         </div>
 
                         {/* Stats Équipe */}

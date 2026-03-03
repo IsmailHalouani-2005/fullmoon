@@ -118,7 +118,7 @@ export default function RoleCarousel() {
             {/* Modal Infobox */}
             {modalRole && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center px-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
-                    <div className="relative bg-[#1E2325] border-2 border-primary max-w-2xl w-full rounded-md shadow-2xl p-8 md:p-12 text-center text-white">
+                    <div className="relative bg-[#1E2325] border-2 border-primary max-w-2xl max-h-[90vh] overflow-y-auto w-full rounded-md shadow-2xl p-8 md:p-12 text-center text-white">
                         <button
                             className="absolute top-4 right-4 text-primary hover:text-white transition-colors"
                             onClick={() => setModalRole(null)}
@@ -145,6 +145,32 @@ export default function RoleCarousel() {
                                 <h4 className="text-secondary font-bold text-lg mb-2 border-b border-primary/20 pb-1">Capacité Spéciale</h4>
                                 <p className="text-gray-300 leading-relaxed font-semibold">{modalRole.capacity}</p>
                             </div>
+
+                            {modalRole.powers && modalRole.powers.length > 0 && (
+                                <div>
+                                    <h4 className="text-secondary font-bold text-lg mb-3 border-b border-primary/20 pb-1">Pouvoirs</h4>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                        {modalRole.powers.map((power) => (
+                                            <div key={power.id} className="flex items-center gap-3 bg-white/5 p-3 rounded-lg border border-primary/10">
+                                                <div className="relative w-10 h-10 shrink-0">
+                                                    {power.icon && (
+                                                        <Image src={power.icon} alt={power.label} fill className="object-contain" />
+                                                    )}
+                                                </div>
+                                                <div className="flex flex-col">
+                                                    <span className="text-sm font-bold text-white">{power.label}</span>
+                                                    <span className="text-[10px] uppercase tracking-wider text-primary font-bold">
+                                                        {power.timing === 'night' ? '🌙 Nuit' :
+                                                            power.timing === 'day' ? '☀️ Jour' :
+                                                                power.timing === 'death' ? '☠️ Mort' : '⚙️ Toujours'}
+                                                    </span>
+                                                    <p className="text-[11px] text-gray-400 mt-1 leading-tight">{power.description}</p>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
                         </div>
 
                     </div>

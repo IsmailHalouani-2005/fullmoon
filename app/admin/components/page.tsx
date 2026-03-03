@@ -11,6 +11,8 @@ import ProfileStats from '@/components/profile/ProfileStats';
 import RoleInfoModal from '@/components/room/edit/RoleInfoModal';
 import LoversModal from '@/components/game/LoversModal';
 import InfectedModal from '@/components/game/InfectedModal';
+import EndGame from '@/components/game/EndGame';
+import { distributeRoles } from '@/lib/roleDistribution';
 import { Player, GameState, Phase } from '@/types/game';
 
 export default function ComponentsTestPage() {
@@ -35,6 +37,47 @@ export default function ComponentsTestPage() {
     // --- State pour le Modal Fin de Partie ---
     const [isGameOverOpen, setIsGameOverOpen] = useState(false);
     const [gameOverWinner, setGameOverWinner] = useState<string>('VILLAGEOIS');
+    const [endGamePlayerCount, setEndGamePlayerCount] = useState<number>(8);
+
+    const endGameDistribution = distributeRoles(endGamePlayerCount);
+    // Flatten the distribution into an array of RoleIds
+    const endGameRoles: RoleId[] = [];
+    Object.entries(endGameDistribution).forEach(([role, count]) => {
+        for (let i = 0; i < (count as number); i++) {
+            endGameRoles.push(role as RoleId);
+        }
+    });
+
+    const endGamePlayers: Player[] = endGameRoles.map((role, i) => ({
+        id: `mock-end-${i}`,
+        socketId: `socket-end-${i}`,
+        name: `Joueur ${i + 1}`,
+        role: role,
+        avatarUrl: undefined,
+        isReady: true,
+        isHost: i === 0,
+        isAlive: false,
+        hasVoted: null,
+        votesAgainst: 0,
+        usedPowers: [],
+        effects: i === 1 ? ['infected'] : [], // Mock an infected player
+        stats: {
+            kills: Math.floor(Math.random() * 3),
+            saves: Math.floor(Math.random() * 2),
+            daysSurvived: Math.floor(Math.random() * 5) + 1,
+            powerUses: Math.floor(Math.random() * 2),
+            points: Math.floor(Math.random() * 50) + 10,
+            fled: 0,
+            wins: 1,
+            losses: 0,
+            gamesPlayed: 1
+        }
+    }));
+
+    const mockGameOverData = {
+        winner: gameOverWinner,
+        players: endGamePlayers
+    };
 
     // --- State pour le Cercle Joueur ---
     const [playerCount, setPlayerCount] = useState<number>(5);
@@ -54,7 +97,18 @@ export default function ComponentsTestPage() {
         votesAgainst: mockTargetId === `mock-${i}` ? 1 : 0,
         isAlive: i !== playerCount - 1,
         usedPowers: [],
-        effects: []
+        effects: [],
+        stats: {
+            kills: 0,
+            saves: 0,
+            daysSurvived: 0,
+            powerUses: 0,
+            points: 0,
+            fled: 0,
+            wins: 0,
+            losses: 0,
+            gamesPlayed: 0
+        }
     }));
 
     const mockGame: GameState = {
@@ -482,6 +536,16 @@ export default function ComponentsTestPage() {
                 <div className="flex flex-col md:flex-row gap-8 items-start">
                     <div className="flex flex-col gap-4 w-full md:w-1/3">
                         <div className="bg-slate-50 p-4 rounded-lg border">
+                            <label className="block text-sm font-bold text-slate-700 mb-2">Nombre de Joueurs : {endGamePlayerCount}</label>
+                            <input
+                                type="range"
+                                min="5"
+                                max="18"
+                                value={endGamePlayerCount}
+                                onChange={(e) => setEndGamePlayerCount(parseInt(e.target.value))}
+                                className="w-full cursor-pointer accent-[#D1A07A] mb-4"
+                            />
+
                             <label className="block text-sm font-bold text-slate-700 mb-2">Choisir le vainqueur :</label>
                             <select
                                 className="w-full p-2 border border-slate-300 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-[#D1A07A] mb-4"
@@ -506,46 +570,30 @@ export default function ComponentsTestPage() {
                         </div>
                     </div>
 
-                    <div className="flex-1 p-8 bg-slate-100 rounded-xl border border-slate-300 text-center relative overflow-hidden min-h-[300px] flex items-center justify-center">
-                        <p className="text-slate-500 italic">Le modal s'ouvrira en plein écran par-dessus l'interface.</p>
-
-                        {isGameOverOpen && (
-                            <div className="fixed inset-0 bg-black/90 z-[100] flex flex-col items-center justify-center p-6 backdrop-blur-md font-montserrat animation-fade-in text-white text-center">
-                                <div className="text-center max-w-2xl w-full p-10">
-                                    <h1 className="text-6xl sm:text-7xl font-enchanted text-[#D1A07A] mb-2 drop-shadow-lg tracking-widest uppercase">Fin de la Partie</h1>
-
-                                    <div className="my-8 py-8 border-y-2 border-slate-700/50 bg-slate-900/50 rounded-2xl shadow-2xl">
-                                        <h2 className={`text-4xl sm:text-5xl font-extrabold tracking-widest mb-4 uppercase drop-shadow-md 
-                                            ${gameOverWinner === 'VILLAGEOIS' ? 'text-green-500' :
-                                                gameOverWinner === 'LOUPS' ? 'text-red-500' :
-                                                    gameOverWinner === 'AMOUR' ? 'text-[#ff69b4]' :
-                                                        'text-blue-400'}`}
-                                        >
-                                            Victoire {gameOverWinner === 'VILLAGEOIS' ? 'du Village' : gameOverWinner === 'LOUPS' ? 'des Loups-Garous' : gameOverWinner === 'AMOUR' ? 'des Amoureux' : 'en Solo'} !
-                                        </h2>
-
-                                        {gameOverWinner !== 'VILLAGEOIS' && gameOverWinner !== 'LOUPS' && gameOverWinner !== 'AMOUR' && (
-                                            <p className="text-xl text-slate-300 font-bold mb-6">
-                                                Le rôle <span className="text-[#D1A07A] uppercase">{ROLES[gameOverWinner as RoleId]?.label || gameOverWinner}</span> a triomphé !
-                                            </p>
-                                        )}
-
-                                        {gameOverWinner === 'AMOUR' && (
-                                            <p className="text-xl text-slate-300 font-bold mb-6">
-                                                L'amour a triomphé de la mort... Le couple survit et remporte la victoire !
-                                            </p>
-                                        )}
-                                    </div>
-
-                                    <div className="mt-8 flex flex-col sm:flex-row gap-4 justify-center w-full">
-                                        <button
-                                            onClick={() => setIsGameOverOpen(false)}
-                                            className="px-8 py-3 bg-slate-700 hover:bg-slate-600 text-white font-bold rounded-lg shadow-lg hover:shadow-xl transition-all transform hover:-translate-y-1 w-full sm:w-auto"
-                                        >
-                                            Fermer (Test)
-                                        </button>
-                                    </div>
+                    <div className="flex-1 p-0 rounded-xl relative overflow-hidden flex items-center justify-center">
+                        {isGameOverOpen ? (
+                            <div className="fixed inset-0 z-50 flex flex-col bg-white">
+                                {/* Navbar header over the end game component for testing purposes to close it */}
+                                <div className="absolute top-4 right-4 z-[60]">
+                                    <button
+                                        onClick={() => setIsGameOverOpen(false)}
+                                        className="px-6 py-2 bg-slate-800 hover:bg-slate-700 text-white font-bold rounded-lg shadow-lg"
+                                    >
+                                        Fermer (Test)
+                                    </button>
                                 </div>
+                                <div className="flex-1 w-full relative overflow-y-auto">
+                                    <EndGame
+                                        gameOverData={mockGameOverData}
+                                        confirmLeave={() => { alert('Mock: Quitter le village'); setIsGameOverOpen(false); }}
+                                        getPlayerAvatar={(id) => '/assets/images/icones/Photo_Profil-transparent.png'}
+                                        currentUserId="mock-end-0"
+                                    />
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="p-8 bg-slate-100 rounded-xl border border-slate-300 w-full text-center h-[300px] flex items-center justify-center">
+                                <p className="text-slate-500 italic">Le composant EndGame s'ouvrira en plein écran avec la distribution de rôles testée.</p>
                             </div>
                         )}
                     </div>

@@ -25,9 +25,14 @@ export default function Header({ onQuickJoin }: HeaderProps = {}) {
     const handleScroll = (e: React.MouseEvent<HTMLAnchorElement>, targetId: string) => {
         e.preventDefault();
         setIsMobileMenuOpen(false);
-        const target = document.getElementById(targetId);
-        if (target) {
-            target.scrollIntoView({ behavior: 'smooth' });
+
+        if (pathname !== '/') {
+            router.push(`/#${targetId}`);
+        } else {
+            const target = document.getElementById(targetId);
+            if (target) {
+                target.scrollIntoView({ behavior: 'smooth' });
+            }
         }
     };
 
@@ -67,27 +72,34 @@ export default function Header({ onQuickJoin }: HeaderProps = {}) {
                 {/* Navigation (Desktop) */}
                 <nav className="hidden backdrop-blur-md md:flex items-center space-x-12 py-4 px-8 rounded-lg">
                     <div className="flex items-center space-x-4 border-2 gap-4 border-slate-200 rounded-lg py-3 px-8 shadow-md">
-                        <a
-                            href="#histoire"
+                        <Link
+                            href="/#histoire"
                             onClick={(e) => handleScroll(e, 'histoire')}
                             className=" font-bold tracking-wider hover:text-secondary transition-colors"
                         >
                             C'EST QUOI ?
-                        </a>
-                        <a
-                            href="#regles"
+                        </Link>
+                        <Link
+                            href="/#regles"
                             onClick={(e) => handleScroll(e, 'regles')}
                             className="font-bold tracking-wider hover:text-secondary transition-colors"
                         >
                             RÈGLES
-                        </a>
-                        <a
-                            href="#roles"
+                        </Link>
+                        <Link
+                            href="/#roles"
                             onClick={(e) => handleScroll(e, 'roles')}
                             className="font-bold tracking-wider hover:text-secondary transition-colors"
                         >
                             RÔLES
-                        </a>
+                        </Link>
+                        <Link
+                            href="/#leaderboard"
+                            onClick={(e) => handleScroll(e, 'leaderboard')}
+                            className="font-bold tracking-wider hover:text-secondary transition-colors"
+                        >
+                            CLASSEMENT
+                        </Link>
                     </div>
 
                     {pathname !== '/play' ? (
@@ -122,27 +134,34 @@ export default function Header({ onQuickJoin }: HeaderProps = {}) {
             {/* Mobile Navigation Menu */}
             {isMobileMenuOpen && (
                 <div className="md:hidden absolute top-20 right-5  bg-transparent backdrop-blur-md p-6 border-2 border-slate-200 rounded-lg flex flex-col items-center space-y-6 z-40">
-                    <a
-                        href="#histoire"
+                    <Link
+                        href="/#histoire"
                         onClick={(e) => handleScroll(e, 'histoire')}
                         className=" font-bold tracking-wider text-dark hover:text-secondary transition-colors"
                     >
                         C'EST QUOI ?
-                    </a>
-                    <a
-                        href="#regles"
+                    </Link>
+                    <Link
+                        href="/#regles"
                         onClick={(e) => handleScroll(e, 'regles')}
                         className="font-bold tracking-wider text-dark hover:text-secondary transition-colors"
                     >
                         RÈGLES
-                    </a>
-                    <a
-                        href="#roles"
+                    </Link>
+                    <Link
+                        href="/#roles"
                         onClick={(e) => handleScroll(e, 'roles')}
                         className="font-bold tracking-wider text-dark hover:text-secondary transition-colors"
                     >
                         RÔLES
-                    </a>
+                    </Link>
+                    <Link
+                        href="/#leaderboard"
+                        onClick={(e) => handleScroll(e, 'leaderboard')}
+                        className="font-bold tracking-wider text-dark hover:text-secondary transition-colors"
+                    >
+                        CLASSEMENT
+                    </Link>
 
 
                     {pathname !== '/play' ? (
