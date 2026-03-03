@@ -157,7 +157,7 @@ export const ROLES: Record<RoleId, RoleDefinition> = {
         id: 'FOU',
         label: "Fou",
         description: "Dans sa démence, il cherche le salut dans la corde du bourreau.",
-        capacity: "Martyre : Gagne la partie s'il réussit à se faire éliminer par le vote du village.",
+        capacity: "Martyre : Gagne la partie s'il réussit à se faire éliminer par le vote du village. (tant qu'il n'est pas infecté ni en couple)",
         camp: 'SOLO',
         image: "/assets/images/roles/solos/Fou.png"
     },

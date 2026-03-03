@@ -53,7 +53,7 @@ export default function RoomPage() {
         senderName: string;
         text: string;
         time: number;
-        chatType?: 'day' | 'night' | 'system' | 'lover';
+        chatType?: 'day' | 'night' | 'system' | 'lover' | 'highlighted';
     }
     const getCampColor = (camp: string) => {
         switch (camp) {
@@ -92,6 +92,7 @@ export default function RoomPage() {
     const [gameOverData, setGameOverData] = useState<{ winner: string; players: Player[] } | null>(null);
     const [hasSeenLoverModal, setHasSeenLoverModal] = useState(false);
     const [hasSeenInfectedModal, setHasSeenInfectedModal] = useState(false);
+    const [showAllumetteConfirm, setShowAllumetteConfirm] = useState(false);
 
     // --- SORCIÈRE MODALS ---
     const [witchHealTarget, setWitchHealTarget] = useState<string | null>(null);
@@ -443,7 +444,17 @@ export default function RoomPage() {
         }
     };
 
+    const confirmAllumette = () => {
+        socket?.emit('use_power', { powerId: 'ALLUMETTE' });
+        setShowAllumetteConfirm(false);
+    };
+
     const handlePowerClick = (powerId: string) => {
+        if (powerId === 'ALLUMETTE') {
+            setShowAllumetteConfirm(true);
+            return;
+        }
+
         if (activePower === powerId) {
             setActivePower(null);
             setPowerTargets([]);
@@ -493,6 +504,20 @@ export default function RoomPage() {
                 return;
             }
             setWitchPoisonTarget(playerId);
+        } else if (activePower === 'ESSENCE') {
+            const targetPlayer = game.players.find(p => p.id === playerId);
+            if (me && playerId === me.id) {
+                // Not ideal but matches the current codebase style
+                alert("Vous ne pouvez pas vous arroser vous-même !");
+                return;
+            }
+            if (targetPlayer && targetPlayer.effects.includes('gasoline')) {
+                alert("Ce joueur est déjà aspergé d'essence !");
+                return;
+            }
+            socket?.emit('use_power', { powerId: activePower as PowerId, targetId: playerId });
+            setActivePower(null);
+            setPowerTargets([]);
         } else {
             // Single target powers
             socket?.emit('use_power', { powerId: activePower as PowerId, targetId: playerId });
@@ -585,7 +610,7 @@ export default function RoomPage() {
                     >
                         <div className="mt-auto"></div>
                         {chatMessages.filter(msg => {
-                            if (msg.chatType === 'system' || msg.chatType === 'lover') return true;
+                            if (msg.chatType === 'system' || msg.chatType === 'lover' || msg.chatType === 'highlighted') return true;
                             if (msg.chatType === 'night') {
                                 const isMeWolf = mePlayer?.role && isInWolfCamp(mePlayer.role as RoleId);
                                 const isPetiteFille = mePlayer?.role === 'PETITE_FILLE';
@@ -634,6 +659,24 @@ export default function RoomPage() {
                                                 {msg.text}
                                             </span>
                                             <span className="text-[#ff69b4] drop-shadow-md text-lg">💘</span>
+                                        </div>
+                                    </div>
+                                );
+                            }
+
+                            if (msg.chatType === 'highlighted') {
+                                return (
+                                    <div key={idx} className="flex justify-center w-full py-2">
+                                        <div className="flex items-center gap-2 px-4 py-2 bg-orange-500/20 border border-orange-500/50 rounded-lg shadow-[0_0_15px_rgba(255,165,0,0.4)] ">
+                                            <div className="relative w-5 h-5 drop-shadow-md shrink-0">
+                                                <Image src="/assets/images/icones/powers/feu.png" alt="Feu" fill className="object-contain" />
+                                            </div>
+                                            <span className="text-sm font-bold text-orange-400 drop-shadow-md text-center">
+                                                {msg.text}
+                                            </span>
+                                            <div className="relative w-5 h-5 drop-shadow-md shrink-0">
+                                                <Image src="/assets/images/icones/powers/feu.png" alt="Feu" fill className="object-contain" />
+                                            </div>
                                         </div>
                                     </div>
                                 );
@@ -865,7 +908,31 @@ export default function RoomPage() {
                                                         ? currentPhase === 'HUNTER_SHOT'
                                                         : (power.timing === 'night' && currentPhase === 'NIGHT');
 
-                                                    const canUse = !isUsed && !isTemporarilyBlocked && isTimingCorrect && (power.id === 'FUSIL' ? true : mePlayer.isAlive) && canGMLKill;
+                                                    // Pyromane Specific:
+                                                    let canPyromaneUse = true;
+                                                    let pyromaneDisableMessage = "";
+                                                    if (mePlayer.role === 'PYROMANE') {
+                                                        const hasGasolineAlive = game.players.some(p => p.isAlive && p.effects.includes('gasoline'));
+                                                        const usedEssenceTonight = game.nightActions?.some(a => a.sourceId === user?.uid && a.powerId === 'ESSENCE');
+                                                        const usedAllumetteTonight = game.nightActions?.some(a => a.sourceId === user?.uid && a.powerId === 'ALLUMETTE');
+
+                                                        if (power.id === 'ALLUMETTE') {
+                                                            if (!hasGasolineAlive) {
+                                                                canPyromaneUse = false;
+                                                                pyromaneDisableMessage = "Personne n'est arrosé !";
+                                                            } else if (usedEssenceTonight) {
+                                                                canPyromaneUse = false;
+                                                                pyromaneDisableMessage = "Vous avez déjà arrosé ce soir";
+                                                            }
+                                                        } else if (power.id === 'ESSENCE') {
+                                                            if (usedAllumetteTonight) {
+                                                                canPyromaneUse = false;
+                                                                pyromaneDisableMessage = "Incendie déjà amorcé";
+                                                            }
+                                                        }
+                                                    }
+
+                                                    const canUse = !isUsed && !isTemporarilyBlocked && isTimingCorrect && (power.id === 'FUSIL' ? true : mePlayer.isAlive) && canGMLKill && canPyromaneUse;
                                                     const isActive = activePower === power.id;
 
                                                     // If the power isn't relevant to this moment at all, skip rendering it? 
@@ -884,7 +951,7 @@ export default function RoomPage() {
                                                                 </div>
                                                                 {/* Tooltip or Label */}
                                                                 <span className="absolute -bottom-6 w-max bg-black/80 text-white text-[8px] px-2 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity">
-                                                                    {power.id === 'GRIFFURE_MORTELLE' ? gmlDisableMessage : power.label}
+                                                                    {power.id === 'GRIFFURE_MORTELLE' ? gmlDisableMessage : (mePlayer.role === 'PYROMANE' && pyromaneDisableMessage ? pyromaneDisableMessage : power.label)}
                                                                 </span>
                                                                 {isActive && (
                                                                     <div className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full animate-ping"></div>
@@ -928,6 +995,21 @@ export default function RoomPage() {
                                         {currentPhase === 'NIGHT' && mePlayer?.role === 'ASSASSIN' && !mePlayer?.effects?.includes('infected') && !activePower && (
                                             <div className="mt-3 text-slate-300 font-bold text-xs sm:text-xs animate-pulse drop-shadow-md bg-black/60 px-3 py-1 rounded-full border border-slate-500/50 text-center">
                                                 Votez pour assassiner un joueur. <br /> Votre cible mourra de façon certaine.
+                                            </div>
+                                        )}
+
+                                        {/* Helper text for Pyromane (Essence) */}
+                                        {activePower === 'ESSENCE' && (
+                                            <div className="mt-3 text-orange-400 font-bold text-xs sm:text-sm animate-pulse drop-shadow-md bg-black/40 px-3 py-1 rounded-full border border-orange-500/50 text-center">
+                                                Choisissez un joueur à arroser d'essence
+                                            </div>
+                                        )}
+
+                                        {/* Feedback text for Pyromane (Allumette activée) */}
+                                        {/* On vérifie si l'action ALLUMETTE est dans les actions de nuit du joueur */}
+                                        {currentPhase === 'NIGHT' && mePlayer?.role === 'PYROMANE' && game.nightActions?.some(a => a.sourceId === user?.uid && a.powerId === 'ALLUMETTE') && (
+                                            <div className="mt-3 text-red-500 font-bold text-xs sm:text-sm animate-pulse drop-shadow-md bg-black/60 px-3 py-1 rounded-full border border-red-500/50 text-center">
+                                                Incendie programmé pour cette nuit ! 🔥
                                             </div>
                                         )}
                                     </div>
@@ -1224,6 +1306,35 @@ export default function RoomPage() {
                                 className="px-4 py-2 rounded-lg bg-purple-600 text-white hover:bg-purple-500 transition-colors text-sm font-extrabold"
                             >
                                 Oui, Empoisonner
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+            {/* --- MODAL ALLUMETTE (Pyromane) --- */}
+            {showAllumetteConfirm && (
+                <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[2000] p-4 font-montserrat" onClick={() => setShowAllumetteConfirm(false)}>
+                    <div className="bg-[#2C3338] text-white max-w-sm w-full rounded-2xl p-6 border-2 border-orange-500 shadow-[0_0_30px_rgba(255,165,0,0.3)] relative text-center flex flex-col items-center" onClick={e => e.stopPropagation()}>
+                        <div className="relative w-12 h-12 mb-4 animate-pulse duration-700 drop-shadow-lg">
+                            <Image src="/assets/images/icones/powers/feu.png" alt="Feu" fill className="object-contain" />
+                        </div>
+                        <h3 className="text-2xl font-enchanted font-extrabold text-orange-400 mb-4 tracking-wider">Briser les Cendres</h3>
+                        <p className="text-sm text-slate-300 mb-6">
+                            Voulez-vous vraiment déclencher l'incendie général ?<br />
+                            <span className="font-bold text-orange-400">Tous les joueurs aspergés d'essence mourront simultanément.</span>
+                        </p>
+                        <div className="flex justify-center gap-4 mt-2">
+                            <button
+                                onClick={() => setShowAllumetteConfirm(false)}
+                                className="px-4 py-2 rounded-lg bg-slate-700 text-slate-200 hover:bg-slate-600 transition-colors text-sm font-bold"
+                            >
+                                Annuler
+                            </button>
+                            <button
+                                onClick={confirmAllumette}
+                                className="px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-500 transition-colors shadow-[0_0_15px_rgba(220,38,38,0.5)] text-sm font-extrabold flex items-center gap-2"
+                            >
+                                TOUT BRÛLER
                             </button>
                         </div>
                     </div>

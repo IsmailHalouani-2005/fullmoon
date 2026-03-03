@@ -422,6 +422,68 @@ export function setupGameLogic(io: Server<ClientToServerEvents, ServerToClientEv
                         });
                     }
                     break;
+                case 'ESSENCE':
+                    // Vérifier si ALLUMETTE est déjà utilisé
+                    const usedAllumette = game.nightActions.some(a => a.sourceId === userId && a.powerId === 'ALLUMETTE');
+                    if (usedAllumette) {
+                        socket.emit("error", "Vous avez déjà préparé l'Allumette pour cette nuit. Vous ne pouvez pas faire les deux.");
+                        return;
+                    }
+
+                    // Empêcher le pyromane de s'arroser lui-même
+                    if (payload.targetId === userId) {
+                        socket.emit("error", "Vous ne pouvez pas vous arroser vous-même !");
+                        return;
+                    }
+
+                    // Empêcher d'arroser un joueur déjà arrosé
+                    const targetPlayer = game.players.find(p => p.id === payload.targetId);
+                    if (targetPlayer && targetPlayer.effects.includes('gasoline')) {
+                        socket.emit("error", "Ce joueur est déjà aspergé d'essence !");
+                        return;
+                    }
+
+                    // On enregistre simplement l'essence dans les nightActions comme un pouvoir classique. Toggle si re-clic.
+                    const existingEssenceIdx = game.nightActions.findIndex(a => a.sourceId === userId && a.powerId === 'ESSENCE' && a.targetId === payload.targetId);
+                    if (existingEssenceIdx !== -1) {
+                        game.nightActions.splice(existingEssenceIdx, 1);
+                        emitGameState(roomCode, game, io);
+                        return;
+                    }
+
+                    game.nightActions = game.nightActions.filter(a => a.sourceId !== userId || a.powerId !== 'ESSENCE'); // 1 essence par nuit max.
+                    if (payload.targetId) {
+                        game.nightActions.push({
+                            type: 'power',
+                            powerId: 'ESSENCE',
+                            sourceId: userId,
+                            targetId: payload.targetId
+                        });
+                    }
+                    break;
+
+                case 'ALLUMETTE':
+                    // Vérifier si ESSENCE est déjà utilisé
+                    const usedEssence = game.nightActions.some(a => a.sourceId === userId && a.powerId === 'ESSENCE');
+                    if (usedEssence) {
+                        socket.emit("error", "Vous avez déjà aspergé de l'Essence cette nuit. L'incendie ne peut avoir lieu en même temps.");
+                        return;
+                    }
+
+                    const existingAllumetteIdx = game.nightActions.findIndex(a => a.sourceId === userId && a.powerId === 'ALLUMETTE');
+                    if (existingAllumetteIdx !== -1) {
+                        game.nightActions.splice(existingAllumetteIdx, 1);
+                        emitGameState(roomCode, game, io);
+                        return;
+                    }
+
+                    game.nightActions.push({
+                        type: 'power',
+                        powerId: 'ALLUMETTE',
+                        sourceId: userId,
+                        // pas de targetId puisque l'allumette vise toutes les cibles arrosées par défaut
+                    });
+                    break;
                 default:
                     // Store other night actions for dawn resolution
                     game.nightActions = game.nightActions.filter(a => a.sourceId !== userId || a.powerId !== payload.powerId);
@@ -694,12 +756,22 @@ function handlePhaseEnd(roomCode: string, endedPhase: Phase, games: Record<strin
                             const target = game.players.find(p => p.id === action.targetId);
                             if (target && !target.effects.includes('gasoline')) {
                                 target.effects.push('gasoline');
+                                // Avertir la cible uniquement
+                                const privateGasolineMsg: ChatMessage = { senderId: 'system', senderName: 'Système', text: `Une odeur forte vous réveille... Vous avez été aspergé d'essence dans la nuit !`, time: Date.now(), chatType: 'highlighted', targetId: target.id };
+                                game.chatMessages.push(privateGasolineMsg);
+                                if (target.socketId) {
+                                    io.to(target.socketId).emit("chat_message", privateGasolineMsg);
+                                }
                             }
                         }
                         break;
                     case 'ALLUMETTE':
+                        // Tuer tout le monde recouvert d'essence et enlever l'effet
                         game.players.forEach(p => {
-                            if (p.effects.includes('gasoline')) deaths.push(p.id);
+                            if (p.effects.includes('gasoline')) {
+                                deaths.push(p.id);
+                                p.effects = p.effects.filter(e => e !== 'gasoline');
+                            }
                         });
                         break;
                     case 'POISON_TOXIQUE':
@@ -845,7 +917,7 @@ function handlePhaseEnd(roomCode: string, endedPhase: Phase, games: Record<strin
                     game.chatMessages.push(deathMsg);
                     io.to(roomCode).emit("chat_message", deathMsg);
 
-                    if (deadPlayer.role === 'FOU') {
+                    if (deadPlayer.role === 'FOU' && !deadPlayer.effects.includes('infected') && !deadPlayer.effects.includes('lover')) {
                         fouWon = true;
                         deadFouPlayer = deadPlayer;
                     }
@@ -943,9 +1015,13 @@ function tallyVotes(game: GameState, isMayorElection: boolean = false): string |
 
 function checkVictory(game: GameState): { winner: string, players: Player[] } | null {
     const vivants = game.players.filter(p => p.isAlive);
-    const loupsVivants = vivants.filter(p => p.role && (ROLES[p.role as RoleId].camp === 'LOUPS' || p.effects?.includes('infected')));
-    const villageoisVivants = vivants.filter(p => !loupsVivants.includes(p) && p.role && (ROLES[p.role as RoleId].camp === 'VILLAGE' || p.role === 'FOU'));
-    const solosDangereuxVivants = vivants.filter(p => p.role && ROLES[p.role as RoleId].camp === 'SOLO' && p.role !== 'FOU' && !p.effects?.includes('infected'));
+    const loupsVivants = vivants.filter(p => p.role && (ROLES[p.role as RoleId]?.camp === 'LOUPS' || p.effects?.includes('infected')));
+
+    // Un Fou non-infecté ne fait partie d'aucun camp pour le calcul de victoire de ratio.
+    const villageoisVivantsPourRatio = vivants.filter(p => !loupsVivants.includes(p) && p.role !== 'FOU' && p.role && ROLES[p.role as RoleId]?.camp !== 'SOLO');
+
+    // Tous les solos dangereux (Loup Blanc, Assassin, etc.) qui doivent mourir pour que le village gagne.
+    const solosDangereuxVivants = vivants.filter(p => p.role && ROLES[p.role as RoleId]?.camp === 'SOLO' && p.role !== 'FOU' && !p.effects?.includes('infected'));
 
     if (vivants.length === 0) return { winner: 'NONE', players: [] };
 
@@ -968,12 +1044,13 @@ function checkVictory(game: GameState): { winner: string, players: Player[] } | 
 
     // Village victory
     if (loupsVivants.length === 0 && solosDangereuxVivants.length === 0 && !hasMixedCoupleAlive) {
+        // Le village gagne même s'il reste un FOU non infecté.
         const allVillageois = game.players.filter(p => p.role && (!isInWolfCamp(p.role as RoleId) && !['LOUP_BLANC', 'ASSASSIN', 'PYROMANE', 'EMPOISONNEUR'].includes(p.role as string) || p.role === 'FOU') && !p.effects?.includes('infected'));
         return { winner: 'VILLAGEOIS', players: allVillageois };
     }
 
     // Wolf victory
-    if (loupsVivants.length >= villageoisVivants.length && solosDangereuxVivants.length === 0 && !hasMixedCoupleAlive) {
+    if (loupsVivants.length >= villageoisVivantsPourRatio.length && solosDangereuxVivants.length === 0 && !hasMixedCoupleAlive) {
         const allLoups = game.players.filter(p => (p.role && isInWolfCamp(p.role as RoleId)) || p.effects?.includes('infected'));
         return { winner: 'LOUPS', players: allLoups };
     }
