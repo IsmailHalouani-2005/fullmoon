@@ -10,6 +10,7 @@ import ProfileAvatarHeader from '@/components/profile/ProfileAvatarHeader';
 import ProfileStats from '@/components/profile/ProfileStats';
 import RoleInfoModal from '@/components/room/edit/RoleInfoModal';
 import LoversModal from '@/components/game/LoversModal';
+import InfectedModal from '@/components/game/InfectedModal';
 import { Player, GameState, Phase } from '@/types/game';
 
 export default function ComponentsTestPage() {
@@ -21,10 +22,19 @@ export default function ComponentsTestPage() {
     // --- State pour le Modal Rôle ---
     const [isModalOpen, setIsModalOpen] = useState(false);
 
-    // --- State pour le Modal Amoureux ---
     const [isLoverModalOpen, setIsLoverModalOpen] = useState(false);
     const [loverName, setLoverName] = useState('Joueur Alpha');
     const [isSameCamp, setIsSameCamp] = useState(false);
+
+    // --- State pour le Modal Infecté ---
+    const [isInfectedModalOpen, setIsInfectedModalOpen] = useState(false);
+
+    // --- State pour le Modal Quitter ---
+    const [isLeaveModalOpen, setIsLeaveModalOpen] = useState(false);
+
+    // --- State pour le Modal Fin de Partie ---
+    const [isGameOverOpen, setIsGameOverOpen] = useState(false);
+    const [gameOverWinner, setGameOverWinner] = useState<string>('VILLAGEOIS');
 
     // --- State pour le Cercle Joueur ---
     const [playerCount, setPlayerCount] = useState<number>(5);
@@ -76,7 +86,10 @@ export default function ComponentsTestPage() {
         { id: 'player-circle', label: 'Cercle des Joueurs' },
         { id: 'profile-components', label: 'Profil Joueur' },
         { id: 'role-info-modal', label: 'Modal Info Rôle' },
-        { id: 'lover-info-modal', label: 'Modal Amoureux (Cupidon)' }
+        { id: 'lover-info-modal', label: 'Modal Amoureux' },
+        { id: 'infected-modal', label: 'Modal Infecté' },
+        { id: 'leave-modal', label: 'Modal Quitter' },
+        { id: 'game-over-modal', label: 'Modal Fin' }
     ];
 
     return (
@@ -332,7 +345,7 @@ export default function ComponentsTestPage() {
             </div>
 
             {/* --- SECTION : MODAL AMOUREUX --- */}
-            <div id="lover-info-modal" className="scroll-mt-28 w-full max-w-5xl bg-white p-6 rounded-xl shadow-md border-2 border-slate-200 mt-8 mb-20">
+            <div id="lover-info-modal" className="scroll-mt-28 w-full max-w-5xl bg-white p-6 rounded-xl shadow-md border-2 border-slate-200 mt-8">
                 <h2 className="text-2xl font-bold mb-4 border-b pb-2">Modal Informations Amoureux (Cupidon)</h2>
 
                 <div className="flex flex-col md:flex-row gap-8 items-start">
@@ -379,6 +392,162 @@ export default function ComponentsTestPage() {
                             loverName={loverName}
                             isSameCamp={isSameCamp}
                         />
+                    </div>
+                </div>
+            </div>
+
+            {/* --- SECTION : MODAL INFECTE --- */}
+            <div id="infected-modal" className="scroll-mt-28 w-full max-w-5xl bg-white p-6 rounded-xl shadow-md border-2 border-slate-200 mt-8">
+                <h2 className="text-2xl font-bold mb-4 border-b pb-2">Modal Informations Infecté (Loup)</h2>
+
+                <div className="flex flex-col md:flex-row gap-8 items-start">
+                    <div className="flex flex-col gap-4 w-full md:w-1/3">
+                        <div className="bg-slate-50 p-4 rounded-lg border">
+                            <label className="block text-sm font-bold text-slate-700 mb-2">Options du Modal Infecté :</label>
+
+                            <button
+                                onClick={() => setIsInfectedModalOpen(true)}
+                                className="w-full bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-500 transition-colors font-bold uppercase text-sm tracking-wide shadow-[0_0_10px_rgba(220,38,38,0.5)]"
+                            >
+                                Ouvrir le Modal Infecté
+                            </button>
+                        </div>
+                    </div>
+
+                    <div className="flex-1 p-8 bg-slate-100 rounded-xl border border-slate-300 text-center relative overflow-hidden min-h-[300px] flex items-center justify-center">
+                        <p className="text-slate-500 italic">Le modal s'ouvrira en plein écran par-dessus l'interface.</p>
+
+                        <InfectedModal
+                            isOpen={isInfectedModalOpen}
+                            onClose={() => setIsInfectedModalOpen(false)}
+                        />
+                    </div>
+                </div>
+            </div>
+
+            {/* --- SECTION : MODAL QUITTER --- */}
+            <div id="leave-modal" className="scroll-mt-28 w-full max-w-5xl bg-white p-6 rounded-xl shadow-md border-2 border-slate-200 mt-8">
+                <h2 className="text-2xl font-bold mb-4 border-b pb-2">Modal Confirmation Départ</h2>
+
+                <div className="flex flex-col md:flex-row gap-8 items-start">
+                    <div className="flex flex-col gap-4 w-full md:w-1/3">
+                        <div className="bg-slate-50 p-4 rounded-lg border">
+                            <button
+                                onClick={() => setIsLeaveModalOpen(true)}
+                                className="w-full bg-slate-800 text-white px-4 py-2 rounded-md hover:bg-slate-700 transition-colors font-bold uppercase text-sm tracking-wide shadow-[0_0_10px_rgba(0,0,0,0.2)]"
+                            >
+                                Ouvrir Confirmation Départ
+                            </button>
+                        </div>
+                    </div>
+
+                    <div className="flex-1 p-8 bg-slate-100 rounded-xl border border-slate-300 text-center relative overflow-hidden min-h-[300px] flex items-center justify-center">
+                        <p className="text-slate-500 italic">Le modal s'ouvrira en plein écran par-dessus l'interface.</p>
+
+                        {isLeaveModalOpen && (
+                            <div className="fixed inset-0 bg-black/80 z-50 flex flex-col items-center justify-center p-6 backdrop-blur-sm">
+                                <div className="bg-slate-900 border-2 border-slate-700 p-8 rounded-xl max-w-sm text-center shadow-2xl relative overflow-hidden">
+                                    <div className="absolute top-0 left-0 w-full h-1 bg-red-600"></div>
+                                    <h2 className="text-2xl font-enchanted tracking-wider text-red-500 mb-4">Quitter le village ?</h2>
+                                    <p className="text-slate-300 text-sm mb-8">
+                                        Êtes-vous sûr de vouloir abandonner votre village ?
+                                        <br /><br />
+                                        <span className="text-yellow-500 font-bold">Vous serez déconnecté de la partie.</span>
+                                    </p>
+                                    <div className="flex gap-4 justify-center">
+                                        <button
+                                            onClick={() => setIsLeaveModalOpen(false)}
+                                            className="px-6 py-2 bg-slate-700 hover:bg-slate-600 text-white font-bold rounded shadow transition-colors flex-1"
+                                        >
+                                            Rester
+                                        </button>
+                                        <button
+                                            onClick={() => { alert("Mock: Quitter la partie"); setIsLeaveModalOpen(false); }}
+                                            className="px-6 py-2 bg-red-600 hover:bg-red-500 text-white font-bold rounded shadow transition-colors flex-1 uppercase text-sm tracking-wide"
+                                        >
+                                            Quitter
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            </div>
+
+            {/* --- SECTION : MODAL FIN DE PARTIE --- */}
+            <div id="game-over-modal" className="scroll-mt-28 w-full max-w-5xl bg-white p-6 rounded-xl shadow-md border-2 border-slate-200 mt-8 mb-20">
+                <h2 className="text-2xl font-bold mb-4 border-b pb-2">Modal Fin de Partie</h2>
+
+                <div className="flex flex-col md:flex-row gap-8 items-start">
+                    <div className="flex flex-col gap-4 w-full md:w-1/3">
+                        <div className="bg-slate-50 p-4 rounded-lg border">
+                            <label className="block text-sm font-bold text-slate-700 mb-2">Choisir le vainqueur :</label>
+                            <select
+                                className="w-full p-2 border border-slate-300 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-[#D1A07A] mb-4"
+                                value={gameOverWinner}
+                                onChange={(e) => setGameOverWinner(e.target.value)}
+                            >
+                                <option value="VILLAGEOIS">Villageois</option>
+                                <option value="LOUPS">Loups-Garous</option>
+                                <option value="AMOUR">Amoureux</option>
+                                <option value="LOUP_BLANC">Loup Blanc</option>
+                                <option value="PYROMANE">Pyromane</option>
+                                <option value="ASSASSIN">Assassin</option>
+                                <option value="ANGE">Ange</option>
+                            </select>
+
+                            <button
+                                onClick={() => setIsGameOverOpen(true)}
+                                className="w-full bg-[#D1A07A] text-slate-900 px-4 py-2 rounded-md hover:bg-[#b08465] hover:text-white transition-colors font-bold uppercase text-sm tracking-wide shadow-[0_0_10px_rgba(209,160,122,0.5)]"
+                            >
+                                Ouvrir le Modal
+                            </button>
+                        </div>
+                    </div>
+
+                    <div className="flex-1 p-8 bg-slate-100 rounded-xl border border-slate-300 text-center relative overflow-hidden min-h-[300px] flex items-center justify-center">
+                        <p className="text-slate-500 italic">Le modal s'ouvrira en plein écran par-dessus l'interface.</p>
+
+                        {isGameOverOpen && (
+                            <div className="fixed inset-0 bg-black/90 z-[100] flex flex-col items-center justify-center p-6 backdrop-blur-md font-montserrat animation-fade-in text-white text-center">
+                                <div className="text-center max-w-2xl w-full p-10">
+                                    <h1 className="text-6xl sm:text-7xl font-enchanted text-[#D1A07A] mb-2 drop-shadow-lg tracking-widest uppercase">Fin de la Partie</h1>
+
+                                    <div className="my-8 py-8 border-y-2 border-slate-700/50 bg-slate-900/50 rounded-2xl shadow-2xl">
+                                        <h2 className={`text-4xl sm:text-5xl font-extrabold tracking-widest mb-4 uppercase drop-shadow-md 
+                                            ${gameOverWinner === 'VILLAGEOIS' ? 'text-green-500' :
+                                                gameOverWinner === 'LOUPS' ? 'text-red-500' :
+                                                    gameOverWinner === 'AMOUR' ? 'text-[#ff69b4]' :
+                                                        'text-blue-400'}`}
+                                        >
+                                            Victoire {gameOverWinner === 'VILLAGEOIS' ? 'du Village' : gameOverWinner === 'LOUPS' ? 'des Loups-Garous' : gameOverWinner === 'AMOUR' ? 'des Amoureux' : 'en Solo'} !
+                                        </h2>
+
+                                        {gameOverWinner !== 'VILLAGEOIS' && gameOverWinner !== 'LOUPS' && gameOverWinner !== 'AMOUR' && (
+                                            <p className="text-xl text-slate-300 font-bold mb-6">
+                                                Le rôle <span className="text-[#D1A07A] uppercase">{ROLES[gameOverWinner as RoleId]?.label || gameOverWinner}</span> a triomphé !
+                                            </p>
+                                        )}
+
+                                        {gameOverWinner === 'AMOUR' && (
+                                            <p className="text-xl text-slate-300 font-bold mb-6">
+                                                L'amour a triomphé de la mort... Le couple survit et remporte la victoire !
+                                            </p>
+                                        )}
+                                    </div>
+
+                                    <div className="mt-8 flex flex-col sm:flex-row gap-4 justify-center w-full">
+                                        <button
+                                            onClick={() => setIsGameOverOpen(false)}
+                                            className="px-8 py-3 bg-slate-700 hover:bg-slate-600 text-white font-bold rounded-lg shadow-lg hover:shadow-xl transition-all transform hover:-translate-y-1 w-full sm:w-auto"
+                                        >
+                                            Fermer (Test)
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>
