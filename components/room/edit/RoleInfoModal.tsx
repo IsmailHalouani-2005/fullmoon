@@ -17,8 +17,8 @@ const POWER_DESCRIPTIONS = [
     { pouvoir: 'MORSURE_INFECTE', label: "Contamine la victime des loups pour qu'elle devienne loup à son tour. (Choissiez le pour appliquer la morsure infecte.)", role: 'LOUP_INFECT' },
     { pouvoir: 'DOUBLE_VOTE', label: "Votre vote au bûcher compte double.", role: 'LOUP_ALPHA' },
     { pouvoir: 'GRIFFURE_MORTELLE', label: "Tant qu'aucun loup ne meurt, vous pouvez chasser une victime supplémentaire. (Choissisez une différente victime de plus).", role: 'GRAND_MECHANT_LOUP' },
-    { pouvoir: 'TRAHISON', label: "Permet d'éliminer un joueur (désactivé).", role: 'LOUP_BLANC' },
-    { pouvoir: 'LAME_NOIRE', label: "Permet d'éliminer un joueur (désactivé).", role: 'ASSASSIN' },
+    { pouvoir: 'TRAHISON', label: "Permet d'éliminer un joueur faisant parti des loups-garous. (Choissiez un joueur pour appliquer la trahison).", role: 'LOUP_BLANC' },
+    { pouvoir: 'LAME_NOIRE', label: "Permet d'éliminer n'importe quel joueur en ignorant les défenses. (Choissiez un joueur pour tuer avec la lame noire).", role: 'ASSASSIN' },
     { pouvoir: 'ESSENCE', label: "Vous aspergez un joueur d'essence. (Choissiez un joueur pour appliquer l'essence).", role: 'PYROMANE' },
     { pouvoir: 'ALLUMETTE', label: "Vous immolez tous les joueurs imbibés d'essence. (Confirmez pour déclencher l'allumette).", role: 'PYROMANE' },
     { pouvoir: 'POISON_TOXIQUE', label: "Empoisonne un joueur, le rendant muet pour le lendemain, il ne peut ni parler ni voter ni utiliser ses pouvoirs pour le prochain jour et nuit. (Choissiez un joueur pour appliquer le poison).", role: 'EMPOISONNEUR' }

@@ -916,6 +916,20 @@ export default function RoomPage() {
                                                 Cliquez sur la victime des loups pour qu'elle soit infectée
                                             </div>
                                         )}
+
+                                        {/* Helper text for Loup Blanc */}
+                                        {currentPhase === 'NIGHT' && mePlayer?.role === 'LOUP_BLANC' && !mePlayer?.effects?.includes('infected') && !activePower && (
+                                            <div className="mt-3 text-red-500 font-bold text-xs sm:text-xs animate-pulse drop-shadow-md bg-black/40 px-3 py-1 rounded-full border border-red-500/50 text-center">
+                                                Votez pour tuer un Loup-Garou. <br /> Si vous ciblez un autre rôle, l'attaque échouera.
+                                            </div>
+                                        )}
+
+                                        {/* Helper text for Assassin */}
+                                        {currentPhase === 'NIGHT' && mePlayer?.role === 'ASSASSIN' && !mePlayer?.effects?.includes('infected') && !activePower && (
+                                            <div className="mt-3 text-slate-300 font-bold text-xs sm:text-xs animate-pulse drop-shadow-md bg-black/60 px-3 py-1 rounded-full border border-slate-500/50 text-center">
+                                                Votez pour assassiner un joueur. <br /> Votre cible mourra de façon certaine.
+                                            </div>
+                                        )}
                                     </div>
                                 );
                             })()}

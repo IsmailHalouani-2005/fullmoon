@@ -238,11 +238,14 @@ export function setupGameLogic(io: Server<ClientToServerEvents, ServerToClientEv
             if (!voter || !voter.isAlive || !target) return;
 
             const targetRoleDef = target.role ? ROLES[target.role as RoleId] : null;
-            const isTargetWolf = targetRoleDef?.camp === 'LOUPS';
+            const isTargetWolf = targetRoleDef?.camp === 'LOUPS' || target.role === 'GRAND_MECHANT_LOUP' || target.role === 'LOUP_INFECT' || target.effects?.includes('infected');
 
-            const isValidNightWolfVote = game.phase === 'NIGHT' && isInWolfCamp(voter.role) && !isTargetWolf;
+            const isVoterWolfCamp = isInWolfCamp(voter.role) || voter.role === 'GRAND_MECHANT_LOUP' || voter.role === 'LOUP_INFECT' || voter.effects?.includes('infected');
+            const isValidNightWolfVote = game.phase === 'NIGHT' && isVoterWolfCamp && !isTargetWolf;
+            const isLoupBlancVote = game.phase === 'NIGHT' && voter.role === 'LOUP_BLANC' && !voter.effects?.includes('infected');
+            const isAssassinVote = game.phase === 'NIGHT' && voter.role === 'ASSASSIN' && !voter.effects?.includes('infected');
 
-            if (game.phase === 'MAYOR_ELECTION' || game.phase === 'DAY_VOTE' || isValidNightWolfVote) {
+            if (game.phase === 'MAYOR_ELECTION' || game.phase === 'DAY_VOTE' || isValidNightWolfVote || isLoupBlancVote || isAssassinVote) {
 
                 if (game.votes[userId] === targetId) {
                     delete game.votes[userId];
@@ -728,6 +731,36 @@ function handlePhaseEnd(roomCode: string, endedPhase: Phase, games: Record<strin
                 }
             }
 
+            // 2.5 Resolve Loup Blanc Kill
+            const loupBlanc = game.players.find(p => p.role === 'LOUP_BLANC' && p.isAlive && !p.effects.includes('infected'));
+            if (loupBlanc) {
+                const lbTargetId = game.votes[loupBlanc.id];
+                if (lbTargetId && lbTargetId !== protectedId) { // Sorcière can protect from LB if she saw it
+                    const lbTarget = game.players.find(p => p.id === lbTargetId);
+                    // Kill succeeds ONLY if target belongs to LOUPS camp or is infected
+                    const isTargetWolf = isInWolfCamp(lbTarget?.role as RoleId) ||
+                        lbTarget?.role === 'GRAND_MECHANT_LOUP' ||
+                        lbTarget?.role === 'LOUP_INFECT' ||
+                        lbTarget?.role === 'LOUP_GAROU' ||
+                        lbTarget?.role === 'LOUP_ALPHA' ||
+                        lbTarget?.effects.includes('infected');
+
+                    if (isTargetWolf) {
+                        deaths.push(lbTargetId);
+                    }
+                }
+            }
+
+            // 2.6 Resolve Assassin Kill
+            const assassin = game.players.find(p => p.role === 'ASSASSIN' && p.isAlive && !p.effects.includes('infected'));
+            if (assassin) {
+                const assassinTargetId = game.votes[assassin.id];
+                // L'Assassin ignore la protection (protectedId) de la Sorcière
+                if (assassinTargetId) {
+                    deaths.push(assassinTargetId);
+                }
+            }
+
             // 3. Apply Deaths
             const uniqueDeaths = Array.from(new Set(deaths));
             uniqueDeaths.forEach(dId => {
@@ -890,7 +923,8 @@ function tallyVotes(game: GameState, isMayorElection: boolean = false): string |
         const voter = game.players.find(p => p.id === voterId);
 
         // During NIGHT, only wolf camp votes count for the primary victim
-        if (game.phase === 'NIGHT' && !isInWolfCamp(voter?.role)) continue;
+        const isVoterWolf = isInWolfCamp(voter?.role) || voter?.role === 'GRAND_MECHANT_LOUP' || voter?.role === 'LOUP_INFECT' || voter?.effects.includes('infected');
+        if (game.phase === 'NIGHT' && !isVoterWolf) continue;
 
         let weight = 1;
         if (game.mayorId === voterId && !isMayorElection && game.phase === 'DAY_VOTE') weight = 2;
@@ -1079,6 +1113,15 @@ function emitGameState(roomCode: string, game: GameState, io: Server) {
                     p.votesAgainst = 0;
                 }
             });
+
+            // Sorciere logic for Loup Blanc victim
+            const loupBlancEnt = game.players.find(p => p.role === 'LOUP_BLANC' && !p.effects.includes('infected') && p.isAlive);
+            const lbTargetId = loupBlancEnt ? game.votes[loupBlancEnt.id] : null;
+
+            if (playerRole === 'SORCIERE' && !tailoredGame.wolfVictimId && lbTargetId) {
+                // If wolves didn't vote but Loup Blanc did, Sorciere sees Loup Blanc's victim as wolfVictimId
+                tailoredGame.wolfVictimId = lbTargetId;
+            }
 
             // Witch, Seer, and Wolf Pack can see the potential victim
             const canSeeVictim = playerRole === 'SORCIERE' || playerRole === 'VOYANTE' || playerRole === 'PETITE_FILLE' || playerIsWolf;

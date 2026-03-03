@@ -150,7 +150,7 @@ export const ROLES: Record<RoleId, RoleDefinition> = {
         camp: 'SOLO',
         image: "/assets/images/roles/solos/Assassin.png",
         powers: [
-            { id: 'LAME_NOIRE', label: "Assassinat", icon: "", type: 'active', timing: 'night' }
+            { id: 'LAME_NOIRE', label: "Assassinat", icon: "/assets/images/icones/powers/lame_noire.png", type: 'active', timing: 'night' }
         ]
     },
     FOU: {
