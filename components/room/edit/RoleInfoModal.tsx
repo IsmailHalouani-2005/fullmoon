@@ -16,7 +16,7 @@ const POWER_DESCRIPTIONS = [
     { pouvoir: 'VISION_LUNAIRE', label: "Dévoile l'identité secrète d'un joueur. (Choissiez le pour appliquer la vision lunaire.)", role: 'VOYANTE' },
     { pouvoir: 'MORSURE_INFECTE', label: "Contamine la victime des loups pour qu'elle devienne loup à son tour. (Choissiez le pour appliquer la morsure infecte.)", role: 'LOUP_INFECT' },
     { pouvoir: 'DOUBLE_VOTE', label: "Votre vote au bûcher compte double.", role: 'LOUP_ALPHA' },
-    { pouvoir: 'CARNAGE', label: "Tant qu'aucun loup ne meurt, vous pouvez chasser une victime supplémentaire. (Choissisez une différente victime).", role: 'GRAND_MECHANT_LOUP' },
+    { pouvoir: 'GRIFFURE_MORTELLE', label: "Tant qu'aucun loup ne meurt, vous pouvez chasser une victime supplémentaire. (Choissisez une différente victime de plus).", role: 'GRAND_MECHANT_LOUP' },
     { pouvoir: 'TRAHISON', label: "Permet d'éliminer un joueur (désactivé).", role: 'LOUP_BLANC' },
     { pouvoir: 'LAME_NOIRE', label: "Permet d'éliminer un joueur (désactivé).", role: 'ASSASSIN' },
     { pouvoir: 'ESSENCE', label: "Vous aspergez un joueur d'essence. (Choissiez un joueur pour appliquer l'essence).", role: 'PYROMANE' },

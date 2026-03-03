@@ -17,6 +17,7 @@ import RoleCard from '@/components/game/RoleCard';
 import PlayerCircleNode from '@/components/game/PlayerCircleNode';
 import LoadingScreen from '@/components/room/LoadingScreen';
 import LoversModal from '@/components/game/LoversModal';
+import InfectedModal from '@/components/game/InfectedModal';
 
 export default function RoomPage() {
     const params = useParams();
@@ -90,6 +91,7 @@ export default function RoomPage() {
     const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
     const [gameOverData, setGameOverData] = useState<{ winner: string; players: Player[] } | null>(null);
     const [hasSeenLoverModal, setHasSeenLoverModal] = useState(false);
+    const [hasSeenInfectedModal, setHasSeenInfectedModal] = useState(false);
 
     // --- SORCIÈRE MODALS ---
     const [witchHealTarget, setWitchHealTarget] = useState<string | null>(null);
@@ -907,6 +909,13 @@ export default function RoomPage() {
                                                 Choisissez une autre victime à tuer
                                             </div>
                                         )}
+
+                                        {/* Helper text for Loup Infecte */}
+                                        {activePower === 'MORSURE_INFECTE' && (
+                                            <div className="mt-3 text-red-500 font-bold text-xs sm:text-sm animate-pulse drop-shadow-md bg-black/40 px-3 py-1 rounded-full border border-red-500/50">
+                                                Cliquez sur la victime des loups pour qu'elle soit infectée
+                                            </div>
+                                        )}
                                     </div>
                                 );
                             })()}
@@ -929,6 +938,7 @@ export default function RoomPage() {
                             powerTargets={powerTargets}
                             wolfVictimId={game.wolfVictimId}
                             gmlVictimId={game.gmlVictimId}
+                            infectedVictimId={game.infectedVictimId}
                             nightActions={game.nightActions}
                         />
                     ))}
@@ -965,6 +975,20 @@ export default function RoomPage() {
                             />
                         );
                     }
+                }
+                return null;
+            })()}
+
+            {/* Modal Infected */}
+            {(() => {
+                const amIInfected = mePlayer?.effects?.includes('infected');
+                if (amIInfected && !hasSeenInfectedModal) {
+                    return (
+                        <InfectedModal
+                            isOpen={true}
+                            onClose={() => setHasSeenInfectedModal(true)}
+                        />
+                    );
                 }
                 return null;
             })()}

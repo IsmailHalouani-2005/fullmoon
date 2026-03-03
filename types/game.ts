@@ -25,6 +25,7 @@ export interface ChatMessage {
     text: string;
     time: number;
     chatType: 'day' | 'night' | 'system' | 'lover';
+    targetId?: string;
 }
 
 export interface GameAction {
@@ -56,6 +57,7 @@ export interface GameState {
     lovers?: string[];
     areLoversSameCamp?: boolean;
     gmlVictimId?: string | null;
+    infectedVictimId?: string | null;
 }
 
 // -- Events Socket.io (Typage strict) --

@@ -17,6 +17,7 @@ interface PlayerCircleNodeProps {
     powerTargets?: string[];
     wolfVictimId?: string | null;
     gmlVictimId?: string | null;
+    infectedVictimId?: string | null;
     getPlayerAvatar: (playerId: string, fallbackUrl?: string) => string;
     nightActions?: any[];
 }
@@ -35,6 +36,7 @@ export default function PlayerCircleNode({
     powerTargets,
     wolfVictimId,
     gmlVictimId,
+    infectedVictimId,
     getPlayerAvatar,
     nightActions
 }: PlayerCircleNodeProps) {
@@ -121,6 +123,12 @@ export default function PlayerCircleNode({
     const showGasoline = effects.includes('gasoline') && me?.role === 'PYROMANE';
     const showLover = effects.includes('lover') && (meEffects.includes('lover') || me?.role === 'CUPIDON' || player.id === me?.id);
 
+    // La bordure de la victime infectée lors de l'utilisation du pouvoir
+    const isInfectedTarget = currentPhase === 'NIGHT' && (
+        (activePower === 'MORSURE_INFECTE' && (powerTargets || []).includes(player.id)) ||
+        infectedVictimId === player.id
+    );
+
     return (
         <div
             onClick={canVote && onVote ? () => onVote(player.id) : undefined}
@@ -132,14 +140,14 @@ export default function PlayerCircleNode({
         >
             <div className={`relative ${sizeClass} rounded-full flex items-center justify-center shadow-lg transition-all
                 ${player.id === game.hostId && currentPhase === 'LOBBY' ? 'border-[3px] border-[#D1A07A]' : 'border-[3px] border-slate-800'} 
-                ${isTargeted || isTargetedByPower || isPoisonTarget || isCupidonTarget || isGmlVictim ? ((currentPhase === 'NIGHT') ? "border-dashed !border-4 border-white shadow-[0_0_20px_rgba(255,255,255,0.6)] scale-105" : 'border-dashed !border-4 border-slate-900 shadow-[0_0_20px_rgba(0,0,0,0.6)] scale-105') : ''}
-                ${isTargetedByPower ? (activePower === 'COUP_DE_COEUR' ? '!border-[#ff69b4] shadow-[0_0_15px_#ff69b4] animate-pulse' : '!border-[#D1A07A]') : ''}
+                ${isTargeted || isTargetedByPower || isPoisonTarget || isCupidonTarget || isGmlVictim || isInfectedTarget ? ((currentPhase === 'NIGHT') ? "border-dashed !border-4 border-white shadow-[0_0_20px_rgba(255,255,255,0.6)] scale-105" : 'border-dashed !border-4 border-slate-900 shadow-[0_0_20px_rgba(0,0,0,0.6)] scale-105') : ''}
+                ${isTargetedByPower ? (activePower === 'COUP_DE_COEUR' ? '!border-[#ff69b4] shadow-[0_0_15px_#ff69b4] animate-pulse' : (activePower === 'MORSURE_INFECTE' ? '!border-green-500 shadow-[0_0_15px_#22c55e] animate-pulse' : '!border-[#D1A07A]')) : ''}
                 ${isCupidonTarget ? '!border-[#ff69b4] shadow-[0_0_15px_#ff69b4] animate-pulse scale-105' : ''}
-                ${displayAsWolfVictim ? '!border-red-600 shadow-[0_0_15px_#ef4444] animate-pulse scale-105' : ''}
+                ${displayAsWolfVictim ? ((isInfectedTarget) ? '!border-green-600 shadow-[0_0_15px_#22c55e] animate-pulse scale-105' : '!border-red-600 shadow-[0_0_15px_#ef4444] animate-pulse scale-105') : ''}
                 ${isGmlVictim ? '!border-dashed !border-red-900 shadow-[0_0_15px_#7f1d1d] animate-pulse scale-105' : ''}
                 ${isPoisonTarget ? '!border-purple-600 shadow-[0_0_15px_#9333ea]' : ''}
                 ${isHealed ? '!border-green-500 shadow-[0_0_15px_#22c55e]' : ''}
-            `} title={displayAsWolfVictim ? "Cible des Loups" : (isGmlVictim ? "Carnage (Votre 2e cible)" : (isPoisonTarget ? "Cible de votre poison" : (isHealed ? "Sauvé par votre potion" : "")))}>
+            `} title={displayAsWolfVictim ? "Cible des Loups" : (isGmlVictim ? "Carnage (Votre 2e cible)" : (isInfectedTarget ? "Cible de l'infection" : (isPoisonTarget ? "Cible de votre poison" : (isHealed ? "Sauvé par votre potion" : ""))))}>
                 {/* MOCK: L'image de fond lune pour tout le monde */}
                 <div className={`absolute inset-0 bg-[#e3d1ae] rounded-full z-0 overflow-hidden ${isDead ? 'grayscale' : ''}`}></div>
                 <div className={`absolute inset-0 flex items-center justify-center opacity-30 z-0 select-none overflow-hidden ${isDead ? 'grayscale' : ''}`}>
@@ -177,14 +185,17 @@ export default function PlayerCircleNode({
                 )}
 
                 {/* Effect Icons Section */}
+                {/* Badge Infecté en haut à droite */}
+                {showInfected && (
+                    <div className="absolute -top-4 -right-20 w-25 h-25 drop-shadow-md z-40" title="Infecté">
+                        <Image src="/assets/images/icones/powers/Effect_infecte.png" alt="Infecté" width={50} height={50} />
+                    </div>
+                )}
+
+                {/* Autres effets en bas à gauche */}
                 <div className="absolute -left-2 -bottom-2 flex flex-col gap-1 z-40">
-                    {showInfected && (
-                        <div className="w-10 h-10 drop-shadow-md animate-pulse" title="Infecté">
-                            <Image src="/assets/images/icones/powers/Morsure.png" alt="Infecté" width={50} height={50} />
-                        </div>
-                    )}
                     {showPoisoned && (
-                        <div className="w-10 h-10 drop-shadow-md" title="Empoisonné (Muet)">
+                        <div className="w-15 h-15 drop-shadow-md" title="Empoisonné (Muet)">
                             <Image src="/assets/images/icones/powers/Poison_Toxique.png" alt="Muet" width={50} height={50} />
                         </div>
                     )}
@@ -208,26 +219,28 @@ export default function PlayerCircleNode({
             </p>
 
             {/* Piles de voteurs sous le nom */}
-            {isTargeted && (
-                (currentPhase === 'NIGHT') ? (
-                    (isInWolfCamp(me?.role as RoleId)) ? (
+            {
+                isTargeted && (
+                    (currentPhase === 'NIGHT') ? (
+                        (isInWolfCamp(me?.role as RoleId)) ? (
+                            <div className="flex flex-wrap justify-center mt-1 gap-1 w-full max-w-[100px] absolute top-[110%]">
+                                {votersForThisPlayer.map((vp, vIdx) => (
+                                    <div key={vIdx} className="relative w-5 h-5 rounded-full border-1 border-slate-700 overflow-hidden drop-shadow-sm transition-transform hover:scale-150 z-40" title={vp.name}>
+                                        <Image src={getPlayerAvatar(vp.id, vp.avatarUrl)} alt={vp.name} fill className="object-cover" />
+                                    </div>
+                                ))}
+                            </div>) : ""
+                    ) : (
                         <div className="flex flex-wrap justify-center mt-1 gap-1 w-full max-w-[100px] absolute top-[110%]">
                             {votersForThisPlayer.map((vp, vIdx) => (
                                 <div key={vIdx} className="relative w-5 h-5 rounded-full border-1 border-slate-700 overflow-hidden drop-shadow-sm transition-transform hover:scale-150 z-40" title={vp.name}>
                                     <Image src={getPlayerAvatar(vp.id, vp.avatarUrl)} alt={vp.name} fill className="object-cover" />
                                 </div>
                             ))}
-                        </div>) : ""
-                ) : (
-                    <div className="flex flex-wrap justify-center mt-1 gap-1 w-full max-w-[100px] absolute top-[110%]">
-                        {votersForThisPlayer.map((vp, vIdx) => (
-                            <div key={vIdx} className="relative w-5 h-5 rounded-full border-1 border-slate-700 overflow-hidden drop-shadow-sm transition-transform hover:scale-150 z-40" title={vp.name}>
-                                <Image src={getPlayerAvatar(vp.id, vp.avatarUrl)} alt={vp.name} fill className="object-cover" />
-                            </div>
-                        ))}
-                    </div>
+                        </div>
+                    )
                 )
-            )}
-        </div>
+            }
+        </div >
     );
 }

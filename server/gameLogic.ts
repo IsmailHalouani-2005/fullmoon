@@ -396,6 +396,29 @@ export function setupGameLogic(io: Server<ClientToServerEvents, ServerToClientEv
                         });
                     }
                     break;
+                case 'MORSURE_INFECTE':
+                    // Update real-time infection target for UI
+                    game.infectedVictimId = payload.targetId || null;
+
+                    // Support toggle selection
+                    const existingInfectIdx = game.nightActions.findIndex(a => a.sourceId === userId && a.powerId === 'MORSURE_INFECTE');
+                    if (existingInfectIdx !== -1 && game.nightActions[existingInfectIdx].targetId === payload.targetId) {
+                        game.nightActions.splice(existingInfectIdx, 1);
+                        game.infectedVictimId = null;
+                        emitGameState(roomCode, game, io);
+                        return;
+                    }
+
+                    game.nightActions = game.nightActions.filter(a => a.sourceId !== userId || a.powerId !== 'MORSURE_INFECTE');
+                    if (payload.targetId) {
+                        game.nightActions.push({
+                            type: 'power',
+                            powerId: 'MORSURE_INFECTE',
+                            sourceId: userId,
+                            targetId: payload.targetId
+                        });
+                    }
+                    break;
                 default:
                     // Store other night actions for dawn resolution
                     game.nightActions = game.nightActions.filter(a => a.sourceId !== userId || a.powerId !== payload.powerId);
@@ -694,9 +717,11 @@ function handlePhaseEnd(roomCode: string, endedPhase: Phase, games: Record<strin
                     const victim = game.players.find(p => p.id === wolfVictimId);
                     if (victim) {
                         victim.effects.push('infected');
-                        const infectMsg: ChatMessage = { senderId: 'system', senderName: 'Système', text: `Une ombre a envahi l'esprit de quelqu'un...`, time: Date.now(), chatType: 'system' };
-                        game.chatMessages.push(infectMsg);
-                        io.to(roomCode).emit("chat_message", infectMsg);
+                        const publicInfectMsg: ChatMessage = { senderId: 'system', senderName: 'Système', text: `Une ombre a envahi l'esprit de quelqu'un...`, time: Date.now(), chatType: 'system' };
+                        const privateInfectMsg: ChatMessage = { senderId: 'system', senderName: 'Système', text: `Vous avez été infecté ! Vous faites désormais partie du camp des LOUPS, mais vous gardez votre pouvoir initial.`, time: Date.now(), chatType: 'system', targetId: victim.id };
+                        game.chatMessages.push(publicInfectMsg, privateInfectMsg);
+                        io.to(roomCode).emit("chat_message", publicInfectMsg);
+                        io.to(roomCode).emit("chat_message", privateInfectMsg);
                     }
                 } else {
                     deaths.push(wolfVictimId);
@@ -966,6 +991,7 @@ function emitGameState(roomCode: string, game: GameState, io: Server) {
             }
             return msg;
         }).filter(msg => {
+            if (msg.targetId && msg.targetId !== userId) return false;
             if (msg.chatType === 'night') return playerIsWolf || playerRole === 'PETITE_FILLE';
             if (msg.chatType === 'lover') return tailoredGame.lovers?.includes(userId) || playerRole === 'CUPIDON';
             return true;
@@ -992,12 +1018,22 @@ function emitGameState(roomCode: string, game: GameState, io: Server) {
             // Cupidon Logic: Only Cupid and the two lovers can see the `lover` effect and `game.lovers`.
             const isLover = tailoredGame.lovers?.includes(userId);
             const isCupidon = playerRole === 'CUPIDON';
+
+            // Infection Logic: The infected player and all wolves can see the `infected` effect.
+            const amIInfected = isTargetSelf && p.effects.includes('infected');
+            const canSeeInfection = amIInfected || playerIsWolf || explicitTargetWolf;
+
             if (!isLover && !isCupidon && game.phase !== 'GAME_OVER') {
                 if (tailoredGame.lovers) {
                     tailoredGame.lovers = undefined;
                     tailoredGame.areLoversSameCamp = undefined;
                 }
+                // Ne filtrer 'lover' que s'il est présent
                 p.effects = p.effects.filter(e => e !== 'lover');
+            }
+
+            if (!canSeeInfection && game.phase !== 'GAME_OVER') {
+                p.effects = p.effects.filter(e => e !== 'infected');
             }
         });
 
@@ -1054,10 +1090,16 @@ function emitGameState(roomCode: string, game: GameState, io: Server) {
             if (playerRole !== 'GRAND_MECHANT_LOUP') {
                 tailoredGame.gmlVictimId = null;
             }
+
+            // Loup Infecte : tous les loups peuvent voir la cible de l'infection
+            if (!playerIsWolf) {
+                tailoredGame.infectedVictimId = null;
+            }
         } else {
             // Not night? Clear victim indicator for all
             tailoredGame.wolfVictimId = null;
             tailoredGame.gmlVictimId = null;
+            tailoredGame.infectedVictimId = null;
         }
 
         socket.emit('update_game', tailoredGame);
