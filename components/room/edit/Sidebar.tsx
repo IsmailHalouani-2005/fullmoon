@@ -39,10 +39,10 @@ export default function Sidebar({
                 <Link href="/play" className="p-1 hover:bg-slate-100 rounded">
                     <Image src="/assets/images/icones/home-icon_black.png" alt="Accueil" width={22} height={22} />
                 </Link>
-                <div className="flex gap-2">
+                {/* <div className="flex gap-2">
                     <button className="p-1 hover:bg-slate-100 rounded"><Image src="/assets/images/icones/parametre-icon_black.png" alt="Paramètres" width={22} height={22} /></button>
                     <button className="p-1 hover:bg-slate-100 rounded"><Image src="/assets/images/icones/friends-icon_black.png" alt="Joueurs" width={22} height={22} /></button>
-                </div>
+                </div> */}
             </div>
 
             {/* Creator Info */}

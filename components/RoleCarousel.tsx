@@ -117,7 +117,8 @@ export default function RoleCarousel() {
 
             {/* Modal Infobox */}
             {modalRole && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center px-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+                <div className="fixed inset-0 z-[100000] flex items-center justify-center px-4  animate-in fade-in duration-200">
+                    <div className="bg-black/80 absolute inset-0 z-[-1] backdrop-blur-sm" onClick={() => setModalRole(null)}></div>
                     <div className="relative bg-[#1E2325] border-2 border-primary max-w-2xl max-h-[90vh] overflow-y-auto w-full rounded-md shadow-2xl p-8 md:p-12 text-center text-white">
                         <button
                             className="absolute top-4 right-4 text-primary hover:text-white transition-colors"

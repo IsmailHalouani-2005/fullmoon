@@ -645,7 +645,7 @@ export default function RoomPage() {
 
             {/* Mobile Toggle Button (Visible only on small screens) */}
             <button
-                onClick={() => setIsMobileSidebarOpen(!isMobileSidebarOpen)}
+                onClick={() => { setIsMobileSidebarOpen(!isMobileSidebarOpen); setIsPlayersListOpen(false); setIsInviteOpen(false); }}
                 className={`md:hidden fixed top-4 left-4 z-[110] p-2 rounded-md bg-dark text-white border-2 transition-colors shadow-lg border-secondary hover:bg-black`}
                 title={isMobileSidebarOpen ? "Fermer le menu" : "Ouvrir le menu"}
             >
@@ -684,7 +684,7 @@ export default function RoomPage() {
             <aside className={`fixed md:relative inset-y-0 left-0 z-[100] w-80 md:w-100 flex flex-col p-4 transition-transform duration-300 transform md:translate-x-0 ${isMobileSidebarOpen ? 'translate-x-0' : '-translate-x-full'} ${currentPhase === 'NIGHT' ? 'bg-[#16161e] border-r border-[#2a2b3d]' : 'bg-[#fafafa] shadow-2xl md:shadow-none'}`}>
                 {/* Ligne du haut : Home, Params, Amis */}
                 <div className={`flex justify-between items-center bg-transparent border-3 rounded-lg px-3 py-1 ml-14 mb-6 md:ml-0 transition-colors duration-1000 ${currentPhase === 'NIGHT' ? 'bg-[#1f202e] border-slate-600 text-white' : 'bg-white border-dark text-slate-900'}`}>
-                    <button onClick={() => { handleSafeLeave(); setIsMobileSidebarOpen(false); }} className="hover:opacity-70 transition-opacity flex items-center justify-center p-1">
+                    <button onClick={() => { handleSafeLeave(); setIsMobileSidebarOpen(false); setIsPlayersListOpen(false); setIsInviteOpen(false); }} className="hover:opacity-70 transition-opacity flex items-center justify-center p-1">
                         <Image src={currentPhase === 'NIGHT' ? '/assets/images/icones/home-icon_white.png' : '/assets/images/icones/home-icon_black.png'} alt="Accueil" width={22} height={22} />
                     </button>
                     <div className="flex gap-4">

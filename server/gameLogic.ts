@@ -1409,6 +1409,32 @@ function triggerGameOver(roomCode: string, victoryDetails: { winner: string, pla
         game.phase = 'GAME_OVER';
         io.to(roomCode).emit('game_over', gameOverPayload);
         emitGameState(roomCode, game, io);
+
+        // Disconnect players and delete room 5 minutes after game ends
+        setTimeout(() => {
+            const currentGame = games[roomCode];
+            if (currentGame && currentGame.phase === 'GAME_OVER') {
+                console.log(`[SHUTDOWN] Room ${roomCode} closing 5 minutes after GAME_OVER.`);
+
+                io.to(roomCode).emit('room_shutdown', 'La partie est terminée depuis 5 minutes. Le salon va être fermé.');
+
+                const room = io.sockets.adapter.rooms.get(roomCode);
+                if (room) {
+                    for (const socketId of room) {
+                        const socket = io.sockets.sockets.get(socketId);
+                        if (socket) {
+                            socket.leave(roomCode);
+                        }
+                    }
+                }
+
+                delete games[roomCode];
+                if (gameTimers[roomCode]) {
+                    clearInterval(gameTimers[roomCode]);
+                    delete gameTimers[roomCode];
+                }
+            }
+        }, 5 * 60 * 1000); // 5 minutes
     }, 4500);
 }
 
