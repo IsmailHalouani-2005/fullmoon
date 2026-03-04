@@ -288,8 +288,6 @@ export default function PlayerProfilePage() {
                         onGoBack={() => router.back()}
                     />
 
-                    {/* Divider */}
-                    <div className="w-full h-px bg-white/10 relative z-10 mx-auto max-w-[90%]"></div>
 
                     {/* Stats Wrapper */}
                     <ProfileStats

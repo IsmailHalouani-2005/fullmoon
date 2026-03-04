@@ -284,7 +284,7 @@ export default function ProfilePage() {
                             <span className="text-xl">←</span> Retour
                         </button>
 
-                        <h1 className="font-enchanted text-6xl text-white text-center mt-3 mb-7 tracking-wider">COMPTE</h1>
+                        <h1 className="font-enchanted text-6xl text-white text-center my-8 tracking-wider">COMPTE</h1>
 
                         <div className="flex flex-col md:flex-row gap-12 items-start md:items-center">
 

@@ -15,12 +15,14 @@ interface SidebarProps {
     setIsPrivate: (v: boolean) => void;
     isMicroEnabled: boolean;
     setIsMicroEnabled: (v: boolean) => void;
+    isMayorEnabled: boolean;
+    setIsMayorEnabled: (v: boolean) => void;
     onApplyDefaults: () => void;
     onCreateVillage: () => void;
 }
 
 export default function Sidebar({
-    user, roomCode, secretCode, villageName, setVillageName, isPrivate, setIsPrivate, isMicroEnabled, setIsMicroEnabled, onApplyDefaults, onCreateVillage
+    user, roomCode, secretCode, villageName, setVillageName, isPrivate, setIsPrivate, isMicroEnabled, setIsMicroEnabled, isMayorEnabled, setIsMayorEnabled, onApplyDefaults, onCreateVillage
 }: SidebarProps) {
 
     const [chatMessage, setChatMessage] = useState('');
@@ -33,7 +35,7 @@ export default function Sidebar({
     return (
         <div className="flex flex-col h-full gap-5">
             {/* Top Nav (Home, Settings, Group) */}
-            <div className="flex justify-between items-center border-[3px] border-dark rounded-lg py-1 px-3 bg-white">
+            <div className="flex mt-4 justify-between items-center border-[3px] border-dark rounded-lg py-1 px-3 bg-white">
                 <Link href="/play" className="p-1 hover:bg-slate-100 rounded">
                     <Image src="/assets/images/icones/home-icon_black.png" alt="Accueil" width={22} height={22} />
                 </Link>
@@ -98,18 +100,34 @@ export default function Sidebar({
                 </div>
             </button>
 
-            {/* Micro Toggle */}
-            <div className="flex items-center gap-4">
-                <span className="font-bold text-lg">Micro</span>
-                <button
-                    className={`relative inline-flex h-8 w-14 lg:w-16 items-center rounded-full transition-colors font-bold text-[10px] ${isMicroEnabled ? 'bg-green-500' : 'bg-red-500'}`}
-                    onClick={() => setIsMicroEnabled(!isMicroEnabled)}
-                >
-                    <span className={`inline-block h-5 w-5 lg:h-6 lg:w-6 transform rounded-full bg-white transition-transform ${isMicroEnabled ? 'translate-x-8 lg:translate-x-9' : 'translate-x-1'}`} />
-                    <span className={`absolute text-white ${isMicroEnabled ? 'left-2' : 'right-2'}`}>
-                        {isMicroEnabled ? 'ON' : 'OFF'}
-                    </span>
-                </button>
+            {/* Micro and Mayor Toggles */}
+            <div className="flex flex-col gap-3">
+                <div className="flex items-center justify-between gap-4">
+                    <span className="font-bold text-lg">Micro</span>
+                    <button
+                        className={`relative inline-flex h-8 w-14 lg:w-16 items-center rounded-full transition-colors font-bold text-[10px] ${isMicroEnabled ? 'bg-green-500' : 'bg-red-500'}`}
+                        onClick={() => setIsMicroEnabled(!isMicroEnabled)}
+                    >
+                        <span className={`inline-block h-5 w-5 lg:h-6 lg:w-6 transform rounded-full bg-white transition-transform ${isMicroEnabled ? 'translate-x-8 lg:translate-x-9' : 'translate-x-1'}`} />
+                        <span className={`absolute text-white ${isMicroEnabled ? 'left-2' : 'right-2'}`}>
+                            {isMicroEnabled ? 'ON' : 'OFF'}
+                        </span>
+                    </button>
+                </div>
+                <div className="flex items-center justify-between gap-4">
+                    <div className="flex items-center gap-2">
+                        <span className="font-bold text-lg">Mairie</span>
+                    </div>
+                    <button
+                        className={`relative inline-flex h-8 w-14 lg:w-16 items-center rounded-full transition-colors font-bold text-[10px] ${isMayorEnabled ? 'bg-green-500' : 'bg-red-500'}`}
+                        onClick={() => setIsMayorEnabled(!isMayorEnabled)}
+                    >
+                        <span className={`inline-block h-5 w-5 lg:h-6 lg:w-6 transform rounded-full bg-white transition-transform ${isMayorEnabled ? 'translate-x-8 lg:translate-x-9' : 'translate-x-1'}`} />
+                        <span className={`absolute text-white ${isMayorEnabled ? 'left-2' : 'right-2'}`}>
+                            {isMayorEnabled ? 'ON' : 'OFF'}
+                        </span>
+                    </button>
+                </div>
             </div>
 
             {/* Default Settings Button */}

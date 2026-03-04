@@ -1,7 +1,7 @@
 import { RoleId, PowerId } from "./roles";
 
 export type Role = RoleId | null;
-export type Phase = 'LOBBY' | 'ROLE_REVEAL' | 'MAYOR_ELECTION' | 'NIGHT' | 'DAY_DISCUSSION' | 'DAY_VOTE' | 'HUNTER_SHOT' | 'GAME_OVER';
+export type Phase = 'LOBBY' | 'ROLE_REVEAL' | 'MAYOR_ELECTION' | 'MAYOR_SUCCESSION' | 'NIGHT' | 'DAY_DISCUSSION' | 'DAY_VOTE' | 'HUNTER_SHOT' | 'GAME_OVER';
 
 export interface Player {
     hasVoted: string | null;
@@ -53,7 +53,9 @@ export interface GameState {
     players: Player[];
     hostId: string;
     timer: number;
+    isMayorEnabled?: boolean;
     mayorId: string | null;
+    dyingMayorId?: string | null;
     dayCount: number;
     votes: Record<string, string>; // { voterId: targetId }
     nightActions: GameAction[]; // Decisions pending for dawn
@@ -61,6 +63,7 @@ export interface GameState {
     isPrivate?: boolean;
     secretCode?: string;
     nextPhase?: Phase;
+    queuedPhase?: Phase; // Pour revenir à la bonne phase après MAYOR_SUCCESSION
     wolfVictimId?: string | null;
     rolesCount?: Partial<Record<RoleId, number>>;
     deadRolesCount?: Partial<Record<RoleId, number>>;
@@ -77,7 +80,7 @@ export interface GameState {
 
 export interface ClientToServerEvents {
     join_game: (payload: { roomCode: string; userId: string; username: string; avatarUrl?: string }) => void;
-    start_game: (config?: { rolesCount: Partial<Record<RoleId, number>>, isCustom?: boolean }) => void;
+    start_game: (config?: { rolesCount: Partial<Record<RoleId, number>>, isCustom?: boolean, isMayorEnabled?: boolean }) => void;
     vote_player: (targetId: string) => void;
     use_power: (payload: { powerId: PowerId; targetId?: string; targetId2?: string }) => void;
     chat_message: (payload: ChatMessage, callback?: (response: { status: 'success' | 'error', reason?: string }) => void) => void;

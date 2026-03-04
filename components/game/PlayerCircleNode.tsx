@@ -111,6 +111,7 @@ export default function PlayerCircleNode({
         (activePower === 'ESSENCE' && me?.isAlive && !isDead && me?.id !== player.id && !effects.includes('gasoline')) || // Pyromane cannot target himself or already gasoline
         (activePower === 'POISON_TOXIQUE' && me?.isAlive && !isDead && me?.id !== player.id && game.lastPoisonedId !== player.id) || // Empoisonneur cannot target himself or last poisoned
         (activePower === 'FUSIL' && !me?.isAlive && me?.deadAt && !isDead) || // Hunter power
+        (currentPhase === 'MAYOR_SUCCESSION' && !me?.isAlive && me?.id === game.dyingMayorId && !isDead) || // Dying Mayor
         (!activePower && (
             currentPhase === 'MAYOR_ELECTION' ||
             currentPhase === 'DAY_VOTE' ||

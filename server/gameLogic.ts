@@ -203,6 +203,7 @@ export function setupGameLogic(io: Server<ClientToServerEvents, ServerToClientEv
                     distributedRoles[r] = (distributedRoles[r] ?? 0) + 1;
                 });
                 game.rolesCount = distributedRoles;
+                game.isMayorEnabled = config?.isMayorEnabled !== false;
 
                 game.nightActions = [];
 
@@ -275,9 +276,13 @@ export function setupGameLogic(io: Server<ClientToServerEvents, ServerToClientEv
             game.lastActivity = Date.now();
             const voter = game.players.find(p => p.id === userId);
             const target = game.players.find(p => p.id === targetId);
-            if (!voter || !voter.isAlive || !target) return;
+            if (!voter || !target) return;
 
-            if (voter.effects.includes('poisoned')) {
+            const isDyingMayorVoting = game.phase === 'MAYOR_SUCCESSION' && userId === game.dyingMayorId;
+            if (!voter.isAlive && !isDyingMayorVoting) return;
+            if (game.phase === 'MAYOR_SUCCESSION' && !target.isAlive) return;
+
+            if (voter.effects.includes('poisoned') && !isDyingMayorVoting) {
                 socket.emit("error", "Vous êtes empoisonné et ne pouvez pas voter.");
                 return;
             }
@@ -290,7 +295,7 @@ export function setupGameLogic(io: Server<ClientToServerEvents, ServerToClientEv
             const isLoupBlancVote = game.phase === 'NIGHT' && voter.role === 'LOUP_BLANC' && !voter.effects?.includes('infected');
             const isAssassinVote = game.phase === 'NIGHT' && voter.role === 'ASSASSIN' && !voter.effects?.includes('infected');
 
-            if (game.phase === 'MAYOR_ELECTION' || game.phase === 'DAY_VOTE' || isValidNightWolfVote || isLoupBlancVote || isAssassinVote) {
+            if (game.phase === 'MAYOR_ELECTION' || game.phase === 'MAYOR_SUCCESSION' || game.phase === 'DAY_VOTE' || isValidNightWolfVote || isLoupBlancVote || isAssassinVote) {
 
                 if (game.votes[userId] === targetId) {
                     delete game.votes[userId];
@@ -409,11 +414,20 @@ export function setupGameLogic(io: Server<ClientToServerEvents, ServerToClientEv
                                 const next = game.nextPhase || (game.dayCount > 1 && !game.chatMessages.some(m => m.text.includes("Le village se réveille") && m.time > Date.now() - 60000) ? 'DAY_DISCUSSION' : 'NIGHT');
                                 delete game.nextPhase;
 
-                                if (next === 'NIGHT') {
-                                    // Removed premature poison clearing
+                                let finalPhase = next as Phase;
+
+                                // Note: victim.id === game.mayorId means the hunter just shot the mayor
+                                if (victim.id === game.mayorId && game.isMayorEnabled !== false) {
+                                    game.dyingMayorId = game.mayorId;
+                                    game.mayorId = null;
                                 }
 
-                                startPhase(roomCode, next as Phase, games, gameTimers, io);
+                                if (game.dyingMayorId) {
+                                    game.queuedPhase = finalPhase;
+                                    finalPhase = 'MAYOR_SUCCESSION';
+                                }
+
+                                startPhase(roomCode, finalPhase, games, gameTimers, io);
                             }
                         }
                     }
@@ -783,6 +797,7 @@ function startPhase(roomCode: string, newPhase: Phase, games: Record<string, Gam
     switch (newPhase) {
         case 'ROLE_REVEAL': duration = 15; break;
         case 'MAYOR_ELECTION': duration = 45; break;
+        case 'MAYOR_SUCCESSION': duration = 15; break;
         case 'NIGHT': duration = 60; break;
         case 'DAY_DISCUSSION': duration = 60; break;
         case 'DAY_VOTE': duration = 30; break;
@@ -835,7 +850,11 @@ function handlePhaseEnd(roomCode: string, endedPhase: Phase, games: Record<strin
 
     switch (endedPhase) {
         case 'ROLE_REVEAL':
-            startPhase(roomCode, 'MAYOR_ELECTION', games, gameTimers, io);
+            if (game.isMayorEnabled !== false) {
+                startPhase(roomCode, 'MAYOR_ELECTION', games, gameTimers, io);
+            } else {
+                startPhase(roomCode, 'NIGHT', games, gameTimers, io);
+            }
             break;
         case 'MAYOR_ELECTION':
             let electedMayorId = tallyVotes(game, true);
@@ -864,6 +883,44 @@ function handlePhaseEnd(roomCode: string, endedPhase: Phase, games: Record<strin
                 io.to(roomCode).emit("chat_message", mayorMsg);
             }
             startPhase(roomCode, 'NIGHT', games, gameTimers, io);
+            break;
+        case 'MAYOR_SUCCESSION':
+            let newMayorId: string | null = null;
+            if (game.dyingMayorId && game.votes[game.dyingMayorId]) {
+                const targetId = game.votes[game.dyingMayorId];
+                const target = game.players.find(p => p.id === targetId);
+                if (target && target.isAlive) {
+                    newMayorId = targetId;
+                }
+            }
+
+            if (!newMayorId) {
+                const alivePlayers = game.players.filter(p => p.isAlive);
+                if (alivePlayers.length > 0) {
+                    newMayorId = alivePlayers[Math.floor(Math.random() * alivePlayers.length)].id;
+                }
+            }
+
+            if (newMayorId) {
+                game.mayorId = newMayorId;
+                const newMayorName = game.players.find(p => p.id === newMayorId)?.name;
+                const oldMayorName = game.players.find(p => p.id === game.dyingMayorId)?.name || "L'ancien Maire";
+
+                const mayorMsg: ChatMessage = { senderId: 'system', senderName: 'Système', text: `${oldMayorName} a légué la Mairie à ${newMayorName} dans son dernier souffle.`, time: Date.now(), chatType: 'system' };
+                game.chatMessages.push(mayorMsg);
+                io.to(roomCode).emit("chat_message", mayorMsg);
+            }
+
+            const nextPhaseAfterMayor = game.queuedPhase || 'NIGHT';
+            delete game.dyingMayorId;
+            delete game.queuedPhase;
+
+            const vDetailsMayor = checkVictory(game);
+            if (vDetailsMayor) {
+                triggerGameOver(roomCode, vDetailsMayor, games, gameTimers, io);
+            } else {
+                startPhase(roomCode, nextPhaseAfterMayor, games, gameTimers, io);
+            }
             break;
         case 'NIGHT':
             // Clear all existing poisons from previous cycle before applying new ones.
@@ -1109,11 +1166,23 @@ function handlePhaseEnd(roomCode: string, endedPhase: Phase, games: Record<strin
                 return p?.role === 'CHASSEUR' && !p?.effects.includes('poisoned');
             });
 
+            // Only process Mayor death if we haven't already done it (ex: during a same-phase trigger)
+            const isMayorDeadAtNight = uniqueDeaths.includes(game.mayorId || '');
+            if (isMayorDeadAtNight && game.isMayorEnabled !== false) {
+                game.dyingMayorId = game.mayorId;
+                game.mayorId = null;
+            }
+
             if (anyHunterDiedAtNight) {
                 game.nextPhase = 'DAY_DISCUSSION';
                 startPhase(roomCode, 'HUNTER_SHOT', games, gameTimers, io);
             } else {
-                startPhase(roomCode, 'DAY_DISCUSSION', games, gameTimers, io);
+                if (game.dyingMayorId) {
+                    game.queuedPhase = 'DAY_DISCUSSION';
+                    startPhase(roomCode, 'MAYOR_SUCCESSION', games, gameTimers, io);
+                } else {
+                    startPhase(roomCode, 'DAY_DISCUSSION', games, gameTimers, io);
+                }
             }
 
             if (uniqueDeaths.length > 0) {
@@ -1182,6 +1251,12 @@ function handlePhaseEnd(roomCode: string, endedPhase: Phase, games: Record<strin
                 return;
             }
 
+            const isMayorDeadAtDay = deadId === game.mayorId || deathsDay.includes(game.mayorId || '');
+            if (isMayorDeadAtDay && game.isMayorEnabled !== false) {
+                game.dyingMayorId = game.mayorId;
+                game.mayorId = null;
+            }
+
             const anyHunterDiedAtDay = deathsDay.some(dId => {
                 const p = game.players.find(player => player.id === dId);
                 return p?.role === 'CHASSEUR' && !p?.effects.includes('poisoned');
@@ -1196,7 +1271,12 @@ function handlePhaseEnd(roomCode: string, endedPhase: Phase, games: Record<strin
             const victoryDetails = checkVictory(game);
             if (victoryDetails) triggerGameOver(roomCode, victoryDetails, games, gameTimers, io);
             else {
-                startPhase(roomCode, 'NIGHT', games, gameTimers, io);
+                if (game.dyingMayorId) {
+                    game.queuedPhase = 'NIGHT';
+                    startPhase(roomCode, 'MAYOR_SUCCESSION', games, gameTimers, io);
+                } else {
+                    startPhase(roomCode, 'NIGHT', games, gameTimers, io);
+                }
             }
             break;
         case 'HUNTER_SHOT':
@@ -1212,7 +1292,12 @@ function handlePhaseEnd(roomCode: string, endedPhase: Phase, games: Record<strin
                         // Removed premature poison clearing
                     }
 
-                    startPhase(roomCode, next, games, gameTimers, io);
+                    if (game.dyingMayorId) {
+                        game.queuedPhase = next;
+                        startPhase(roomCode, 'MAYOR_SUCCESSION', games, gameTimers, io);
+                    } else {
+                        startPhase(roomCode, next, games, gameTimers, io);
+                    }
                 }
             }
             break;

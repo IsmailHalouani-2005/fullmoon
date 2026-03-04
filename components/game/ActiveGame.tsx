@@ -118,10 +118,11 @@ export default function ActiveGame({
                             {isHost && game.players.length >= 5 ? (
                                 <button
                                     onClick={async () => {
-                                        const startPayload = dynamicRolesConfig ? {
-                                            rolesCount: dynamicRolesConfig,
-                                            isCustom: groupConfig?.isCustom
-                                        } : undefined;
+                                        const startPayload: any = { isMayorEnabled: groupConfig?.isMayorEnabled };
+                                        if (dynamicRolesConfig) {
+                                            startPayload.rolesCount = dynamicRolesConfig;
+                                            startPayload.isCustom = groupConfig?.isCustom;
+                                        }
                                         console.log("[DIAGNOSTIC] Emitting start_game with payload:", JSON.stringify(startPayload));
                                         socket?.emit('start_game', startPayload);
                                         // Persister dans Firestore pour que le Quick Join sache que la partie est lancée
@@ -142,7 +143,7 @@ export default function ActiveGame({
                     </div>
                 ) : currentPhase === 'ROLE_REVEAL' ? (
                     <div className="flex flex-col items-center justify-center z-[200] font-montserrat perspective-1000">
-                        <h2 className="text-4xl sm:text-2xl font-extrabold tracking-widest mb-2 text-slate-900 font-enchanted drop-shadow-md">Découvrez votre Rôle</h2>
+                        <h2 className="absolute -top-40 md:relative md:top-auto text-4xl sm:text-2xl font-extrabold tracking-widest mb-2 text-center text-slate-900 font-enchanted drop-shadow-md">Découvrez votre Rôle</h2>
 
                         <RoleCard
                             roleId={user && game.players.find((p: any) => p.id === user.uid)?.role ? (game.players.find((p: any) => p.id === user.uid)!.role as RoleId) : undefined}
@@ -152,7 +153,7 @@ export default function ActiveGame({
                             className="w-[180px] sm:w-[240px]"
                         />
 
-                        <p className="mt-2 text-sm text-slate-600 font-bold bg-white/70 px-4 py-2 rounded-full shadow-sm animate-pulse">
+                        <p className="mt-2 text-sm text-slate-600 font-bold bg-white/90 px-4 py-2 rounded-full shadow-sm animate-pulse">
                             {!isCardFlipped ? "Cliquez sur la carte pour la retourner" : "La partie commence bientôt..."}
                         </p>
                     </div>
@@ -162,17 +163,19 @@ export default function ActiveGame({
                         <div className="absolute -top-45 md:top-auto md:relative w-full text-center flex flex-col items-center z-30">
                             <h2 className={`text-3xl md:text-4xl font-extrabold tracking-widest font-enchanted drop-shadow-sm ${currentPhase === 'NIGHT' ? 'text-white drop-shadow-[0_0_15px_rgba(255,255,255,0.3)]' : 'text-slate-900'}`}>
                                 {(game.phase as string) === 'MAYOR_ELECTION' ? 'Élection du Maire' :
-                                    (game.phase as string) === 'NIGHT' ? 'La Nuit Tombe' :
-                                        (game.phase as string) === 'DAY_DISCUSSION' ? 'Le Jour se Lève' :
-                                            (game.phase as string) === 'DAY_VOTE' ? 'Le Bûcher' :
-                                                (game.phase as string) === 'HUNTER_SHOT' ? 'Le Dernier Tir' : 'Fin de Partie'}
+                                    (game.phase as string) === 'MAYOR_SUCCESSION' ? 'Succession du Maire' :
+                                        (game.phase as string) === 'NIGHT' ? 'La Nuit Tombe' :
+                                            (game.phase as string) === 'DAY_DISCUSSION' ? 'Le Jour se Lève' :
+                                                (game.phase as string) === 'DAY_VOTE' ? 'Le Bûcher' :
+                                                    (game.phase as string) === 'HUNTER_SHOT' ? 'Le Dernier Tir' : 'Fin de Partie'}
                             </h2>
                             <h5 className={`text-xs md:text-sm tracking-widest mb-2 italic drop-shadow-sm ${currentPhase === 'NIGHT' ? 'text-white drop-shadow-[0_0_15px_rgba(255,255,255,0.3)]' : 'text-slate-900'}`}>
-                                {(game.phase as string) === 'MAYOR_ELECTION' ? "Votez un joueur pour qu'il devienne le Maire" :
-                                    (game.phase as string) === 'NIGHT' ? "Utilisez vos pouvoirs" :
-                                        (game.phase as string) === 'DAY_DISCUSSION' ? "Discutez et débattez entre vous" :
-                                            (game.phase as string) === 'DAY_VOTE' ? "Votez pour le joueur à exécuter" :
-                                                (game.phase as string) === 'HUNTER_SHOT' ? "Le Chasseur prépare son arme..." : "Fin de Partie"}
+                                {(game.phase as string) === 'MAYOR_ELECTION' ? "Votez pour un joueur pour qu'il devienne le Maire" :
+                                    (game.phase as string) === 'MAYOR_SUCCESSION' ? (game.dyingMayorId === user?.uid ? "C'est votre dernier souffle ! Choisissez un joueur." : "Le Maire rend son dernier souffle...") :
+                                        (game.phase as string) === 'NIGHT' ? "Utilisez vos pouvoirs" :
+                                            (game.phase as string) === 'DAY_DISCUSSION' ? "Discutez et débattez entre vous" :
+                                                (game.phase as string) === 'DAY_VOTE' ? "Votez pour le joueur à exécuter" :
+                                                    (game.phase as string) === 'HUNTER_SHOT' ? "Le Chasseur prépare son arme..." : "Fin de Partie"}
                             </h5>
                             <div className="text-lg font-extrabold text-[#D1A07A] drop-shadow-md">
                                 {game.timer}s

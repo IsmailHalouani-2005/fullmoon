@@ -34,7 +34,7 @@ export default function MainContent({
     return (
         <div className="flex flex-col items-center w-full max-w-5xl mx-auto h-full gap-8 pb-10">
 
-            <h1 className="text-4xl sm:text-5xl font-enchanted font-extrabold tracking-wider text-[#2C3338]">
+            <h1 className="text-4xl sm:text-5xl font-enchanted text-center font-extrabold tracking-wider text-[#2C3338]">
                 NOMBRE DE JOUEURS
             </h1>
 
@@ -62,7 +62,7 @@ export default function MainContent({
 
             {/* Mode Selection Toggle */}
             <div className="mt-6 flex flex-col items-center gap-4 w-full">
-                <h2 className="text-2xl font-bold font-enchanted tracking-widest text-[#2C3338]">ALGORITHME DE DISTRIBUTION</h2>
+                <h2 className="text-2xl font-bold text-center font-enchanted tracking-widest text-[#2C3338]">ALGORITHME DE DISTRIBUTION</h2>
                 <div className="flex bg-[#2C3338] p-1.5 rounded-xl border-2 border-slate-800 shadow-inner w-full max-w-md">
                     <button
                         onClick={() => {
@@ -87,14 +87,14 @@ export default function MainContent({
                 )}
             </div>
 
-            <h1 className="text-4xl sm:text-5xl font-enchanted font-extrabold tracking-wider mt-6 text-[#2C3338]">
+            <h1 className="text-4xl sm:text-5xl font-enchanted text-center font-extrabold tracking-wider mt-6 text-[#2C3338]">
                 {isCustom ? 'CHOISISSEZ LES RÔLES' : 'COMPOSITION DU VILLAGE'}
             </h1>
             <p className="text-xs text-slate-500 font-medium italic">
                 (Cliquez sur les rôles pour voir les détails)
             </p>
 
-            <div className={`w-full bg-white border-[3px] border-[#2C3338] rounded-xl p-8 transition-opacity duration-300 ${!isCustom ? 'opacity-80' : ''}`}>
+            <div className={`w-full bg-white border-[2px] border-[#2C3338] rounded-xl p-8 transition-opacity duration-300 ${!isCustom ? 'opacity-80' : ''}`}>
                 <RoleGroup
                     camp="VILLAGE"
                     title="Camp du VILLAGE :"
@@ -142,7 +142,7 @@ function RoleGroup({ camp, title, roles, rolesCount, setRolesCount, onRoleClick,
     return (
         <div>
             <h2 className="text-2xl font-bold mb-6 text-[#2C3338]">{title}</h2>
-            <div className="flex flex-wrap gap-x-8 gap-y-6">
+            <div className="flex flex-wrap justify-center gap-x-8 gap-y-6">
                 {roles.map((role: RoleDefinition) => {
                     const count = rolesCount[role.id] || 0;
 

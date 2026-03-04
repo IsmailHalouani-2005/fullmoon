@@ -32,7 +32,7 @@ export default function ProfileAvatarHeader({
     onGoBack
 }: ProfileAvatarHeaderProps) {
     return (
-        <div className="bg-[#2A2F32] rounded-t-xl p-8 md:p-12 shadow-2xl relative flex flex-col items-center w-full">
+        <div className="bg-[#2A2F32] rounded-lg mb-8 p-8 md:p-12 shadow-2xl relative flex flex-col items-center w-full">
             <button
                 onClick={onGoBack}
                 className="absolute top-6 left-8 text-white/70 hover:text-white flex items-center gap-2 text-sm font-bold transition-colors"
@@ -40,7 +40,7 @@ export default function ProfileAvatarHeader({
                 <span className="text-xl">←</span> Retour
             </button>
 
-            <h1 className="font-enchanted text-6xl text-white text-center mb-10 tracking-wider">PROFIL</h1>
+            <h1 className="font-enchanted text-6xl text-white text-center my-8 tracking-wider">PROFIL</h1>
 
             {/* Identity Header */}
             <div className="flex flex-col md:flex-row items-center gap-8 w-full justify-center">
