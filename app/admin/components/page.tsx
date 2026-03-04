@@ -341,16 +341,22 @@ export default function ComponentsTestPage() {
                     {/* Mock Profile Stats */}
                     <ProfileStats
                         stats={{
-                            totalWins: 42,
-                            totalLosses: 15,
-                            totalLeaves: 3,
+                            wins: 42,
+                            losses: 15,
+                            fled: 3,
+                            gamesPlayed: 60,
                             villageWins: 25,
                             villageLosses: 5,
                             werewolfWins: 15,
                             werewolfLosses: 8,
                             soloWins: 2,
                             soloLosses: 2,
-                            rank: "Loup Alpha"
+                            kills: 10,
+                            saves: 5,
+                            powerUses: 20,
+                            daysSurvived: 30,
+                            points: 150,
+                            rank: 1
                         }}
                     />
                 </div>

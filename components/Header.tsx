@@ -9,9 +9,10 @@ import { onAuthStateChanged } from 'firebase/auth';
 
 interface HeaderProps {
     onQuickJoin?: () => void;
+    isDark?: boolean;
 }
 
-export default function Header({ onQuickJoin }: HeaderProps = {}) {
+export default function Header({ onQuickJoin, isDark = false }: HeaderProps) {
     const router = useRouter();
     const pathname = usePathname();
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -37,7 +38,7 @@ export default function Header({ onQuickJoin }: HeaderProps = {}) {
     };
 
     return (
-        <header className="bg-transparent text-sm sticky top-0 z-50 b ">
+        <header className={`bg-transparent text-sm sticky top-0 z-50 ${isDark ? 'text-white' : 'text-dark'}`}>
             <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
                 {/* Logo */}
                 <div className="flex-shrink-0">
@@ -56,7 +57,7 @@ export default function Header({ onQuickJoin }: HeaderProps = {}) {
                 <div className="md:hidden flex items-center">
                     <button
                         onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-                        className="text-dark focus:outline-none cursor-pointer"
+                        className={`${isDark ? 'text-white' : 'text-dark'} focus:outline-none cursor-pointer`}
                         aria-label="Toggle menu"
                     >
                         <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -75,28 +76,28 @@ export default function Header({ onQuickJoin }: HeaderProps = {}) {
                         <Link
                             href="/#histoire"
                             onClick={(e) => handleScroll(e, 'histoire')}
-                            className=" font-bold tracking-wider hover:text-secondary transition-colors"
+                            className={`font-bold tracking-wider ${isDark ? 'text-white' : 'text-dark'} hover:text-secondary transition-colors`}
                         >
                             C'EST QUOI ?
                         </Link>
                         <Link
                             href="/#regles"
                             onClick={(e) => handleScroll(e, 'regles')}
-                            className="font-bold tracking-wider hover:text-secondary transition-colors"
+                            className={`font-bold tracking-wider ${isDark ? 'text-white' : 'text-dark'} hover:text-secondary transition-colors`}
                         >
                             RÈGLES
                         </Link>
                         <Link
                             href="/#roles"
                             onClick={(e) => handleScroll(e, 'roles')}
-                            className="font-bold tracking-wider hover:text-secondary transition-colors"
+                            className={`font-bold tracking-wider ${isDark ? 'text-white' : 'text-dark'} hover:text-secondary transition-colors`}
                         >
                             RÔLES
                         </Link>
                         <Link
                             href="/#leaderboard"
                             onClick={(e) => handleScroll(e, 'leaderboard')}
-                            className="font-bold tracking-wider hover:text-secondary transition-colors"
+                            className={`font-bold tracking-wider ${isDark ? 'text-white' : 'text-dark'} hover:text-secondary transition-colors`}
                         >
                             CLASSEMENT
                         </Link>
@@ -137,28 +138,28 @@ export default function Header({ onQuickJoin }: HeaderProps = {}) {
                     <Link
                         href="/#histoire"
                         onClick={(e) => handleScroll(e, 'histoire')}
-                        className=" font-bold tracking-wider text-dark hover:text-secondary transition-colors"
+                        className={`font-bold tracking-wider ${isDark ? 'text-white' : 'text-dark'} hover:text-secondary transition-colors`}
                     >
                         C'EST QUOI ?
                     </Link>
                     <Link
                         href="/#regles"
                         onClick={(e) => handleScroll(e, 'regles')}
-                        className="font-bold tracking-wider text-dark hover:text-secondary transition-colors"
+                        className={`font-bold tracking-wider ${isDark ? 'text-white' : 'text-dark'} hover:text-secondary transition-colors`}
                     >
                         RÈGLES
                     </Link>
                     <Link
                         href="/#roles"
                         onClick={(e) => handleScroll(e, 'roles')}
-                        className="font-bold tracking-wider text-dark hover:text-secondary transition-colors"
+                        className={`font-bold tracking-wider ${isDark ? 'text-white' : 'text-dark'} hover:text-secondary transition-colors`}
                     >
                         RÔLES
                     </Link>
                     <Link
                         href="/#leaderboard"
                         onClick={(e) => handleScroll(e, 'leaderboard')}
-                        className="font-bold tracking-wider text-dark hover:text-secondary transition-colors"
+                        className={`font-bold tracking-wider ${isDark ? 'text-white' : 'text-dark'} hover:text-secondary transition-colors`}
                     >
                         CLASSEMENT
                     </Link>

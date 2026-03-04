@@ -20,6 +20,7 @@ interface PlayerCircleNodeProps {
     infectedVictimId?: string | null;
     getPlayerAvatar: (playerId: string, fallbackUrl?: string) => string;
     nightActions?: any[];
+    isSpeaking?: boolean;
 }
 
 export default function PlayerCircleNode({
@@ -38,7 +39,8 @@ export default function PlayerCircleNode({
     gmlVictimId,
     infectedVictimId,
     getPlayerAvatar,
-    nightActions
+    nightActions,
+    isSpeaking
 }: PlayerCircleNodeProps) {
     // ---- Géométrie Octogonale ----
     const angleDeg = (360 / totalPlayers) * index - 90;
@@ -152,6 +154,7 @@ export default function PlayerCircleNode({
             <div className={`relative ${sizeClass} rounded-full flex items-center justify-center shadow-lg transition-all
                 ${player.id === game.hostId && currentPhase === 'LOBBY' ? 'border-[3px] border-[#D1A07A]' : 'border-[3px] border-slate-800'} 
                 ${isTargeted || isTargetedByPower || isPoisonTarget || isPoisonTargetSelection || isCupidonTarget || isGmlVictim || isInfectedTarget || isLoupBlancVote || isAssassinVote || isEssenceTarget ? ((currentPhase === 'NIGHT') ? "border-dashed !border-4 border-white shadow-[0_0_20px_rgba(255,255,255,0.6)] scale-105" : 'border-dashed !border-4 border-slate-900 shadow-[0_0_20px_rgba(0,0,0,0.6)] scale-105') : ''}
+                ${isSpeaking ? '!border-[var(--voice-aura)]' : ''}
                 ${isTargetedByPower ? (activePower === 'COUP_DE_COEUR' ? '!border-[#ff69b4] shadow-[0_0_15px_#ff69b4] animate-pulse' : (activePower === 'MORSURE_INFECTE' ? '!border-green-500 shadow-[0_0_15px_#22c55e] animate-pulse' : '!border-[#D1A07A]')) : ''}
                 ${isCupidonTarget ? '!border-[#ff69b4] shadow-[0_0_15px_#ff69b4] animate-pulse scale-105' : ''}
                 ${displayAsWolfVictim ? ((isInfectedTarget) ? '!border-green-600 shadow-[0_0_15px_#22c55e] animate-pulse scale-105' : '!border-red-600 shadow-[0_0_15px_#ef4444] animate-pulse scale-105') : ''}
@@ -161,6 +164,7 @@ export default function PlayerCircleNode({
                 ${isPoisonTarget || isPoisonTargetSelection ? '!border-purple-600 shadow-[0_0_15px_#9333ea]' : ''}
                 ${isHealed ? '!border-green-500 shadow-[0_0_15px_#22c55e]' : ''}
             `} title={displayAsWolfVictim ? "Cible des Loups" : (isGmlVictim ? "Carnage (Votre 2e cible)" : (isAssassinVote ? "Lame Noire (Votre cible)" : (isLoupBlancVote ? "Trahison (Votre cible)" : (isInfectedTarget ? "Cible de l'infection" : (isPoisonTarget || isPoisonTargetSelection ? "Cible de votre poison" : (isHealed ? "Sauvé par votre potion" : (isEssenceTarget ? "Cible de l'arrosage" : "")))))))}>
+                {isSpeaking && <div className="voice-aura-wave" />}
                 {/* MOCK: L'image de fond lune pour tout le monde */}
                 <div className={`absolute inset-0 bg-[#e3d1ae] rounded-full z-0 overflow-hidden ${isDead ? 'grayscale' : ''}`}></div>
                 <div className={`absolute inset-0 flex items-center justify-center opacity-30 z-0 select-none overflow-hidden ${isDead ? 'grayscale' : ''}`}>

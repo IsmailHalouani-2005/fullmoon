@@ -31,6 +31,7 @@ interface ActiveGameProps {
     handlePowerClick: (powerId: string) => void;
     handlePlayerClick: (playerId: string) => void;
     getPlayerAvatar: (playerId: string, avatarUrl?: string) => string;
+    speakingPlayers: Set<string>;
 }
 
 export default function ActiveGame({
@@ -56,7 +57,8 @@ export default function ActiveGame({
     setPowerTargets,
     handlePowerClick,
     handlePlayerClick,
-    getPlayerAvatar
+    getPlayerAvatar,
+    speakingPlayers
 }: ActiveGameProps) {
     const getCampColor = (camp: string) => {
         if (camp === 'VILLAGE') return 'text-green-600';
@@ -374,6 +376,7 @@ export default function ActiveGame({
                         gmlVictimId={game.gmlVictimId}
                         infectedVictimId={game.infectedVictimId}
                         nightActions={game.nightActions}
+                        isSpeaking={speakingPlayers.has(player.id)}
                     />
                 ))}
 

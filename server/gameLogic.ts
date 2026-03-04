@@ -27,16 +27,52 @@ export function setupGameLogic(io: Server<ClientToServerEvents, ServerToClientEv
         const userId = socket.handshake.query.userId as string;
         const username = socket.handshake.query.username as string;
         const avatarUrl = socket.handshake.query.avatarUrl as string | undefined;
+        const connectionType = socket.handshake.query.type as string | undefined;
 
         if (!roomCode || !userId) {
             socket.disconnect();
             return;
         }
 
-        console.log(`[SOCKET] Connexion de ${username} (ID: ${userId}) dans ${roomCode} `);
+        console.log(`[SOCKET] Connexion de ${username} (ID: ${userId}) dans ${roomCode} (type=${connectionType || 'room'})`);
+
+        // Always join the base room so that both game and group voice chats
+        // can use room-scoped helpers like getTargetSocketInRoom.
+        socket.join(roomCode);
 
         socket.on("join_game", (payload) => {
-            socket.join(roomCode);
+            // Ensure a player cannot remain logically present in multiple rooms at once.
+            // Before adding the player to this room's game, remove them from any other room games.
+            for (const [code, otherGame] of Object.entries(games)) {
+                if (code === roomCode) continue;
+                const idx = otherGame.players.findIndex(p => p.id === userId);
+                if (idx !== -1) {
+                    const leavingName = otherGame.players[idx].name;
+                    otherGame.players.splice(idx, 1);
+                    const leaveMsg: ChatMessage = {
+                        senderId: 'system',
+                        senderName: 'Système',
+                        text: `${leavingName} a quitté définitivement le village pour rejoindre une autre partie.`,
+                        time: Date.now(),
+                        chatType: 'system'
+                    };
+                    otherGame.chatMessages.push(leaveMsg);
+                    io.to(code).emit("chat_message", leaveMsg);
+                    if (otherGame.players.length === 0) {
+                        delete games[code];
+                        if (gameTimers[code]) {
+                            clearInterval(gameTimers[code]);
+                            delete gameTimers[code];
+                        }
+                    } else {
+                        if (otherGame.hostId === userId) {
+                            otherGame.hostId = otherGame.players[0].id;
+                        }
+                        emitGameState(code, otherGame, io);
+                    }
+                }
+            }
+
             if (!games[roomCode]) {
                 games[roomCode] = {
                     roomCode,
@@ -537,6 +573,105 @@ export function setupGameLogic(io: Server<ClientToServerEvents, ServerToClientEv
             emitGameState(roomCode, game, io);
         });
 
+        const getSocketByUserId = (targetUserId: string) => {
+            // Scan all connected sockets to find the one matching the userId.
+            // This is more robust than room-based lookup if there's any sync lag.
+            for (const [sid, s] of io.sockets.sockets) {
+                if (s.handshake.query.userId === targetUserId) return sid;
+            }
+            return null;
+        };
+
+        socket.on("voice_request_connect", (payload) => {
+            const { targetId, type } = payload;
+            const targetSocketId = getSocketByUserId(targetId);
+            if (!targetSocketId) {
+                console.log(`[VOICE] Target ${targetId} not found globally.`);
+                return;
+            }
+
+            if (type === 'room') {
+                const game = games[roomCode];
+                if (!game) return;
+                const sender = game.players.find(p => p.id === userId);
+                const receiver = game.players.find(p => p.id === targetId);
+                if (!sender || !receiver) return;
+
+                // Simple check for LOBBY, more strict for NIGHT
+                let canHear = (game.phase === 'LOBBY' || game.phase === 'DAY_DISCUSSION' || game.phase === 'DAY_VOTE' || game.phase === 'MAYOR_ELECTION' || game.phase === 'ROLE_REVEAL' || game.phase === 'GAME_OVER');
+
+                if (game.phase === 'NIGHT') {
+                    const senderIsWolf = isInWolfCamp(sender.role) || sender.effects.includes('infected');
+                    const receiverIsWolf = isInWolfCamp(receiver.role) || receiver.effects.includes('infected');
+                    if (senderIsWolf && receiverIsWolf) canHear = true;
+                }
+
+                if (canHear) {
+                    io.to(targetSocketId).emit("voice_request_connect", { senderId: userId, type: 'room' });
+                }
+            } else {
+                // Group type: always relay
+                io.to(targetSocketId).emit("voice_request_connect", { senderId: userId, type });
+            }
+        });
+
+        socket.on("voice_signal", (payload) => {
+            const { targetId, signal, type } = payload;
+            const targetSocketId = getSocketByUserId(targetId);
+            if (targetSocketId) {
+                io.to(targetSocketId).emit("voice_signal", { senderId: userId, signal, type });
+            }
+        });
+
+        socket.on("player_speaking", ({ isSpeaking, type }) => {
+            // Relayer l'état "parle" à tout le monde dans la room ou le groupe (sauf soi-même)
+            socket.to(roomCode).emit("player_speaking", { userId, isSpeaking, type });
+        });
+
+        // Déconnexion explicite depuis le client (clic sur "Quitter le village")
+        (socket as any).on("leave_game", () => {
+            const game = games[roomCode];
+            if (!game) return;
+            game.lastActivity = Date.now();
+
+            const playerIndex = game.players.findIndex(p => p.id === userId);
+            if (playerIndex === -1) return;
+
+            const disconnectedName = game.players[playerIndex].name;
+
+            if (!game.disconnectedPlayers) {
+                game.disconnectedPlayers = [];
+            }
+            if (game.phase !== 'LOBBY' && game.phase !== 'GAME_OVER') {
+                game.disconnectedPlayers.push({ id: userId, name: disconnectedName });
+            }
+
+            game.players.splice(playerIndex, 1);
+            const leaveMsg: ChatMessage = {
+                senderId: 'system',
+                senderName: 'Système',
+                text: `${disconnectedName} a quitté définitivement le village.`,
+                time: Date.now(),
+                chatType: 'system'
+            };
+            game.chatMessages.push(leaveMsg);
+            io.to(roomCode).emit("chat_message", leaveMsg);
+
+            if (game.players.length === 0) {
+                delete games[roomCode];
+                if (gameTimers[roomCode]) {
+                    clearInterval(gameTimers[roomCode]);
+                    delete gameTimers[roomCode];
+                }
+            } else {
+                if (game.hostId === userId) {
+                    game.hostId = game.players[0].id;
+                }
+                emitGameState(roomCode, game, io);
+            }
+        });
+
+        // Déconnexion réseau (fermeture onglet, crash, etc.) — garde la logique de délai
         socket.on("disconnect", () => {
             if (games[roomCode]) {
                 const game = games[roomCode];
@@ -560,15 +695,13 @@ export function setupGameLogic(io: Server<ClientToServerEvents, ServerToClientEv
                     if (!currentGame) return;
 
                     const playerIndex = currentGame.players.findIndex(p => p.id === userId);
-                    if (playerIndex === -1) return; // Player already removed or reconnected elsewhere
+                    if (playerIndex === -1) return; // Player already removed or reconnected ailleurs
 
                     const disconnectedName = currentGame.players[playerIndex].name;
 
-                    // Push to disconnectedPlayers array to keep track for point deductions
                     if (!currentGame.disconnectedPlayers) {
                         currentGame.disconnectedPlayers = [];
                     }
-                    // Only add if the game has started
                     if (currentGame.phase !== 'LOBBY' && currentGame.phase !== 'GAME_OVER') {
                         currentGame.disconnectedPlayers.push({ id: userId, name: disconnectedName });
                     }

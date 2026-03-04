@@ -20,6 +20,7 @@ import ActiveGame from '../../../components/game/ActiveGame';
 import LoadingScreen from '@/components/room/LoadingScreen';
 import LoversModal from '@/components/game/LoversModal';
 import InfectedModal from '@/components/game/InfectedModal';
+import VoiceChatManager from '@/components/room/VoiceChatManager';
 
 export default function RoomPage() {
     const params = useParams();
@@ -95,6 +96,14 @@ export default function RoomPage() {
     const [hasSeenLoverModal, setHasSeenLoverModal] = useState(false);
     const [hasSeenInfectedModal, setHasSeenInfectedModal] = useState(false);
     const [showAllumetteConfirm, setShowAllumetteConfirm] = useState(false);
+
+    // Voice Chat State
+    const [isMicroOn, setIsMicroOn] = useState(true);
+    const [isHeadphonesOn, setIsHeadphonesOn] = useState(true);
+    const [micSensitivity, setMicSensitivity] = useState(70); // 0-100
+    const [outputVolume, setOutputVolume] = useState(100);    // 0-100
+    const [showSettings, setShowSettings] = useState(false);
+    const [speakingPlayers, setSpeakingPlayers] = useState<Set<string>>(new Set());
 
     // --- SORCIÈRE MODALS ---
     const [witchHealTarget, setWitchHealTarget] = useState<string | null>(null);
@@ -401,6 +410,12 @@ export default function RoomPage() {
 
     const confirmLeave = async () => {
         setShowLeaveConfirm(false);
+
+        // Inform the game server that we are leaving this room now
+        if (socket) {
+            socket.emit("leave_game");
+        }
+
         if (user && roomCode) {
             try {
                 // Remove player from group in DB before leaving
@@ -624,6 +639,21 @@ export default function RoomPage() {
 
     return (
         <div className={`h-screen max-h-screen overflow-hidden flex font-montserrat transition-colors duration-1000 ${currentPhase === 'NIGHT' ? 'bg-[#1a1b26] text-slate-200' : 'bg-[#fafafa] text-slate-900'}`}>
+            {/* Voice Chat Manager */}
+            {groupConfig?.isMicro && user && game && (
+                <VoiceChatManager
+                    socket={socket}
+                    roomCode={roomCode}
+                    currentUser={user}
+                    game={game}
+                    isMicroOn={isMicroOn && !mePlayer?.effects?.includes('poisoned')}
+                    isHeadphonesOn={isHeadphonesOn}
+                    micSensitivity={micSensitivity}
+                    outputVolume={outputVolume}
+                    onSpeakingChange={setSpeakingPlayers}
+                    type="room"
+                />
+            )}
             {/* --- SIDEBAR GAUCHE --- */}
             <aside className={`w-100 flex flex-col p-4 transition-colors duration-1000 ${currentPhase === 'NIGHT' ? 'bg-[#16161e] border-r border-[#2a2b3d]' : 'bg-[#fafafa]'}`}>
                 {/* Ligne du haut : Home, Params, Amis */}
@@ -632,7 +662,10 @@ export default function RoomPage() {
                         <Image src={currentPhase === 'NIGHT' ? '/assets/images/icones/home-icon_white.png' : '/assets/images/icones/home-icon_black.png'} alt="Accueil" width={22} height={22} />
                     </button>
                     <div className="flex gap-4">
-                        <button className="hover:opacity-70 transition-opacity flex items-center justify-center p-1">
+                        <button
+                            onClick={() => setShowSettings(true)}
+                            className="hover:opacity-70 transition-opacity flex items-center justify-center p-1"
+                        >
                             <Image src={currentPhase === 'NIGHT' ? '/assets/images/icones/parametre-icon_white.png' : '/assets/images/icones/parametre-icon_black.png'} alt="Paramètres" width={22} height={22} />
                         </button>
                         <button onClick={() => { if (!isPlayersListOpen) { setIsPlayersListOpen(true); setIsInviteOpen(false); } else { setIsPlayersListOpen(false); } }} className="hover:opacity-70 transition-opacity flex items-center justify-center p-1">
@@ -795,7 +828,8 @@ export default function RoomPage() {
 
                             return (
                                 <div key={idx} className={`flex items-start gap-2 w-full p-2 rounded-lg transition-all ${isMentioned ? (currentPhase === 'NIGHT' ? 'bg-amber-900/50 ring-2 ring-amber-500' : 'bg-amber-200 ring-2 ring-amber-500') : (currentPhase === 'NIGHT' ? 'bg-slate-800' : 'bg-white border border-slate-200 shadow-sm')}`}>
-                                    <div className="relative w-6 h-6 rounded-full overflow-hidden flex-shrink-0 border border-slate-300 -mt-0.5">
+                                    <div className={`relative w-6 h-6 rounded-full overflow-hidden flex-shrink-0 border border-slate-300 -mt-0.5 ${speakingPlayers.has(msg.senderId) ? 'ring-2 ring-[var(--voice-aura)]' : ''}`}>
+                                        {speakingPlayers.has(msg.senderId) && <div className="voice-aura-wave" />}
                                         <Image src={avatar} alt={msg.senderName} fill className="object-cover" />
                                     </div>
                                     <div className="flex-1 text-[13px] leading-snug overflow-hidden">
@@ -868,7 +902,7 @@ export default function RoomPage() {
                     currentPhase={currentPhase}
                     game={game}
                     roomCode={roomCode}
-                    dynamicRolesConfig={dynamicRolesConfig}
+                    dynamicRolesConfig={rolesConfig}
                     copyInviteLink={copyInviteLink}
                     isHost={isHost}
                     groupConfig={groupConfig}
@@ -888,6 +922,7 @@ export default function RoomPage() {
                     handlePowerClick={handlePowerClick}
                     handlePlayerClick={handlePlayerClick}
                     getPlayerAvatar={getPlayerAvatar}
+                    speakingPlayers={speakingPlayers}
                 />
             )}
 
@@ -1130,6 +1165,89 @@ export default function RoomPage() {
                                 TOUT BRÛLER
                             </button>
                         </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Modal Paramètres (Vocal) */}
+            {showSettings && (
+                <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[2100] p-4 font-montserrat" onClick={() => setShowSettings(false)}>
+                    <div className="bg-[#2C3338] text-white max-w-sm w-full rounded-2xl p-6 border-2 border-slate-700 shadow-2xl relative" onClick={e => e.stopPropagation()}>
+                        <h3 className="text-2xl font-enchanted font-extrabold text-[#D1A07A] mb-6 text-center">Paramètres Vocaux</h3>
+
+                        <div className="space-y-6">
+                            {/* Microphone Toggle */}
+                            <div className="flex items-center justify-between p-4 bg-white/5 rounded-xl border border-white/10">
+                                <div className="flex items-center gap-3">
+                                    <div className="relative w-8 h-8">
+                                        <Image src={isMicroOn ? '/assets/images/icones/microphone-icone_white.png' : '/assets/images/icones/non_microphone-icon.png'} alt="Micro" fill className="object-contain" />
+                                    </div>
+                                    <span className="font-bold">Microphone</span>
+                                </div>
+                                <button
+                                    onClick={() => setIsMicroOn(!isMicroOn)}
+                                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${isMicroOn ? 'bg-green-500' : 'bg-slate-600'}`}
+                                >
+                                    <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${isMicroOn ? 'translate-x-6' : 'translate-x-1'}`} />
+                                </button>
+                            </div>
+
+                            {/* Mic Sensitivity Slider */}
+                            <div className="space-y-2 px-1">
+                                <div className="flex justify-between text-xs font-bold text-slate-400">
+                                    <span>Sensibilité Micro</span>
+                                    <span className="text-[#D1A07A]">{micSensitivity}%</span>
+                                </div>
+                                <input
+                                    type="range"
+                                    min="0"
+                                    max="100"
+                                    value={micSensitivity}
+                                    onChange={(e) => setMicSensitivity(parseInt(e.target.value))}
+                                    className="w-full h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-[#D1A07A]"
+                                />
+                                <p className="text-[9px] text-slate-500 italic">Ajustez pour ne pas capter les bruits de fond.</p>
+                            </div>
+
+                            {/* Headphones Toggle */}
+                            <div className="flex items-center justify-between p-4 bg-white/5 rounded-xl border border-white/10">
+                                <div className="flex items-center gap-3">
+                                    <div className="relative w-8 h-8">
+                                        <Image src={isHeadphonesOn ? '/assets/images/icones/headphone-icon_white.png' : '/assets/images/icones/non_headphone-icone_white.png'} alt="Casque" fill className="object-contain" />
+                                    </div>
+                                    <span className="font-bold">Casque</span>
+                                </div>
+                                <button
+                                    onClick={() => setIsHeadphonesOn(!isHeadphonesOn)}
+                                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${isHeadphonesOn ? 'bg-blue-500' : 'bg-slate-600'}`}
+                                >
+                                    <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${isHeadphonesOn ? 'translate-x-6' : 'translate-x-1'}`} />
+                                </button>
+                            </div>
+
+                            {/* Output Volume Slider */}
+                            <div className="space-y-2 px-1">
+                                <div className="flex justify-between text-xs font-bold text-slate-400">
+                                    <span>Volume Sortie</span>
+                                    <span className="text-blue-400">{outputVolume}%</span>
+                                </div>
+                                <input
+                                    type="range"
+                                    min="0"
+                                    max="100"
+                                    value={outputVolume}
+                                    onChange={(e) => setOutputVolume(parseInt(e.target.value))}
+                                    className="w-full h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
+                                />
+                            </div>
+                        </div>
+
+                        <button
+                            onClick={() => setShowSettings(false)}
+                            className="mt-8 w-full py-3 bg-[#D1A07A] text-dark font-extrabold rounded-xl hover:bg-[#b08465] transition-colors"
+                        >
+                            Fermer
+                        </button>
                     </div>
                 </div>
             )}

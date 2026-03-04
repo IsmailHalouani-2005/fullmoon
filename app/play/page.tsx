@@ -8,11 +8,28 @@ import PrivateChat from '../../components/PrivateChat';
 import GroupChat from '../../components/GroupChat'; // Added GroupChat import
 import { auth, db, rtdb } from '../../lib/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
-import { doc, getDoc, collection, query, orderBy, onSnapshot, where, getDocs, addDoc, setDoc, updateDoc, arrayUnion, arrayRemove } from 'firebase/firestore';
+import { doc, getDoc, collection, query, orderBy, onSnapshot, where, getDocs, addDoc, setDoc, updateDoc, arrayUnion, arrayRemove, deleteDoc } from 'firebase/firestore';
 import { ref, onValue } from 'firebase/database';
 
 export default function PlayPage() {
     const router = useRouter();
+
+    const deleteGroupCompletely = async (groupId: string) => {
+        try {
+            // Firestore doesn't delete sub-collections automatically.
+            // We need to fetch and delete all messages.
+            const messagesRef = collection(db, "groups", groupId, "messages");
+            const messagesSnap = await getDocs(messagesRef);
+
+            const deletePromises = messagesSnap.docs.map(mDoc => deleteDoc(mDoc.ref));
+            await Promise.all(deletePromises);
+
+            // Finally delete the group document
+            await deleteDoc(doc(db, "groups", groupId));
+        } catch (error) {
+            console.error(`Error deleting group ${groupId} completely:`, error);
+        }
+    };
 
     /**
      * Ne jamais stocker une photo Base64 dans un document Firestore groups/.
@@ -138,12 +155,7 @@ export default function PlayPage() {
             // Auto-cleanup des salons vides
             villagesData.forEach(async (v: any) => {
                 if (!v.players || v.players.length === 0) {
-                    try {
-                        const { deleteDoc } = await import('firebase/firestore');
-                        await deleteDoc(doc(db, "groups", v.id));
-                    } catch (e) {
-                        // Silently fail if multiple clients try to delete concurrently
-                    }
+                    await deleteGroupCompletely(v.id);
                 }
             });
 
@@ -590,8 +602,7 @@ export default function PlayPage() {
 
             if (group && group.players && group.players.length <= 1) {
                 // Si le joueur est le dernier du groupe, on efface complètement la room
-                const { deleteDoc } = await import('firebase/firestore');
-                await deleteDoc(doc(db, "groups", groupId));
+                await deleteGroupCompletely(groupId);
             } else {
                 // Otherwise, normal remove
                 await updateDoc(doc(db, "groups", groupId), {
@@ -654,10 +665,7 @@ export default function PlayPage() {
                 await Promise.all(updatePromises);
 
                 // Delete the old party group since everyone left
-                try {
-                    const { deleteDoc } = await import('firebase/firestore');
-                    await deleteDoc(doc(db, "groups", group.id));
-                } catch (e) { }
+                await deleteGroupCompletely(group.id);
 
             } else {
                 // Solo player (or in a solo group)
@@ -768,10 +776,7 @@ export default function PlayPage() {
                 await Promise.all(updatePromises);
 
                 // Delete the old party group
-                try {
-                    const { deleteDoc } = await import('firebase/firestore');
-                    await deleteDoc(doc(db, "groups", group.id));
-                } catch (e) { }
+                await deleteGroupCompletely(group.id);
             } else {
                 await updateDoc(doc(db, "users", user.uid), {
                     currentGroupId: newGroupId
@@ -864,10 +869,7 @@ export default function PlayPage() {
                     );
                     await Promise.all(updatePromises);
 
-                    try {
-                        const { deleteDoc } = await import('firebase/firestore');
-                        await deleteDoc(doc(db, "groups", group.id));
-                    } catch (e) { }
+                    await deleteGroupCompletely(group.id);
                 } else {
                     await updateDoc(doc(db, "users", user.uid), { currentGroupId: newGroupId });
                 }
@@ -885,8 +887,7 @@ export default function PlayPage() {
         if (!user || group?.hostId !== user.uid) return;
         try {
             if (group.players && group.players.length <= 1) {
-                const { deleteDoc } = await import('firebase/firestore');
-                await deleteDoc(doc(db, "groups", group.id));
+                await deleteGroupCompletely(group.id);
             } else {
                 await updateDoc(doc(db, "groups", group.id), {
                     players: arrayRemove(playerToKick)
@@ -1508,8 +1509,7 @@ export default function PlayPage() {
                                             if (groupSnap.exists()) {
                                                 const gData = groupSnap.data();
                                                 if (gData.players && gData.players.length <= 1) {
-                                                    const { deleteDoc } = await import('firebase/firestore');
-                                                    await deleteDoc(groupRef);
+                                                    await deleteGroupCompletely(pendingRejoinVillage.id);
                                                 } else {
                                                     const updatedPlayers = gData.players.filter((p: any) => p.uid !== user.uid);
                                                     await updateDoc(groupRef, { players: updatedPlayers });

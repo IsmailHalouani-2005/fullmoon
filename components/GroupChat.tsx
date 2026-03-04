@@ -5,6 +5,9 @@ import { db, auth } from "@/lib/firebase";
 import { collection, doc, query, orderBy, onSnapshot, addDoc, serverTimestamp, setDoc, getDoc, updateDoc } from "firebase/firestore";
 import Image from "next/image";
 import { onAuthStateChanged } from "firebase/auth";
+import { io, Socket } from "socket.io-client";
+import VoiceChatManager from "./room/VoiceChatManager";
+import { GameState } from "@/types/game";
 
 interface Message {
     id: string;
@@ -27,6 +30,17 @@ export default function GroupChat({ groupId, onClose }: GroupChatProps) {
     const [currentData, setCurrentData] = useState<any>(null);
     const [isAutoScrollEnabled, setIsAutoScrollEnabled] = useState(true);
 
+    // Voice Chat State
+    const [isMicroOn, setIsMicroOn] = useState(true);
+    const [isHeadphonesOn, setIsHeadphonesOn] = useState(true);
+    const [micSensitivity, setMicSensitivity] = useState(70);
+    const [outputVolume, setOutputVolume] = useState(100);
+    const [showSettings, setShowSettings] = useState(false);
+    const [socket, setSocket] = useState<Socket | null>(null);
+    const [groupGame, setGroupGame] = useState<GameState | null>(null);
+    const [speakingPlayers, setSpeakingPlayers] = useState<Set<string>>(new Set());
+    const [groupPlayers, setGroupPlayers] = useState<any[]>([]);
+
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const scrollContainerRef = useRef<HTMLDivElement>(null);
 
@@ -37,6 +51,29 @@ export default function GroupChat({ groupId, onClose }: GroupChatProps) {
         const isAtBottom = scrollHeight - scrollTop - clientHeight < 50;
         setIsAutoScrollEnabled(isAtBottom);
     };
+
+    // Listen to group data (especially players list for voice chat)
+    useEffect(() => {
+        if (!groupId) return;
+        const unsubscribe = onSnapshot(doc(db, "groups", groupId), (snapshot) => {
+            if (snapshot.exists()) {
+                const data = snapshot.data();
+                setGroupData(data); // Using local groupData state if it exists, otherwise define it
+                const playersList = (data.players || []).map((p: any) => ({
+                    id: p.uid,
+                    name: p.pseudo || "Joueur",
+                    avatarUrl: p.photoURL || "",
+                    isAlive: true,
+                    role: null,
+                    effects: []
+                }));
+                setGroupPlayers(playersList);
+            }
+        });
+        return () => unsubscribe();
+    }, [groupId]);
+
+    const [groupData, setGroupData] = useState<any>(null);
 
     // Get current user and their data
     useEffect(() => {
@@ -51,6 +88,37 @@ export default function GroupChat({ groupId, onClose }: GroupChatProps) {
         });
         return () => unsubscribe();
     }, []);
+
+    // Socket.io Connection for Voice Signaling
+    useEffect(() => {
+        if (!groupId || !currentUser) return;
+
+        const baseUrl = process.env.NEXT_PUBLIC_SOCKET_URL || (typeof window !== 'undefined' ? window.location.origin : '');
+        let socketUrl = baseUrl;
+        if (!process.env.NEXT_PUBLIC_SOCKET_URL && baseUrl.includes('localhost')) {
+            socketUrl = 'http://localhost:3001';
+        }
+        socketUrl = socketUrl.replace(/\/$/, '');
+
+        const newSocket = io(socketUrl, {
+            query: {
+                roomCode: groupId,
+                userId: currentUser.uid,
+                username: currentUser.displayName || "Anonyme",
+                type: 'group' // Tell the server this is a group chat, not a game room
+            }
+        });
+
+        newSocket.on('update_game', (gameState: GameState) => {
+            setGroupGame(gameState);
+        });
+
+        setSocket(newSocket);
+
+        return () => {
+            newSocket.disconnect();
+        };
+    }, [groupId, currentUser]);
 
     // Listen to group messages
     useEffect(() => {
@@ -155,6 +223,64 @@ export default function GroupChat({ groupId, onClose }: GroupChatProps) {
                     ✕
                 </button>
             </div>
+            <div className="flex items-center gap-1">
+                {/* Voice Toggles in Header */}
+                <button
+                    onClick={() => setIsMicroOn(!isMicroOn)}
+                    className={`p-2 rounded-lg transition-colors ${isMicroOn ? 'text-green-400 hover:bg-white/5' : 'text-red-500 hover:bg-white/5'}`}
+                    title={isMicroOn ? "Désactiver micro" : "Activer micro"}
+                >
+                    <Image src={isMicroOn ? '/assets/images/icones/microphone-icon.png' : '/assets/images/icones/non_microphone-icon.png'} alt="Micro" width={18} height={18} />
+                </button>
+                <button
+                    onClick={() => setIsHeadphonesOn(!isHeadphonesOn)}
+                    className={`p-2 rounded-lg transition-colors ${isHeadphonesOn ? 'text-blue-400 hover:bg-white/5' : 'text-slate-400 hover:bg-white/5'}`}
+                    title={isHeadphonesOn ? "Désactiver casque" : "Activer casque"}
+                >
+                    <Image src={isHeadphonesOn ? '/assets/images/icones/headphone-icon_white.png' : '/assets/images/icones/non_headphone-icone_white.png'} alt="Casque" width={18} height={18} />
+                </button>
+                <button
+                    onClick={() => setShowSettings(!showSettings)}
+                    className={`p-2 rounded-lg transition-colors ${showSettings ? 'text-secondary bg-white/5' : 'text-white/50 hover:bg-white/5'}`}
+                    title="Paramètres audio"
+                >
+                    <Image src="/assets/images/icones/params-icon.png" alt="Settings" width={18} height={18} className={showSettings ? 'opacity-100' : 'opacity-50'} />
+                </button>
+            </div>
+
+            {/* Settings Panel */}
+            {showSettings && (
+                <div className="bg-[#1A1D20] border-b border-white/10 p-3 space-y-3 animate-in fade-in slide-in-from-top-2">
+                    <div className="space-y-1">
+                        <div className="flex justify-between text-[10px] font-bold text-white/40 uppercase tracking-wider">
+                            <span>Sensibilité Micro</span>
+                            <span className="text-secondary">{micSensitivity}%</span>
+                        </div>
+                        <input
+                            type="range"
+                            min="0"
+                            max="100"
+                            value={micSensitivity}
+                            onChange={(e) => setMicSensitivity(parseInt(e.target.value))}
+                            className="w-full h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-secondary"
+                        />
+                    </div>
+                    <div className="space-y-1">
+                        <div className="flex justify-between text-[10px] font-bold text-white/40 uppercase tracking-wider">
+                            <span>Volume Sortie</span>
+                            <span className="text-blue-400">{outputVolume}%</span>
+                        </div>
+                        <input
+                            type="range"
+                            min="0"
+                            max="100"
+                            value={outputVolume}
+                            onChange={(e) => setOutputVolume(parseInt(e.target.value))}
+                            className="w-full h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-blue-500"
+                        />
+                    </div>
+                </div>
+            )}
 
             {/* Messages Area */}
             <div
@@ -173,11 +299,10 @@ export default function GroupChat({ groupId, onClose }: GroupChatProps) {
                         const isMe = msg.senderId === currentUser?.uid;
                         return (
                             <div key={msg.id} className={`flex w-full ${isMe ? "justify-end" : "justify-start"} mb-2 group/msg`}>
-                                {!isMe && (
-                                    <div className="w-8 h-8 rounded-full border border-white/10 overflow-hidden relative mr-2 flex-shrink-0 mt-auto">
-                                        <Image src={msg.senderPhotoURL || "/assets/images/icones/Photo_Profil-transparent.png"} alt="Avatar" fill className="object-cover" />
-                                    </div>
-                                )}
+                                <div className={`w-8 h-8 rounded-full border border-white/10 overflow-hidden relative ${isMe ? "ml-2 order-2" : "mr-2 flex-shrink-0"} mt-auto ${speakingPlayers.has(msg.senderId) ? 'ring-2 ring-[var(--voice-aura)]' : ''}`}>
+                                    {speakingPlayers.has(msg.senderId) && <div className="voice-aura-wave" />}
+                                    <Image src={msg.senderPhotoURL || "/assets/images/icones/Photo_Profil-transparent.png"} alt="Avatar" fill className="object-cover" />
+                                </div>
                                 <div className={`flex flex-col max-w-[70%] ${isMe ? "items-end" : "items-start"}`}>
                                     {!isMe && (
                                         <span className="text-[10px] text-white/50 ml-1 mb-0.5">{msg.senderPseudo}</span>
@@ -220,6 +345,20 @@ export default function GroupChat({ groupId, onClose }: GroupChatProps) {
                     </button>
                 </div>
             </form>
-        </div>
+
+            <VoiceChatManager
+                socket={socket}
+                roomCode={groupId}
+                currentUser={currentUser}
+                game={groupGame}
+                players={groupPlayers}
+                isMicroOn={isMicroOn}
+                isHeadphonesOn={isHeadphonesOn}
+                micSensitivity={micSensitivity}
+                outputVolume={outputVolume}
+                onSpeakingChange={setSpeakingPlayers}
+                type="group"
+            />
+        </div >
     );
 }

@@ -81,6 +81,10 @@ export interface ClientToServerEvents {
     vote_player: (targetId: string) => void;
     use_power: (payload: { powerId: PowerId; targetId?: string; targetId2?: string }) => void;
     chat_message: (payload: ChatMessage, callback?: (response: { status: 'success' | 'error', reason?: string }) => void) => void;
+    voice_signal: (payload: { targetId: string; signal: any; type: 'room' | 'group' }) => void;
+    voice_request_connect: (payload: { targetId: string; type: 'room' | 'group' }) => void;
+    player_speaking: (payload: { isSpeaking: boolean; type: 'room' | 'group' }) => void;
+    leave_game: () => void;
 }
 
 export interface ServerToClientEvents {
@@ -89,4 +93,7 @@ export interface ServerToClientEvents {
     game_over: (payload: { winner: string; players: Player[] }) => void;
     chat_message: (payload: ChatMessage) => void;
     room_shutdown: (reason: string) => void;
+    voice_signal: (payload: { senderId: string; signal: any; type: 'room' | 'group' }) => void;
+    voice_request_connect: (payload: { senderId: string; type: 'room' | 'group' }) => void;
+    player_speaking: (payload: { userId: string; isSpeaking: boolean; type: 'room' | 'group' }) => void;
 }
