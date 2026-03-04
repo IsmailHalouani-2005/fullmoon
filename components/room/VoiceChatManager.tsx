@@ -672,7 +672,7 @@ export default function VoiceChatManager({
     }
 
     return (
-        <div style={{ position: 'fixed', bottom: 10, right: 10, zIndex: 9999, pointerEvents: 'none' }}>
+        <div style={{ position: 'fixed', bottom: 10, right: 10, zIndex: 9999, pointerEvents: 'none', display: 'none' }}>
             {/* Direct Interaction Layer for Reset (only on the button) */}
             <div style={{ pointerEvents: 'auto' }} className="mb-1 text-right flex flex-col items-end gap-1">
                 <button
