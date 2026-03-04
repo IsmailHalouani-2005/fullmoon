@@ -230,7 +230,7 @@ export default function GroupChat({ groupId, onClose }: GroupChatProps) {
                     className={`p-2 rounded-lg transition-colors ${isMicroOn ? 'text-green-400 hover:bg-white/5' : 'text-red-500 hover:bg-white/5'}`}
                     title={isMicroOn ? "Désactiver micro" : "Activer micro"}
                 >
-                    <Image src={isMicroOn ? '/assets/images/icones/microphone-icon.png' : '/assets/images/icones/non_microphone-icon.png'} alt="Micro" width={18} height={18} />
+                    <Image src={isMicroOn ? '/assets/images/icones/microphone-icone_white.png' : '/assets/images/icones/non_microphone-icon.png'} alt="Micro" width={18} height={18} />
                 </button>
                 <button
                     onClick={() => setIsHeadphonesOn(!isHeadphonesOn)}
@@ -244,7 +244,7 @@ export default function GroupChat({ groupId, onClose }: GroupChatProps) {
                     className={`p-2 rounded-lg transition-colors ${showSettings ? 'text-secondary bg-white/5' : 'text-white/50 hover:bg-white/5'}`}
                     title="Paramètres audio"
                 >
-                    <Image src="/assets/images/icones/params-icon.png" alt="Settings" width={18} height={18} className={showSettings ? 'opacity-100' : 'opacity-50'} />
+                    <Image src="/assets/images/icones/parametre-icon_white.png" alt="Settings" width={18} height={18} className={showSettings ? 'opacity-100' : 'opacity-50'} />
                 </button>
             </div>
 

@@ -693,7 +693,7 @@ export default function VoiceChatManager({
             <div className="bg-black/95 text-[9px] text-white p-2 rounded border border-white/20 shadow-xl w-[190px] font-mono">
                 <p className="font-bold border-bottom border-white/10 pb-1 mb-1 uppercase tracking-tighter">Voice: {type}</p>
                 <p>Moi: {currentUser?.pseudo || currentUser?.uid.slice(0, 5)} <span className="opacity-50">({currentUser?.uid.slice(0, 3)})</span></p>
-                <p>Micro: <span className={isMicroOn ? 'text-green-400' : 'text-red-400'}>{isMicroOn ? 'ON' : 'OFF (MUTE)'}</span></p>
+                <p>Micro: <span className={isMicroOn ? 'text-green-400' : 'text-red-400'}>{isMicroOn ? 'ON' : (game?.players.find(p => p.id === currentUser?.uid)?.isAlive === false && game.phase !== 'LOBBY' && game.phase !== 'GAME_OVER' ? 'OFF (MORT)' : 'OFF (MUTE)')}</span></p>
                 <p>Socket: <span className={socket?.connected ? 'text-green-400' : 'text-red-400'}>{socket?.connected ? 'OK' : 'ERR'}</span></p>
                 <div className="flex items-center gap-2">
                     <p className={!isMicroOn ? 'opacity-50' : ''}>Flux:</p>

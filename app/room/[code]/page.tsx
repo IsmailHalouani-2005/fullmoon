@@ -218,6 +218,7 @@ export default function RoomPage() {
 
         newSocket.on('game_over', async (payload) => {
             setGameOverData(payload);
+            setIsMicroOn(true); // Re-enable mic for everyone at the end of the game
 
             // --- FIREBASE STATS UPDATE ---
             if (!user) return;
@@ -646,7 +647,7 @@ export default function RoomPage() {
                     roomCode={roomCode}
                     currentUser={user}
                     game={game}
-                    isMicroOn={isMicroOn && !mePlayer?.effects?.includes('poisoned')}
+                    isMicroOn={isMicroOn && (game.phase === 'LOBBY' || game.phase === 'GAME_OVER' || (!mePlayer?.effects?.includes('poisoned') && mePlayer?.isAlive !== false))}
                     isHeadphonesOn={isHeadphonesOn}
                     micSensitivity={micSensitivity}
                     outputVolume={outputVolume}
@@ -1185,8 +1186,14 @@ export default function RoomPage() {
                                     <span className="font-bold">Microphone</span>
                                 </div>
                                 <button
-                                    onClick={() => setIsMicroOn(!isMicroOn)}
-                                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${isMicroOn ? 'bg-green-500' : 'bg-slate-600'}`}
+                                    onClick={() => {
+                                        if (mePlayer?.isAlive === false && game?.phase !== 'LOBBY' && game?.phase !== 'GAME_OVER') {
+                                            alert("Les morts ne peuvent pas parler !");
+                                            return;
+                                        }
+                                        setIsMicroOn(!isMicroOn);
+                                    }}
+                                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${isMicroOn ? 'bg-green-500' : 'bg-slate-600'} ${mePlayer?.isAlive === false && game?.phase !== 'LOBBY' && game?.phase !== 'GAME_OVER' ? 'opacity-50 cursor-not-allowed' : ''}`}
                                 >
                                     <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${isMicroOn ? 'translate-x-6' : 'translate-x-1'}`} />
                                 </button>
