@@ -41,7 +41,7 @@ export default function MainContent({
             <div className="flex items-center justify-between w-full bg-white border-[3px] border-[#2C3338] rounded-lg p-2 text-2xl font-bold shadow-sm">
                 <button
                     onClick={() => handlePlayerCountChange(-1)}
-                    className="px-6 py-2 hover:bg-[#F3ECE0] rounded transition-colors text-3xl flex items-center justify-center font-black text-[#2C3338]"
+                    className="pl-2 pr-4 md:px-6 py-2 hover:bg-[#F3ECE0] rounded transition-colors text-3xl flex items-center justify-center font-black text-[#2C3338]"
                 >
                     &lt;
                 </button>
@@ -54,7 +54,7 @@ export default function MainContent({
 
                 <button
                     onClick={() => handlePlayerCountChange(1)}
-                    className="px-6 py-2 hover:bg-[#F3ECE0] rounded transition-colors text-3xl flex items-center justify-center font-black text-[#2C3338]"
+                    className="pl-4 pr-2 md:px-6 py-2 hover:bg-[#F3ECE0] rounded transition-colors text-3xl flex items-center justify-center font-black text-[#2C3338]"
                 >
                     &gt;
                 </button>

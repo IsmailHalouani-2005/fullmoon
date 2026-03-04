@@ -275,11 +275,11 @@ export default function GlobalActionBar() {
     const totalUnreadCount = activeNotifsCount + unreadMessages;
 
     return (
-        <div className="fixed top-24 right-3 z-[200] flex flex-col items-center gap-3">
+        <div className="fixed top-24 right-3 flex flex-col items-center gap-3 pointer-events-none z-[210]">
             {/* Main Toggle Button */}
             <button
                 onClick={() => setIsExpanded(!isExpanded)}
-                className="group relative w-10 h-10 md:w-12 md:h-12 bg-[#FCF8E8] rounded-full shadow-[0_0_15px_rgba(0,0,0,0.2)] border-[2px] md:border-[3px] border-secondary text-dark hover:bg-white hover:scale-105 transition-all flex items-center justify-center cursor-pointer z-[210]"
+                className="group pointer-events-auto relative w-10 h-10 md:w-12 md:h-12 bg-[#FCF8E8] rounded-full shadow-[0_0_15px_rgba(0,0,0,0.2)] border-[2px] md:border-[3px] border-secondary text-dark hover:bg-white hover:scale-105 transition-all flex items-center justify-center cursor-pointer z-[210]"
                 title="Menu Social"
             >
                 <div className={`transition-transform duration-300 ${isExpanded ? 'rotate-180' : 'rotate-0'}`}>
@@ -297,7 +297,7 @@ export default function GlobalActionBar() {
             </button>
 
             {/* Collapsible Container for Notifications and Messages */}
-            <div className={`flex flex-col gap-3 items-center transition-all duration-300 ease-in-out origin-top ${isExpanded ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 -translate-y-10 scale-95 pointer-events-none'}`}>
+            <div className={`flex flex-col gap-3 items-center transition-all duration-300 ease-in-out origin-top ${isExpanded ? 'opacity-100 translate-y-0 scale-100 z-[200] pointer-events-auto' : 'opacity-0 -z-[200] -translate-y-10 scale-95 pointer-events-none'}`}>
                 {/* Notifications Button */}
                 <div className="relative" ref={dropdownRef}>
                     <button
@@ -456,7 +456,7 @@ export default function GlobalActionBar() {
 
             {/* Active Private Chat */}
             {activeChatFriend && (
-                <div className="fixed bottom-4 right-4 z-[9999] md:right-8 md:bottom-8">
+                <div className="fixed bottom-4 right-4 z-[9999] md:right-8 md:bottom-8 pointer-events-auto">
                     <PrivateChat
                         friendId={activeChatFriend.id}
                         friendPseudo={activeChatFriend.pseudo}
