@@ -96,6 +96,7 @@ export default function RoomPage() {
     const [hasSeenLoverModal, setHasSeenLoverModal] = useState(false);
     const [hasSeenInfectedModal, setHasSeenInfectedModal] = useState(false);
     const [showAllumetteConfirm, setShowAllumetteConfirm] = useState(false);
+    const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
 
     // Voice Chat State
     const [isMicroOn, setIsMicroOn] = useState(true);
@@ -379,9 +380,10 @@ export default function RoomPage() {
         const unsubscribers: (() => void)[] = [];
 
         friends.forEach(friend => {
-            const presenceRef = ref(rtdb, `presence/${friend.id}`);
+            const presenceRef = ref(rtdb, `status/${friend.id}`);
             const unsub = onValue(presenceRef, (snapshot) => {
-                const isOnline = snapshot.val() === true;
+                const data = snapshot.val();
+                const isOnline = data && data.state === 'online';
                 setFriendsOnlinePresence(prev => ({ ...prev, [friend.id]: isOnline }));
             });
             unsubscribers.push(unsub);
@@ -639,8 +641,22 @@ export default function RoomPage() {
     const currentPhase = game?.phase as string;
 
     return (
-        <div className={`h-screen max-h-screen overflow-hidden flex font-montserrat transition-colors duration-1000 ${currentPhase === 'NIGHT' ? 'bg-[#1a1b26] text-slate-200' : 'bg-[#fafafa] text-slate-900'}`}>
-            {/* Voice Chat Manager */}
+        <div className={`h-screen max-h-screen overflow-hidden flex font-montserrat transition-colors duration-1000 ${currentPhase === 'NIGHT' ? 'bg-[#1a1b26] text-slate-200' : 'bg-[#fafafa] text-slate-900'} relative`}>
+
+            {/* Mobile Toggle Button (Visible only on small screens) */}
+            <button
+                onClick={() => setIsMobileSidebarOpen(!isMobileSidebarOpen)}
+                className={`md:hidden fixed top-4 left-4 z-[110] p-2 rounded-md bg-dark text-white border-2 transition-colors shadow-lg border-secondary hover:bg-black`}
+                title={isMobileSidebarOpen ? "Fermer le menu" : "Ouvrir le menu"}
+            >
+                {isMobileSidebarOpen ? (
+                    <Image src="/assets/images/icones/close-icon.png" alt="Menu" width={24} height={24} />
+                ) : (
+                    <Image src="/assets/images/icones/list-icon.png" alt="Menu" width={24} height={24} />
+                )}
+            </button>
+
+            {/* Default Voice Chat Manager */}
             {groupConfig?.isMicro && user && game && (
                 <VoiceChatManager
                     socket={socket}
@@ -656,9 +672,18 @@ export default function RoomPage() {
                 />
             )}
             {/* --- SIDEBAR GAUCHE --- */}
-            <aside className={`w-100 flex flex-col p-4 transition-colors duration-1000 ${currentPhase === 'NIGHT' ? 'bg-[#16161e] border-r border-[#2a2b3d]' : 'bg-[#fafafa]'}`}>
+
+            {/* Mobile Overlay */}
+            {isMobileSidebarOpen && (
+                <div
+                    className="md:hidden fixed inset-0 bg-black/60 z-[95] backdrop-blur-sm transition-opacity duration-300"
+                    onClick={() => setIsMobileSidebarOpen(false)}
+                />
+            )}
+
+            <aside className={`fixed md:relative inset-y-0 left-0 z-[100] w-80 md:w-100 flex flex-col p-4 transition-transform duration-300 transform md:translate-x-0 ${isMobileSidebarOpen ? 'translate-x-0' : '-translate-x-full'} ${currentPhase === 'NIGHT' ? 'bg-[#16161e] border-r border-[#2a2b3d]' : 'bg-[#fafafa] shadow-2xl md:shadow-none'}`}>
                 {/* Ligne du haut : Home, Params, Amis */}
-                <div className={`flex justify-between items-center bg-transparent border-3 rounded-lg px-3 py-1 mb-6 transition-colors duration-1000 ${currentPhase === 'NIGHT' ? 'bg-[#1f202e] border-slate-600 text-white' : 'bg-white border-dark text-slate-900'}`}>
+                <div className={`flex justify-between items-center bg-transparent border-3 rounded-lg px-3 py-1 ml-14 mb-6 md:ml-0 transition-colors duration-1000 ${currentPhase === 'NIGHT' ? 'bg-[#1f202e] border-slate-600 text-white' : 'bg-white border-dark text-slate-900'}`}>
                     <button onClick={handleSafeLeave} className="hover:opacity-70 transition-opacity flex items-center justify-center p-1">
                         <Image src={currentPhase === 'NIGHT' ? '/assets/images/icones/home-icon_white.png' : '/assets/images/icones/home-icon_black.png'} alt="Accueil" width={22} height={22} />
                     </button>
@@ -1002,82 +1027,86 @@ export default function RoomPage() {
 
             {/* Pop-up Modale de FIN DE PARTIE supprimée pour être affichée dans le Main Content */}
 
-            {/* Panneau latéral droit (Inviter des amis) */}
-            {isInviteOpen && (
-                <div className="absolute top-0 right-0 w-80 h-full bg-white border-l-4 border-slate-800 shadow-2xl z-50 flex flex-col font-montserrat transition-transform animate-in slide-in-from-right">
-                    <div className="p-6 bg-[#FCF8E8] border-b-2 border-slate-800 flex justify-between items-center shrink-0">
-                        <h3 className="font-enchanted text-3xl font-extrabold text-slate-800 tracking-wide mt-1">Vos Amis</h3>
-                        <button onClick={() => setIsInviteOpen(false)} className="text-slate-500 hover:text-slate-800 text-3xl font-bold transition-colors leading-none">&times;</button>
-                    </div>
-                    <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-3">
-                        {(() => {
-                            const onlineFriends = friends.filter(f => friendsOnlinePresence[f.id] === true);
-                            if (onlineFriends.length === 0) return (
-                                <p className="text-center text-slate-500 text-sm font-medium mt-8 italic">Aucun ami en ligne pour le moment.</p>
-                            );
-                            return onlineFriends.map(friend => {
-                                const isInRoom = game.players.some(p => p.id === friend.id);
-                                const isInvited = invitedFriends.includes(friend.id);
-
-                                return (
-                                    <div key={friend.id} className={`flex items-center justify-between p-3 rounded-xl border-2 shadow-sm transition-shadow ${isInRoom ? 'bg-slate-100 border-slate-200 opacity-60' : 'bg-slate-50 border-slate-200 hover:shadow'}`}>
-                                        <div className="flex items-center gap-3 overflow-hidden">
-                                            <div className="relative w-10 h-10 rounded-full overflow-hidden border-2 border-slate-300 flex-shrink-0">
-                                                <Image src={friend.photoURL || "/assets/images/icones/Photo_Profil-transparent.png"} alt={friend.pseudo || "Ami"} fill className="object-cover" />
-                                            </div>
-                                            <span className="font-bold text-slate-700 text-sm truncate">{friend.pseudo || "Joueur"}</span>
-                                        </div>
-                                        {isInRoom ? (
-                                            <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider px-2">
-                                                Rejoint
-                                            </span>
-                                        ) : isInvited ? (
-                                            <span className="text-[10px] text-amber-600 bg-amber-100 font-bold px-2 py-1.5 rounded-lg uppercase tracking-wider">
-                                                En attente
-                                            </span>
-                                        ) : (
-                                            <button
-                                                onClick={() => handleInviteFriend(friend.id, friend.pseudo || "Joueur")}
-                                                className="bg-[#D1A07A] hover:bg-[#b08465] text-dark font-extrabold px-3 py-1.5 rounded-lg text-[10px] uppercase tracking-wider transition-colors shadow-sm cursor-pointer"
-                                            >
-                                                Inviter
-                                            </button>
-                                        )}
-                                    </div>
-                                );
-                            });
-                        })()}
-                    </div>
-                </div>
+            {/* Overlay partagé pour les panneaux de droite */}
+            {(isInviteOpen || isPlayersListOpen) && (
+                <div
+                    className="absolute inset-0 bg-black/20 z-[45] backdrop-blur-sm transition-opacity duration-300"
+                    onClick={() => { setIsInviteOpen(false); setIsPlayersListOpen(false); }}
+                />
             )}
+
+            {/* Panneau latéral droit (Inviter des amis) */}
+            <div className={`absolute top-0 right-0 w-80 h-full bg-white border-l-4 border-slate-800 shadow-2xl z-50 flex flex-col font-montserrat transition-transform duration-300 ease-in-out transform ${isInviteOpen ? 'translate-x-0' : 'translate-x-full'}`}>
+                <div className="p-6 bg-[#FCF8E8] border-b-2 border-slate-800 flex justify-between items-center shrink-0">
+                    <h3 className="font-enchanted text-3xl font-extrabold text-slate-800 tracking-wide mt-1">Vos Amis</h3>
+                    <button onClick={() => setIsInviteOpen(false)} className="text-slate-500 hover:text-slate-800 text-3xl font-bold transition-colors leading-none">&times;</button>
+                </div>
+                <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-3">
+                    {(() => {
+                        const onlineFriends = friends.filter(f => friendsOnlinePresence[f.id] === true);
+                        if (onlineFriends.length === 0) return (
+                            <p className="text-center text-slate-500 text-sm font-medium mt-8 italic">Aucun ami en ligne pour le moment.</p>
+                        );
+                        return onlineFriends.map(friend => {
+                            const isInRoom = game.players.some(p => p.id === friend.id);
+                            const isInvited = invitedFriends.includes(friend.id);
+
+                            return (
+                                <div key={friend.id} className={`flex items-center justify-between p-3 rounded-xl border-2 shadow-sm transition-shadow ${isInRoom ? 'bg-slate-100 border-slate-200 opacity-60' : 'bg-slate-50 border-slate-200 hover:shadow'}`}>
+                                    <div className="flex items-center gap-3 overflow-hidden">
+                                        <div className="relative w-10 h-10 rounded-full overflow-hidden border-2 border-slate-300 flex-shrink-0">
+                                            <Image src={friend.photoURL || "/assets/images/icones/Photo_Profil-transparent.png"} alt={friend.pseudo || "Ami"} fill className="object-cover" />
+                                        </div>
+                                        <span className="font-bold text-slate-700 text-sm truncate">{friend.pseudo || "Joueur"}</span>
+                                    </div>
+                                    {isInRoom ? (
+                                        <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider px-2">
+                                            Rejoint
+                                        </span>
+                                    ) : isInvited ? (
+                                        <span className="text-[10px] text-amber-600 bg-amber-100 font-bold px-2 py-1.5 rounded-lg uppercase tracking-wider">
+                                            En attente
+                                        </span>
+                                    ) : (
+                                        <button
+                                            onClick={() => handleInviteFriend(friend.id, friend.pseudo || "Joueur")}
+                                            className="bg-[#D1A07A] hover:bg-[#b08465] text-dark font-extrabold px-3 py-1.5 rounded-lg text-[10px] uppercase tracking-wider transition-colors shadow-sm cursor-pointer"
+                                        >
+                                            Inviter
+                                        </button>
+                                    )}
+                                </div>
+                            );
+                        });
+                    })()}
+                </div>
+            </div>
 
             {/* Panneau latéral droit (Liste des Joueurs) */}
-            {isPlayersListOpen && (
-                <div className="absolute top-0 right-0 w-80 h-full bg-white border-l-4 border-slate-800 shadow-2xl z-50 flex flex-col font-montserrat transition-transform animate-in slide-in-from-right">
-                    <div className="p-6 bg-[#FCF8E8] border-b-2 border-slate-800 flex justify-between items-center shrink-0">
-                        <h3 className="font-enchanted text-3xl font-extrabold text-slate-800 tracking-wide mt-1">Joueurs ({game.players.length})</h3>
-                        <button onClick={() => setIsPlayersListOpen(false)} className="text-slate-500 hover:text-slate-800 text-3xl font-bold transition-colors leading-none">&times;</button>
-                    </div>
-                    <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-3">
-                        {game.players.map((player, index) => (
-                            <div key={player.id} className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl border-2 border-slate-200 shadow-sm relative">
-                                <span className="font-extrabold text-[#D1A07A] font-sans text-lg w-6 text-center shrink-0">#{index + 1}</span>
-                                <div className="relative w-12 h-12 rounded-full overflow-hidden border-2 border-slate-300 flex-shrink-0">
-                                    <Image src={getPlayerAvatar(player.id, player.avatarUrl)} alt={player.name} fill className="object-cover" />
-                                </div>
-                                <div className="flex flex-col justify-center overflow-hidden flex-1">
-                                    <span className="font-bold text-slate-700 text-sm truncate">{player.name}</span>
-                                    {player.id === game.hostId ? (
-                                        <span className="text-[10px] text-amber-700 font-extrabold uppercase tracking-widest mt-0.5">Hôte</span>
-                                    ) : player.id === user.uid ? (
-                                        <span className="text-[10px] text-blue-600 font-extrabold uppercase tracking-widest mt-0.5">Vous</span>
-                                    ) : null}
-                                </div>
-                            </div>
-                        ))}
-                    </div>
+            <div className={`absolute top-0 right-0 w-80 h-full bg-white border-l-4 border-slate-800 shadow-2xl z-50 flex flex-col font-montserrat transition-transform duration-300 ease-in-out transform ${isPlayersListOpen ? 'translate-x-0' : 'translate-x-full'}`}>
+                <div className="p-6 bg-[#FCF8E8] border-b-2 border-slate-800 flex justify-between items-center shrink-0">
+                    <h3 className="font-enchanted text-3xl font-extrabold text-slate-800 tracking-wide mt-1">Joueurs ({game.players.length})</h3>
+                    <button onClick={() => setIsPlayersListOpen(false)} className="text-slate-500 hover:text-slate-800 text-3xl font-bold transition-colors leading-none">&times;</button>
                 </div>
-            )}
+                <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-3">
+                    {game.players.map((player, index) => (
+                        <div key={player.id} className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl border-2 border-slate-200 shadow-sm relative">
+                            <span className="font-extrabold text-[#D1A07A] font-sans text-lg w-6 text-center shrink-0">#{index + 1}</span>
+                            <div className="relative w-12 h-12 rounded-full overflow-hidden border-2 border-slate-300 flex-shrink-0">
+                                <Image src={getPlayerAvatar(player.id, player.avatarUrl)} alt={player.name} fill className="object-cover" />
+                            </div>
+                            <div className="flex flex-col justify-center overflow-hidden flex-1">
+                                <span className="font-bold text-slate-700 text-sm truncate">{player.name}</span>
+                                {player.id === game.hostId ? (
+                                    <span className="text-[10px] text-amber-700 font-extrabold uppercase tracking-widest mt-0.5">Hôte</span>
+                                ) : player.id === user.uid ? (
+                                    <span className="text-[10px] text-blue-600 font-extrabold uppercase tracking-widest mt-0.5">Vous</span>
+                                ) : null}
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </div>
 
             {/* --- MODAL POTION DE VIE --- */}
             {witchHealTarget && (
@@ -1220,7 +1249,7 @@ export default function RoomPage() {
                             <div className="flex items-center justify-between p-4 bg-white/5 rounded-xl border border-white/10">
                                 <div className="flex items-center gap-3">
                                     <div className="relative w-8 h-8">
-                                        <Image src={isHeadphonesOn ? '/assets/images/icones/headphone-icon_white.png' : '/assets/images/icones/non_headphone-icone_white.png'} alt="Casque" fill className="object-contain" />
+                                        <Image src={isHeadphonesOn ? '/assets/images/icones/headphone-icon_white.png' : '/assets/images/icones/non_headphone-icone_black.png'} alt="Casque" fill className="object-contain" />
                                     </div>
                                     <span className="font-bold">Casque</span>
                                 </div>

@@ -102,14 +102,14 @@ export default function RoleCarousel() {
                             className="cursor-pointer flex items-center hover:text-primary transition-colors hover:-translate-x-1"
                             onClick={() => emblaApi?.scrollPrev()}
                         >
-                            <span className="mr-2">←</span> précédent
+                            <span className="mx-2">←</span> précédent
                         </button>
-                        <span className="font-enchanted text-center text-2xl tracking-wider text-primary">Cliquez sur le rôle pour voir les informations</span>
+                        <span className="font-enchanted text-center text-lg md:text-2xl md:tracking-wider text-primary">Cliquez sur le rôle pour voir les informations</span>
                         <button
                             className="cursor-pointer flex items-center hover:text-primary transition-colors hover:translate-x-1"
                             onClick={() => emblaApi?.scrollNext()}
                         >
-                            suivant <span className="ml-2">→</span>
+                            suivant <span className="mx-2">→</span>
                         </button>
                     </div>
                 </div>

@@ -20,6 +20,7 @@ export default function GlobalActionBar() {
     const [unreadChatsList, setUnreadChatsList] = useState<any[]>([]);
     const [friends, setFriends] = useState<Record<string, any>>({});
     const [showMessagesDropdown, setShowMessagesDropdown] = useState(false);
+    const [isExpanded, setIsExpanded] = useState(false);
 
     // Private chat state
     const [activeChatFriend, setActiveChatFriend] = useState<{ id: string, pseudo: string, photoURL: string } | null>(null);
@@ -211,12 +212,32 @@ export default function GlobalActionBar() {
         if (!user || !userData) return;
         try {
             const groupDoc = await getDoc(doc(db, "groups", notif.groupId));
+            let destination = '/play';
+
             if (groupDoc.exists()) {
                 const groupData = groupDoc.data();
-                if (groupData.players && groupData.players.length >= 18) {
-                    alert("Ce groupe est complet !");
-                    await handleDeleteNotif(notif.id);
-                    return;
+
+                // Check if it's a village
+                if (groupData.isVillage) {
+                    if (groupData.gameStarted) {
+                        alert("Ce village est déjà en partie !");
+                        await handleDeleteNotif(notif.id);
+                        return;
+                    }
+                    const maxPlayers = groupData.maxPlayers || 16;
+                    if (groupData.players && groupData.players.length >= maxPlayers) {
+                        alert("Ce village est complet !");
+                        await handleDeleteNotif(notif.id);
+                        return;
+                    }
+                    destination = `/room/${notif.groupId}`;
+                } else {
+                    // It's a standard group lobby
+                    if (groupData.players && groupData.players.length >= 18) {
+                        alert("Ce groupe est complet !");
+                        await handleDeleteNotif(notif.id);
+                        return;
+                    }
                 }
             } else {
                 alert("Ce groupe n'existe plus.");
@@ -239,7 +260,7 @@ export default function GlobalActionBar() {
             });
 
             await handleDeleteNotif(notif.id);
-            router.push('/play'); // Go to play page to see the group
+            router.push(destination);
         } catch (error) {
             console.error("Error accepting group invite", error);
         }
@@ -251,162 +272,186 @@ export default function GlobalActionBar() {
 
     if (!user) return null;
 
+    const totalUnreadCount = activeNotifsCount + unreadMessages;
+
     return (
-        <div className="fixed top-28 right-4 z-40 flex flex-col items-center gap-4">
-
-            {/* Notifications Button */}
-            <div className="relative" ref={dropdownRef}>
-                <button
-                    onClick={() => setShowNotifications(!showNotifications)}
-                    className="group relative w-10 h-10 bg-dark rounded-full shadow-lg border-2 border-[#1A1D20] text-white/80 hover:text-white hover:-translate-y-1 transition-all flex items-center justify-center cursor-pointer"
-                    title="Notifications"
-                >
-                    <Image src="/assets/images/icones/bell-icon.png" alt="Notifications" width={18} height={18} className="transition-transform duration-300 group-hover:scale-110 group-hover:rotate-12" />
-                    {/* The text "Notifications" is removed from the button itself as it's a floating icon bar */}
-                    {activeNotifsCount > 0 && (
-                        <span className="absolute -top-1 -left-2 bg-red-500 text-white text-[10px] font-bold min-w-[18px] h-[18px] flex items-center justify-center rounded-full shadow-lg border-2 border-[#2A2F32] z-10 pointer-events-none">
-                            {activeNotifsCount > 99 ? '99+' : activeNotifsCount}
-                        </span>
+        <div className="fixed top-24 right-3 z-[200] flex flex-col items-center gap-3">
+            {/* Main Toggle Button */}
+            <button
+                onClick={() => setIsExpanded(!isExpanded)}
+                className="group relative w-10 h-10 md:w-12 md:h-12 bg-[#FCF8E8] rounded-full shadow-[0_0_15px_rgba(0,0,0,0.2)] border-[2px] md:border-[3px] border-secondary text-dark hover:bg-white hover:scale-105 transition-all flex items-center justify-center cursor-pointer z-[210]"
+                title="Menu Social"
+            >
+                <div className={`transition-transform duration-300 ${isExpanded ? 'rotate-180' : 'rotate-0'}`}>
+                    {isExpanded ? (
+                        <Image src="/assets/images/icones/close-icon_black.png" alt="Social" width={22} height={22} className="opacity-80 group-hover:opacity-100" />
+                    ) : (
+                        <Image src="/assets/images/icones/hello-icon_black.png" alt="Social" width={22} height={22} className="opacity-80 group-hover:opacity-100" />
                     )}
-                </button>
+                </div>
+                {!isExpanded && totalUnreadCount > 0 && (
+                    <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold min-w-[18px] h-[18px] flex items-center justify-center rounded-full shadow-lg border-2 border-white z-10 pointer-events-none">
+                        {totalUnreadCount > 99 ? '99+' : totalUnreadCount}
+                    </span>
+                )}
+            </button>
 
-                {/* Notifications Dropdown */}
-                {showNotifications && (
-                    <div className="absolute top-0 right-full mr-4 w-80 bg-white border-2 border-dark rounded-lg shadow-2xl z-50 overflow-hidden transform origin-top-right transition-all">
-                        <div className="p-4 bg-dark text-white border-b border-dark">
-                            <h3 className="font-bold">Notifications</h3>
-                        </div>
-                        <div className="max-h-[350px] overflow-y-auto custom-scrollbar">
-                            {notifications.length === 0 ? (
-                                <p className="p-4 text-center text-dark/50 text-sm">Aucune nouvelle notification.</p>
-                            ) : (
-                                notifications.map(notif => (
-                                    <div key={notif.id} className="p-4 border-b border-gray-100 hover:bg-gray-50 flex flex-col gap-2 relative">
-                                        <div className="flex items-center gap-3 pr-4">
-                                            <div className="w-10 h-10 rounded-full bg-dark overflow-hidden relative flex-shrink-0">
-                                                <Image src={notif.fromPhotoURL || "/assets/images/icones/Photo_Profil-transparent.png"} alt="Expéditeur" fill className="object-cover" sizes="40px" />
+            {/* Collapsible Container for Notifications and Messages */}
+            <div className={`flex flex-col gap-3 items-center transition-all duration-300 ease-in-out origin-top ${isExpanded ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 -translate-y-10 scale-95 pointer-events-none'}`}>
+                {/* Notifications Button */}
+                <div className="relative" ref={dropdownRef}>
+                    <button
+                        onClick={() => setShowNotifications(!showNotifications)}
+                        className="group relative md:w-10 md:h-10 w-8.5 h-8.5 bg-dark rounded-full shadow-lg border-2 border-[#1A1D20] text-white/80 hover:text-white hover:-translate-y-1 transition-all flex items-center justify-center cursor-pointer"
+                        title="Notifications"
+                    >
+                        <Image src="/assets/images/icones/bell-icon.png" alt="Notifications" width={18} height={18} className="transition-transform duration-300 group-hover:scale-110 group-hover:rotate-12" />
+                        {/* The text "Notifications" is removed from the button itself as it's a floating icon bar */}
+                        {activeNotifsCount > 0 && (
+                            <span className="absolute -top-1 -left-2 bg-red-500 text-white text-[10px] font-bold min-w-[18px] h-[18px] flex items-center justify-center rounded-full shadow-lg border-2 border-[#2A2F32] z-10 pointer-events-none">
+                                {activeNotifsCount > 99 ? '99+' : activeNotifsCount}
+                            </span>
+                        )}
+                    </button>
+
+                    {/* Notifications Dropdown */}
+                    {showNotifications && (
+                        <div className="absolute max-w-[300px] top-0 right-full mr-4 w-80 bg-white border-2 border-dark rounded-lg shadow-2xl z-50 overflow-hidden transform origin-top-right transition-all">
+                            <div className="p-4 bg-dark text-white border-b border-dark">
+                                <h3 className="font-bold">Notifications</h3>
+                            </div>
+                            <div className="max-h-[350px] overflow-y-auto custom-scrollbar">
+                                {notifications.length === 0 ? (
+                                    <p className="p-4 text-center text-dark/50 text-sm">Aucune nouvelle notification.</p>
+                                ) : (
+                                    notifications.map(notif => (
+                                        <div key={notif.id} className="p-4 border-b border-gray-100 hover:bg-gray-50 flex flex-col gap-2 relative">
+                                            <div className="flex items-center gap-3 pr-4">
+                                                <div className="w-10 h-10 rounded-full bg-dark overflow-hidden relative flex-shrink-0">
+                                                    <Image src={notif.fromPhotoURL || "/assets/images/icones/Photo_Profil-transparent.png"} alt="Expéditeur" fill className="object-cover" sizes="40px" />
+                                                </div>
+                                                <p className="text-sm text-dark">
+                                                    <span className="font-bold cursor-pointer hover:underline" onClick={() => { setShowNotifications(false); router.push(`/profil/${notif.fromUserId}`); }}>{notif.fromPseudo}</span>
+                                                    {notif.type === 'friend_request' && " vous a envoyé une demande d'ami."}
+                                                    {notif.type === 'friend_request_accepted' && " a accepté votre demande d'ami."}
+                                                    {notif.type === 'friend_request_rejected' && " a refusé votre demande d'ami."}
+                                                    {notif.type === 'group_invite' && " vous a invité à rejoindre son groupe."}
+                                                </p>
                                             </div>
-                                            <p className="text-sm text-dark">
-                                                <span className="font-bold cursor-pointer hover:underline" onClick={() => { setShowNotifications(false); router.push(`/profil/${notif.fromUserId}`); }}>{notif.fromPseudo}</span>
-                                                {notif.type === 'friend_request' && " vous a envoyé une demande d'ami."}
-                                                {notif.type === 'friend_request_accepted' && " a accepté votre demande d'ami."}
-                                                {notif.type === 'friend_request_rejected' && " a refusé votre demande d'ami."}
-                                                {notif.type === 'group_invite' && " vous a invité à rejoindre son groupe."}
-                                            </p>
-                                        </div>
 
-                                        {(notif.type !== 'friend_request' && notif.type !== 'group_invite') && (
-                                            <button
-                                                onClick={(e) => { e.stopPropagation(); handleDeleteNotif(notif.id); }}
-                                                className="absolute top-4 right-4 text-dark/40 hover:text-dark font-bold cursor-pointer"
+                                            {(notif.type !== 'friend_request' && notif.type !== 'group_invite') && (
+                                                <button
+                                                    onClick={(e) => { e.stopPropagation(); handleDeleteNotif(notif.id); }}
+                                                    className="absolute top-4 right-4 text-dark/40 hover:text-dark font-bold cursor-pointer"
+                                                >
+                                                    ✕
+                                                </button>
+                                            )}
+
+                                            {notif.type === 'friend_request' && (
+                                                <div className="flex gap-2 mt-2">
+                                                    <button
+                                                        onClick={() => handleAcceptFriend(notif)}
+                                                        className="flex-1 bg-green-500 hover:bg-green-600 text-white text-xs font-bold py-2 rounded cursor-pointer transition-colors"
+                                                    >
+                                                        Accepter
+                                                    </button>
+                                                    <button
+                                                        onClick={() => handleRejectFriend(notif)}
+                                                        className="flex-1 bg-red-500 hover:bg-red-600 text-white text-xs font-bold py-2 rounded cursor-pointer transition-colors"
+                                                    >
+                                                        Refuser
+                                                    </button>
+                                                </div>
+                                            )}
+
+                                            {notif.type === 'group_invite' && (
+                                                <div className="flex gap-2 mt-2">
+                                                    <button
+                                                        onClick={() => handleAcceptGroupInvite(notif)}
+                                                        className="flex-1 bg-green-500 hover:bg-green-600 text-white text-xs font-bold py-2 rounded transition-colors cursor-pointer"
+                                                    >
+                                                        Rejoindre
+                                                    </button>
+                                                    <button
+                                                        onClick={() => handleDeleteNotif(notif.id)}
+                                                        className="flex-1 bg-red-500 hover:bg-red-600 text-white text-xs font-bold py-2 rounded transition-colors cursor-pointer"
+                                                    >
+                                                        Refuser
+                                                    </button>
+                                                </div>
+                                            )}
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+                        </div>
+                    )}
+                </div>
+
+                {/* Messages Button */}
+                <div className="relative" ref={messagesDropdownRef}>
+                    <button
+                        onClick={() => setShowMessagesDropdown(!showMessagesDropdown)}
+                        className="group relative md:w-10 md:h-10 w-8.5 h-8.5 bg-dark rounded-full shadow-lg border-2 border-[#1A1D20] text-white/80 hover:text-white hover:-translate-y-1 transition-all flex items-center justify-center cursor-pointer"
+                        title="Messages Privés"
+                    >
+                        <Image src="/assets/images/icones/message-icon.png" alt="Messages" width={18} height={18} className="transition-transform duration-300 group-hover:scale-110" />
+                        {/* The text "Messages" is removed from the button itself as it's a floating icon bar */}
+                        {unreadMessages > 0 && (
+                            <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold min-w-[20px] h-[20px] flex items-center justify-center rounded-full shadow-lg border-2 border-[#1A1D20] z-10 pointer-events-none">
+                                {unreadMessages > 99 ? '99+' : unreadMessages}
+                            </span>
+                        )}
+                    </button>
+
+                    {/* Messages Dropdown */}
+                    {showMessagesDropdown && (
+                        <div className="absolute max-w-[300px] top-0 right-full mr-4 w-80 bg-white border-2 border-dark rounded-lg shadow-2xl z-50 overflow-hidden transform origin-top-right transition-all">
+                            <div className="p-4 bg-dark text-white border-b border-dark">
+                                <h3 className="font-bold">Messages Non Lus</h3>
+                            </div>
+                            <div className="max-h-[350px] overflow-y-auto custom-scrollbar">
+                                {unreadChatsList.length === 0 ? (
+                                    <p className="p-4 text-center text-dark/50 text-sm">Aucun nouveau message.</p>
+                                ) : (
+                                    unreadChatsList.map(chat => {
+                                        const friendInfo = friends[chat.friendId] || { pseudo: "Utilisateur inconnu", photoURL: "/assets/images/icones/Photo_Profil-transparent.png" };
+                                        return (
+                                            <div key={chat.chatId}
+                                                // Actuellement, cliquer amène vers /play, mais maintenant on ouvre le chat directement
+                                                onClick={() => {
+                                                    setShowMessagesDropdown(false);
+                                                    setActiveChatFriend({
+                                                        id: chat.friendId,
+                                                        pseudo: friendInfo.pseudo,
+                                                        photoURL: friendInfo.photoURL
+                                                    });
+                                                }}
+                                                className="p-4 border-b border-gray-100 hover:bg-gray-50 flex items-center gap-3 relative cursor-pointer group"
                                             >
-                                                ✕
-                                            </button>
-                                        )}
-
-                                        {notif.type === 'friend_request' && (
-                                            <div className="flex gap-2 mt-2">
-                                                <button
-                                                    onClick={() => handleAcceptFriend(notif)}
-                                                    className="flex-1 bg-green-500 hover:bg-green-600 text-white text-xs font-bold py-2 rounded cursor-pointer transition-colors"
-                                                >
-                                                    Accepter
-                                                </button>
-                                                <button
-                                                    onClick={() => handleRejectFriend(notif)}
-                                                    className="flex-1 bg-red-500 hover:bg-red-600 text-white text-xs font-bold py-2 rounded cursor-pointer transition-colors"
-                                                >
-                                                    Refuser
-                                                </button>
+                                                <div className="w-10 h-10 rounded-full bg-dark overflow-hidden relative flex-shrink-0">
+                                                    <Image src={friendInfo.photoURL} alt="Ami" fill className="object-cover" sizes="40px" />
+                                                </div>
+                                                <div className="flex-1 min-w-0 flex flex-col justify-center">
+                                                    <p className="text-sm text-dark font-bold truncate group-hover:text-secondary transition-colors">
+                                                        {friendInfo.pseudo}
+                                                    </p>
+                                                    <p className="text-xs text-red-500 font-bold mt-0.5">
+                                                        {chat.count} message(s) non lu(s)
+                                                    </p>
+                                                </div>
+                                                <div className="absolute right-4 opacity-50">
+                                                    <Image src="/assets/images/icones/chat-icon.png" alt="Message" width={18} height={18} />
+                                                </div>
                                             </div>
-                                        )}
-
-                                        {notif.type === 'group_invite' && (
-                                            <div className="flex gap-2 mt-2">
-                                                <button
-                                                    onClick={() => handleAcceptGroupInvite(notif)}
-                                                    className="flex-1 bg-green-500 hover:bg-green-600 text-white text-xs font-bold py-2 rounded transition-colors cursor-pointer"
-                                                >
-                                                    Rejoindre
-                                                </button>
-                                                <button
-                                                    onClick={() => handleDeleteNotif(notif.id)}
-                                                    className="flex-1 bg-red-500 hover:bg-red-600 text-white text-xs font-bold py-2 rounded transition-colors cursor-pointer"
-                                                >
-                                                    Refuser
-                                                </button>
-                                            </div>
-                                        )}
-                                    </div>
-                                ))
-                            )}
+                                        );
+                                    })
+                                )}
+                            </div>
                         </div>
-                    </div>
-                )}
-            </div>
-
-            {/* Messages Button */}
-            <div className="relative" ref={messagesDropdownRef}>
-                <button
-                    onClick={() => setShowMessagesDropdown(!showMessagesDropdown)}
-                    className="group relative w-10 h-10 bg-dark rounded-full shadow-lg border-2 border-[#1A1D20] text-white/80 hover:text-white hover:-translate-y-1 transition-all flex items-center justify-center cursor-pointer"
-                    title="Messages Privés"
-                >
-                    <Image src="/assets/images/icones/message-icon.png" alt="Messages" width={18} height={18} className="transition-transform duration-300 group-hover:scale-110" />
-                    {/* The text "Messages" is removed from the button itself as it's a floating icon bar */}
-                    {unreadMessages > 0 && (
-                        <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold min-w-[20px] h-[20px] flex items-center justify-center rounded-full shadow-lg border-2 border-[#1A1D20] z-10 pointer-events-none">
-                            {unreadMessages > 99 ? '99+' : unreadMessages}
-                        </span>
                     )}
-                </button>
-
-                {/* Messages Dropdown */}
-                {showMessagesDropdown && (
-                    <div className="absolute top-0 right-full mr-4 w-80 bg-white border-2 border-dark rounded-lg shadow-2xl z-50 overflow-hidden transform origin-top-right transition-all">
-                        <div className="p-4 bg-dark text-white border-b border-dark">
-                            <h3 className="font-bold">Messages Non Lus</h3>
-                        </div>
-                        <div className="max-h-[350px] overflow-y-auto custom-scrollbar">
-                            {unreadChatsList.length === 0 ? (
-                                <p className="p-4 text-center text-dark/50 text-sm">Aucun nouveau message.</p>
-                            ) : (
-                                unreadChatsList.map(chat => {
-                                    const friendInfo = friends[chat.friendId] || { pseudo: "Utilisateur inconnu", photoURL: "/assets/images/icones/Photo_Profil-transparent.png" };
-                                    return (
-                                        <div key={chat.chatId}
-                                            // Actuellement, cliquer amène vers /play, mais maintenant on ouvre le chat directement
-                                            onClick={() => {
-                                                setShowMessagesDropdown(false);
-                                                setActiveChatFriend({
-                                                    id: chat.friendId,
-                                                    pseudo: friendInfo.pseudo,
-                                                    photoURL: friendInfo.photoURL
-                                                });
-                                            }}
-                                            className="p-4 border-b border-gray-100 hover:bg-gray-50 flex items-center gap-3 relative cursor-pointer group"
-                                        >
-                                            <div className="w-10 h-10 rounded-full bg-dark overflow-hidden relative flex-shrink-0">
-                                                <Image src={friendInfo.photoURL} alt="Ami" fill className="object-cover" sizes="40px" />
-                                            </div>
-                                            <div className="flex-1 min-w-0 flex flex-col justify-center">
-                                                <p className="text-sm text-dark font-bold truncate group-hover:text-secondary transition-colors">
-                                                    {friendInfo.pseudo}
-                                                </p>
-                                                <p className="text-xs text-red-500 font-bold mt-0.5">
-                                                    {chat.count} message(s) non lu(s)
-                                                </p>
-                                            </div>
-                                            <div className="absolute right-4 opacity-50">
-                                                <Image src="/assets/images/icones/chat-icon.png" alt="Message" width={18} height={18} />
-                                            </div>
-                                        </div>
-                                    );
-                                })
-                            )}
-                        </div>
-                    </div>
-                )}
+                </div>
             </div>
 
             {/* Active Private Chat */}

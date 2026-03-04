@@ -72,7 +72,7 @@ export default function Leaderboard() {
 
                         {/* 3rd Place Avatar (Left on image "3") */}
                         {podium[2] && (
-                            <div className="absolute bottom-[55%] left-[18%] w-24 h-24 sm:w-28 sm:h-28 rounded-full border-4 border-amber-700 bg-secondary flex items-center justify-center overflow-hidden z-10 transition-transform hover:scale-105">
+                            <div className="absolute bottom-[55%] left-[5%] md:left-[18%] w-24 h-24 sm:w-28 sm:h-28 rounded-full border-4 border-amber-700 bg-secondary flex items-center justify-center overflow-hidden z-10 transition-transform hover:scale-105">
                                 <Image src={podium[2].photoURL || "/assets/images/icones/Photo_Profil-transparent.png"} alt="3rd Place" fill className="object-cover" />
                             </div>
                         )}
@@ -86,7 +86,7 @@ export default function Leaderboard() {
 
                         {/* 2nd Place Avatar (Right on image "2") */}
                         {podium[0] && (
-                            <div className="absolute bottom-[55%] right-[18%] w-24 h-24 sm:w-28 sm:h-28 rounded-full border-4 border-slate-400 bg-secondary flex items-center justify-center overflow-hidden z-10 transition-transform hover:scale-105">
+                            <div className="absolute bottom-[55%] right-[5%] md:right-[18%] w-24 h-24 sm:w-28 sm:h-28 rounded-full border-4 border-slate-400 bg-secondary flex items-center justify-center overflow-hidden z-10 transition-transform hover:scale-105">
                                 <Image src={podium[0].photoURL || "/assets/images/icones/Photo_Profil-transparent.png"} alt="2nd Place" fill className="object-cover" />
                             </div>
                         )}

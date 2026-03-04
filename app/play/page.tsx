@@ -67,6 +67,7 @@ export default function PlayPage() {
 
     // --- Group Chat State ---
     const [showGroupChat, setShowGroupChat] = useState(false);
+    const [showMobileSocialPanel, setShowMobileSocialPanel] = useState(false);
 
     // --- Private Village Join State ---
     const [selectedPrivateVillage, setSelectedPrivateVillage] = useState<any>(null);
@@ -561,12 +562,32 @@ export default function PlayPage() {
         if (rejoinCountdownRef.current) clearInterval(rejoinCountdownRef.current);
         try {
             const groupDoc = await getDoc(doc(db, "groups", notif.groupId));
+            let destination = '/play';
+
             if (groupDoc.exists()) {
                 const groupData = groupDoc.data();
-                if (groupData.players && groupData.players.length >= 18) {
-                    alert("Ce groupe est complet !");
-                    await handleDeleteNotif(notif.id);
-                    return;
+
+                // Check if it's a village
+                if (groupData.isVillage) {
+                    if (groupData.gameStarted) {
+                        alert("Ce village est déjà en partie !");
+                        await handleDeleteNotif(notif.id);
+                        return;
+                    }
+                    const maxPlayers = groupData.maxPlayers || 16;
+                    if (groupData.players && groupData.players.length >= maxPlayers) {
+                        alert("Ce village est complet !");
+                        await handleDeleteNotif(notif.id);
+                        return;
+                    }
+                    destination = `/room/${notif.groupId}`;
+                } else {
+                    // It's a standard group lobby
+                    if (groupData.players && groupData.players.length >= 18) {
+                        alert("Ce groupe est complet !");
+                        await handleDeleteNotif(notif.id);
+                        return;
+                    }
                 }
             } else {
                 alert("Ce groupe n'existe plus.");
@@ -589,6 +610,9 @@ export default function PlayPage() {
             });
 
             await handleDeleteNotif(notif.id);
+            if (destination !== '/play') {
+                router.push(destination);
+            }
         } catch (error) {
             console.error("Error accepting group invite", error);
         }
@@ -931,7 +955,7 @@ export default function PlayPage() {
 
                     {/* Left: Actions */}
                     <div className="flex flex-col items-center md:items-start flex-1">
-                        <h1 className="font-enchanted text-7xl text-dark tracking-wide mb-10">Prêts pour chasser ?</h1>
+                        <h1 className="font-enchanted text-center md:text-left text-7xl text-dark tracking-wide mb-10">Prêts pour Chasser ?</h1>
                         <div className="flex flex-col w-full max-w-sm gap-4">
                             <button
                                 onClick={handleQuickJoin}
@@ -953,6 +977,7 @@ export default function PlayPage() {
 
 
                         <div className="flex flex-col items-center cursor-pointer group" onClick={() => router.push('/profil')}>
+                            {/* <h1 className="font-enchanted text-center md:text-left text-5xl text-dark tracking-wide mb-2">Mon Profil</h1> */}
                             <div className="relative w-38 h-38 md:w-44 md:h-44 rounded-full border-[8px] border-dark bg-[#E3D1A5] shadow-xl overflow-hidden mb-4 group-hover:scale-105 transition-transform">
                                 {/* Moon background illusion */}
                                 <div className="absolute inset-0 bg-[url('/assets/images/icones/village_batiments.png')] bg-cover opacity-20 bg-center"></div>
@@ -965,6 +990,7 @@ export default function PlayPage() {
                             </div>
                             <h2 className="font-bold text-2xl text-dark tracking-wide">{userData?.pseudo || "Joueur"}</h2>
                             <p className="text-dark/70 text-lg font-semibold">{userData?.stats?.points || 0} pts</p>
+                            <p className="text-dark/70 text-[10px] font-light italic">(Cliquez sur votre photo pour modifier votre profil)</p>
                             {/* Optionnel: Si vous vouliez rajouter le niveau, ce serait ici */}
                         </div>
                     </div>
@@ -986,17 +1012,29 @@ export default function PlayPage() {
                         </div>
                     </div>
 
-                    {/* Filter Tabs */}
-                    <div className="flex w-full lg:w-auto bg-dark p-1 rounded-md overflow-hidden">
-                        {['Toutes', 'Publiques', 'Privés', 'Amis'].map(tab => (
-                            <button
-                                key={tab}
-                                onClick={() => setActiveTab(tab)}
-                                className={`flex-1 lg:flex-none px-6 py-2.5 font-bold text-sm transition-colors rounded ${activeTab === tab ? 'bg-secondary text-white' : 'text-white/80 hover:bg-white/10'}`}
-                            >
-                                {tab}
-                            </button>
-                        ))}
+                    {/* Filter Tabs & Social Mobile Button */}
+                    <div className="flex w-full lg:w-auto items-center gap-2 md:gap-4">
+                        <div className="flex w-full lg:w-auto bg-dark p-1 rounded-md overflow-hidden">
+                            {['Toutes', 'Publiques', 'Privés', 'Amis'].map(tab => (
+                                <button
+                                    key={tab}
+                                    onClick={() => setActiveTab(tab)}
+                                    className={`flex-1 lg:flex-none px-4 md:px-6 py-2.5 font-bold text-xs md:text-sm transition-colors rounded ${activeTab === tab ? 'bg-secondary text-white' : 'text-white/80 hover:bg-white/10'}`}
+                                >
+                                    {tab}
+                                </button>
+                            ))}
+                        </div>
+                        <button
+                            onClick={() => setShowMobileSocialPanel(true)}
+                            className="lg:hidden flex-shrink-0 bg-dark w-10 h-10 md:w-11 md:h-11 rounded-md flex items-center justify-center shadow-lg relative cursor-pointer active:scale-95 transition-transform"
+                        >
+                            <Image src="/assets/images/icones/friends-icon_white.png" alt="Social" width={20} height={20} />
+                            {(group?.unreadCount?.[user?.uid] || 0) > 0 && (
+                                <span className="absolute -top-1.5 -right-1.5 bg-red-500 w-3 h-3 rounded-full border border-dark z-10 animate-pulse">
+                                </span>
+                            )}
+                        </button>
                     </div>
                 </div>
 
@@ -1081,21 +1119,21 @@ export default function PlayPage() {
                                                     }}
                                                 >
                                                     {/* Big Profile Overhang */}
-                                                    <div className="absolute left-0 w-24 h-24 rounded-full border-[3px] border-dark overflow-hidden flex-shrink-0 z-10">
+                                                    <div className="absolute left-0 md:w-24 w-16 md:h-24 h-16 rounded-full border-[3px] border-dark overflow-hidden flex-shrink-0 z-10">
                                                         <Image src={hostAvatars[village.hostId] || village.hostPhoto || "/assets/images/icones/Photo_Profil-transparent.png"} alt="Avatar" fill className="object-cover" />
                                                     </div>
 
-                                                    <div className="flex-1 pl-28 py-6 pr-4 flex justify-between items-center">
+                                                    <div className="flex-1 ml-20 md:ml-28 py-2 md:py-6 md:pr-4 flex justify-between items-center">
                                                         <div className="flex flex-col">
-                                                            <h3 className="font-enchanted text-4xl tracking-wide font-bold text-dark leading-tight line-clamp-1">{village.name}</h3>
-                                                            <p className="text-dark/60 text-sm flex items-center gap-1 mt-1">
+                                                            <h3 className="font-enchanted text-2xl md:text-4xl tracking-wide font-bold text-dark leading-tight line-clamp-1">{village.name}</h3>
+                                                            <p className="text-dark/60 text-xs md:text-sm flex items-center gap-1 mt-1">
                                                                 {village.mode} <Image src={village.isMicro ? '/assets/images/icones/microphone-icon.png' : '/assets/images/icones/non_microphone-icon.png'} alt={village.isMicro ? 'Micro activé' : 'Micro désactivé'} width={14} height={14} className="inline-block" />
                                                             </p>
-                                                            <p className="font-bold text-sm mt-1">{village.hostPseudo}</p>
+                                                            <p className="font-bold text-xs md:text-sm mt-1">{village.hostPseudo}</p>
                                                         </div>
                                                         <div className="flex flex-col items-center">
-                                                            <span className="font-enchanted tracking-wide text-2xl text-dark">{village.isPrivate ? 'Privé' : 'Publique'}</span>
-                                                            <span className="bg-[#E0C09C] text-dark font-bold text-xs px-3 py-1 rounded-full flex items-center gap-1.5">
+                                                            <span className="font-enchanted tracking-wide text-lg md:text-2xl text-dark">{village.isPrivate ? 'Privé' : 'Publique'}</span>
+                                                            <span className="bg-[#E0C09C] text-dark font-bold text-[10px] md:text-xs px-3 py-1 rounded-full flex items-center gap-1.5">
                                                                 {/* Affichage du count : socket en priorité, Firestore en fallback */}
                                                                 {livePlayerCounts[village.id] !== undefined ? (
                                                                     <>
@@ -1122,7 +1160,17 @@ export default function PlayPage() {
                     </div>
 
                     {/* RIGHT PANEL: Lobby & Social (Right 4-5 columns) */}
-                    <div className="lg:col-span-5 bg-dark text-white rounded-lg p-6 flex flex-col h-[600px] border-2 border-dark/90 shadow-2xl">
+                    <div className={`lg:col-span-5 bg-dark text-white rounded-lg p-6 flex flex-col border-2 border-dark/90 shadow-2xl transition-all duration-300 ${showMobileSocialPanel ? 'fixed inset-0 z-[100] h-full w-full rounded-none border-none animate-in slide-in-from-right-full' : 'hidden lg:flex h-[600px]'}`}>
+
+                        {/* Mobile Modal Header */}
+                        {showMobileSocialPanel && (
+                            <div className="flex justify-between items-center mb-6 lg:hidden border-b border-white/10 pb-4">
+                                <h2 className="font-enchanted tracking-widest text-3xl text-secondary">Lobby & Social</h2>
+                                <button onClick={() => setShowMobileSocialPanel(false)} className="text-white/50 hover:text-red-400 font-bold text-2xl leading-none px-2 cursor-pointer transition-colors">
+                                    ✕
+                                </button>
+                            </div>
+                        )}
 
                         {/* Lobby Players */}
                         <div className="mb-6 flex-shrink-0">
@@ -1297,11 +1345,11 @@ export default function PlayPage() {
                                                         </span>
                                                     </div>
                                                 </div>
-                                                <div className="flex gap-3 items-center text-white/50 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                <div className="flex gap-3 items-center text-white/50 md:opacity-0 group-hover:opacity-100 transition-opacity">
                                                     {inGroup ? (
                                                         <span className="text-secondary text-xs font-bold px-2 py-1 mr-2 bg-secondary/10 rounded">En Groupe</span>
                                                     ) : isOnline ? (
-                                                        <button className="hover:text-white cursor-pointer mr-2" title="Inviter au groupe" onClick={() => handleInviteToGroup(friend.friendId, friend.pseudo)}><Image src="/assets/images/icones/plus-icon.png" alt="Inviter" width={14} height={14} /></button>
+                                                        <button className="text-white hover:text-white md:text-transparent cursor-pointer mr-2" title="Inviter au groupe" onClick={() => handleInviteToGroup(friend.friendId, friend.pseudo)}><Image src="/assets/images/icones/plus-icon.png" alt="Inviter" width={14} height={14} /></button>
                                                     ) : <span className="opacity-0 px-2 py-1 mr-2"><Image src="/assets/images/icones/plus-icon.png" alt="" width={14} height={14} /></span>}
                                                     {isInGame && (
                                                         <button className="hover:text-white cursor-pointer" title="Voir partie" onClick={() => alert("Fonctionnalité Spectateur à venir.")}><Image src="/assets/images/icones/eye-icon.png" alt="Voir partie" width={16} height={16} /></button>

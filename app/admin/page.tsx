@@ -69,16 +69,16 @@ export default function AdminPage() {
 
     return (
         <div className="min-h-screen w-full bg-slate-900 text-white font-montserrat">
-            <Header />
+            <Header isDark={true} />
 
-            <main className="max-w-4xl mx-auto px-6 py-16">
-                <div className="bg-slate-800 border-2 border-red-500/30 rounded-xl p-8 shadow-2xl">
-                    <div className="flex items-center gap-4 mb-8 border-b border-slate-700 pb-6">
+            <main className="max-w-4xl mx-auto px-4 md:px-6 py-8 md:py-16">
+                <div className="bg-slate-800 border-2 border-red-500/30 rounded-xl p-4 md:p-8 shadow-2xl">
+                    <div className="flex flex-col md:flex-row items-start md:items-center gap-4 mb-6 md:mb-8 border-b border-slate-700 pb-4 md:pb-6">
                         <span className="text-4xl">
                             <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="currentColor" className="text-red-400"><path d="M12 2L4 5v6c0 5.25 3.4 10.15 8 11.5C16.6 21.15 20 16.25 20 11V5l-8-3z" /></svg>
                         </span>
                         <div>
-                            <h1 className="font-enchanted text-5xl tracking-widest text-red-400 mb-1">Panneau d'Administration</h1>
+                            <h1 className="font-enchanted text-3xl md:text-5xl tracking-widest text-red-400 mb-1">Panneau d'Administration</h1>
                             <p className="text-slate-400 text-sm font-bold uppercase tracking-wide">Accès Restreint</p>
                         </div>
                     </div>

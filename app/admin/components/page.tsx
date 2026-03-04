@@ -18,6 +18,7 @@ import { Player, GameState, Phase } from '@/types/game';
 export default function ComponentsTestPage() {
     const [selectedRole, setSelectedRole] = useState<RoleId>('VILLAGEOIS');
     const [isCardFlipped, setIsCardFlipped] = useState(false);
+    const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
     const roleDef = ROLES[selectedRole];
 
@@ -147,9 +148,9 @@ export default function ComponentsTestPage() {
     ];
 
     return (
-        <div className="min-h-screen bg-[#fafafa] p-8 font-montserrat flex flex-col items-center relative">
-            <div className="w-full max-w-5xl flex items-center justify-between mb-6">
-                <h1 className="text-4xl font-extrabold text-slate-900 font-enchanted">Testeur de Composants</h1>
+        <div className="min-h-screen bg-[#fafafa] p-4 md:p-8 font-montserrat flex flex-col items-center relative">
+            <div className="w-full max-w-5xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-6">
+                <h1 className="text-2xl md:text-4xl font-extrabold text-slate-900 font-enchanted">Testeur de Composants</h1>
                 <Link
                     href="/admin"
                     className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-white px-5 py-2.5 rounded-xl font-bold uppercase tracking-wider text-sm transition-all shadow-md hover:shadow-lg"
@@ -162,16 +163,37 @@ export default function ComponentsTestPage() {
             </div>
 
             {/* Navigation Menu */}
-            <div className="w-full max-w-5xl bg-slate-900 rounded-xl p-4 shadow-md flex flex-wrap gap-4 justify-center mb-8 sticky top-4 z-50">
-                {navItems.map(item => (
+            <div className="w-full max-w-5xl bg-slate-900 rounded-xl shadow-md mb-8 sticky top-4 z-50">
+                {/* Mobile Header Toggle */}
+                <div className="md:hidden flex items-center justify-between p-4">
+                    <span className="text-white font-bold uppercase tracking-widest text-sm">Navigation</span>
                     <button
-                        key={item.id}
-                        onClick={() => document.getElementById(item.id)?.scrollIntoView({ behavior: 'smooth' })}
-                        className="px-4 py-2 bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white rounded-md text-sm font-bold transition-all border border-slate-700 hover:border-slate-500"
+                        onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+                        className="text-white p-2 border border-slate-700 rounded-md hover:bg-slate-800 transition-colors"
                     >
-                        {item.label}
+                        {isMobileMenuOpen ? (
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-6 h-6"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                        ) : (
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-6 h-6"><path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" /></svg>
+                        )}
                     </button>
-                ))}
+                </div>
+
+                {/* Menu Items */}
+                <div className={`${isMobileMenuOpen ? 'flex' : 'hidden'} md:flex flex-col md:flex-row flex-wrap gap-2 md:gap-4 p-4 md:p-4 border-t border-slate-800 md:border-t-0 justify-center`}>
+                    {navItems.map(item => (
+                        <button
+                            key={item.id}
+                            onClick={() => {
+                                document.getElementById(item.id)?.scrollIntoView({ behavior: 'smooth' });
+                                setIsMobileMenuOpen(false);
+                            }}
+                            className="px-4 py-3 md:py-2 bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white rounded-md text-sm font-bold transition-all border border-slate-700 hover:border-slate-500 w-full md:w-auto text-left md:text-center"
+                        >
+                            {item.label}
+                        </button>
+                    ))}
+                </div>
             </div>
 
             <div id="role-card" className="scroll-mt-28 w-full max-w-5xl bg-white p-6 rounded-xl shadow-md border-2 border-slate-200">

@@ -12,24 +12,24 @@ export default function InfectedModal({ isOpen, onClose }: InfectedModalProps) {
 
     return (
         <div className="fixed inset-0 bg-black/40 z-[200] flex flex-col items-center justify-center p-6 backdrop-blur-md animation-fade-in font-montserrat">
-            <div className="bg-slate-900 border-2 border-red-600 p-8 rounded-2xl max-w-md w-full text-center shadow-[0_0_30px_rgba(220,38,38,0.3)] relative overflow-hidden">
+            <div className="bg-slate-900 border-2 border-red-600 px-4 py-6 rounded-2xl max-w-md w-full text-center shadow-[0_0_30px_rgba(220,38,38,0.3)] relative overflow-hidden">
                 {/* Effet lugubre au fond */}
                 <div className="absolute inset-0 opacity-10 pointer-events-none bg-[url('/assets/images/icones/powers/Effect_infecte.png')] bg-center bg-no-repeat bg-contain blur-sm"></div>
 
                 <div className="relative z-10 flex flex-col items-center">
-                    <div className="w-20 h-20 mb-4 drop-shadow-[0_0_15px_rgba(220,38,38,0.6)]">
-                        <Image src="/assets/images/icones/powers/Effect_infecte.png" alt="Infection" width={80} height={80} className="object-contain" />
+                    <div className="w-30 h-30 drop-shadow-[0_0_15px_rgba(220,38,38,0.6)]">
+                        <Image src="/assets/images/icones/powers/Effect_infecte.png" alt="Infection" width={150} height={150} className="object-contain" />
                     </div>
 
-                    <h2 className="text-3xl font-enchanted tracking-widest text-red-500 mb-2 uppercase drop-shadow-md">
+                    <h2 className="text-2xl md:text-3xl font-enchanted tracking-widest text-red-500 mb-2 uppercase drop-shadow-md">
                         Morsure Infecte !
                     </h2>
 
-                    <p className="text-white text-base mb-6 font-medium leading-relaxed">
+                    <p className="text-white text-sm md:text-base mb-6 font-medium leading-relaxed">
                         Le venin coule maintenant dans vos veines... Vous êtes désormais <span className="font-extrabold text-red-500 text-lg uppercase tracking-wide">Infecté(e)</span>.
                     </p>
 
-                    <div className="space-y-4 mb-8 text-sm">
+                    <div className="space-y-4 mb-6 text-sm">
                         <div className="bg-red-950/40 p-3 rounded-lg border border-red-500/30">
                             <p className="text-red-300">
                                 <strong>Nouveau Camp :</strong> Vous faites maintenant partie du camp des LOUPS-GAROUS. Vous devez les aider à gagner !

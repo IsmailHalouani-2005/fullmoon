@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
+import Link from 'next/link';
 import Header from '../../components/Header';
 import { auth, db, storage } from '../../lib/firebase';
 import { onAuthStateChanged, signOut, updateProfile, updateEmail, updatePassword, linkWithPopup, GoogleAuthProvider, deleteUser } from 'firebase/auth';
@@ -195,13 +196,20 @@ export default function ProfilePage() {
         if (!confirmDelete) return;
 
         try {
+            // Delete the document first, as security rules may require the user to be authenticated
             await deleteDoc(doc(db, "users", user.uid));
+            // Then delete the user from Firebase Auth
             await deleteUser(user);
-            router.push('/');
+            // Explicitly sign out to clear any remaining local auth state
+            await signOut(auth);
+            // Force a hard redirect to the home page to clear all React states
+            window.location.href = '/';
         } catch (error: any) {
             console.error("Erreur de suppression de compte", error);
             if (error.code === 'auth/requires-recent-login') {
                 alert("Pour des raisons de sécurité, veuillez vous déconnecter et vous reconnecter avant de supprimer votre compte.");
+                await signOut(auth);
+                window.location.href = '/';
             } else {
                 alert("Erreur lors de la suppression : " + error.message);
             }
@@ -276,7 +284,7 @@ export default function ProfilePage() {
                             <span className="text-xl">←</span> Retour
                         </button>
 
-                        <h1 className="font-enchanted text-6xl text-white text-center mb-10 tracking-wider">COMPTE</h1>
+                        <h1 className="font-enchanted text-6xl text-white text-center mt-3 mb-7 tracking-wider">COMPTE</h1>
 
                         <div className="flex flex-col md:flex-row gap-12 items-start md:items-center">
 
@@ -418,6 +426,17 @@ export default function ProfilePage() {
                                 Supprimer le compte
                             </button>
                         </div>
+                    </div>
+
+                    {/* Links to legal pages */}
+                    <div className="bg-[#2A2F32] rounded-xl p-8 shadow-2xl flex flex-col md:flex-row items-center justify-center gap-4 md:gap-8 text-sm font-medium text-white/50 w-full mb-8">
+                        <Link href="/legal" className="hover:text-white transition-colors">Mentions Légales</Link>
+                        <span className="hidden md:inline text-white/20">|</span>
+                        <Link href="/cgu" className="hover:text-white transition-colors">CGU</Link>
+                        <span className="hidden md:inline text-white/20">|</span>
+                        <Link href="/privacy" className="hover:text-white transition-colors">Données Personnelles</Link>
+                        <span className="hidden md:inline text-white/20">|</span>
+                        <Link href="/cookies" className="hover:text-white transition-colors">Cookies</Link>
                     </div>
 
                 </div>

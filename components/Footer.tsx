@@ -28,9 +28,9 @@ export default function Footer() {
 
                 {/* Right Side: Links */}
                 <div className="flex flex-col md:flex-row items-center gap-4 md:gap-8 text-sm font-medium">
-                    <Link href="/mentions" className="hover:text-secondary transition-colors">Mentions Légales</Link>
+                    <Link href="/legal" className="hover:text-secondary transition-colors">Mentions Légales</Link>
                     <Link href="/cgu" className="hover:text-secondary transition-colors">Conditions Générales d'Utilisation</Link>
-                    <Link href="/donnees" className="hover:text-secondary transition-colors">Données Personnelles</Link>
+                    <Link href="/privacy" className="hover:text-secondary transition-colors">Données Personnelles</Link>
                     <Link href="/cookies" className="hover:text-secondary transition-colors">Cookies</Link>
                 </div>
 

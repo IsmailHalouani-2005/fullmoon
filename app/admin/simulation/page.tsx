@@ -9,7 +9,8 @@ import { ROLES, RoleId } from '@/types/roles';
 import { distributeRoles, distributeCustomRoles } from '@/lib/roleDistribution';
 import Image from 'next/image';
 
-const ADMIN_EMAILS = ['ismail.halouani@gmail.com', 'ilovehacking25@gmail.com'];
+const SUPER_ADMIN_EMAILS = ['ismail.halouani@gmail.com', 'ilovehacking25@gmail.com'];
+const ADMIN_EMAILS = [...SUPER_ADMIN_EMAILS, 'admin@admin.admin'];
 
 export default function AdminSimulationPage() {
     const router = useRouter();
@@ -89,12 +90,12 @@ export default function AdminSimulationPage() {
 
     return (
         <div className="min-h-screen w-full bg-slate-900 text-white font-montserrat pb-20">
-            <Header />
-            <main className="max-w-6xl mx-auto px-6 py-12">
-                <div className="flex items-center justify-between mb-8">
+            <Header isDark={true} />
+            <main className="max-w-6xl mx-auto px-4 py-6 md:px-6 md:py-12">
+                <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-8 gap-4">
                     <div>
-                        <h1 className="font-enchanted text-5xl tracking-widest text-red-400 mb-2">Simulateur de Distribution</h1>
-                        <p className="text-slate-400 text-sm font-bold uppercase tracking-widest">Testez vos algorithmes de jeu</p>
+                        <h1 className="font-enchanted text-3xl md:text-5xl tracking-widest text-red-400 mb-2">Simulateur de Distribution</h1>
+                        <p className="text-slate-400 text-xs md:text-sm font-bold uppercase tracking-widest">Testez vos algorithmes de jeu</p>
                     </div>
                     <button
                         onClick={() => router.push('/admin')}

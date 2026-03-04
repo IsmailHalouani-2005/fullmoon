@@ -43,7 +43,7 @@ export default function Hero() {
 
                         <button
                             onClick={() => router.push(user ? '/play' : '/auth')}
-                            className="cursor-pointer bg-secondary text-white font-bold text-xl px-10 py-4 rounded-lg shadow-lg hover:bg-[#c9a785] transition-transform transform hover:scale-105"
+                            className="cursor-pointer bg-secondary text-white font-extrabold text-xl px-10 py-4 rounded-lg shadow-lg hover:bg-[#c9a785] transition-transform transform hover:scale-105"
                         >
                             REJOINDRE LE VILLAGE
                         </button>
