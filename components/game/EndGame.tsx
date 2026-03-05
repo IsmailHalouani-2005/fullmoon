@@ -12,6 +12,7 @@ interface EndGameProps {
 
 export default function EndGame({ gameOverData, confirmLeave, getPlayerAvatar, currentUserId }: EndGameProps) {
     const [selectedRoleForModal, setSelectedRoleForModal] = useState<RoleDefinition | null>(null);
+    const [isLeaving, setIsLeaving] = useState(false);
 
     if (!gameOverData) return null;
 
@@ -152,10 +153,17 @@ export default function EndGame({ gameOverData, confirmLeave, getPlayerAvatar, c
 
                 <div className="mt-6 flex gap-4 justify-center">
                     <button
-                        onClick={confirmLeave}
-                        className="bg-secondary border-2 border-slate-200 text-dark hover:bg-primary text-lg font-extrabold px-8 py-3 rounded-lg transition-all shadow-[0_0_15px_rgba(209,160,122,0.3)] uppercase tracking-wide"
+                        onClick={() => {
+                            setIsLeaving(true);
+                            confirmLeave();
+                        }}
+                        disabled={isLeaving}
+                        className={`${isLeaving
+                            ? 'bg-slate-600 border-slate-500 text-slate-300 cursor-not-allowed shadow-none'
+                            : 'bg-secondary border-slate-200 text-dark hover:bg-primary shadow-[0_0_15px_rgba(209,160,122,0.3)]'
+                            } border-2 text-lg font-extrabold px-8 py-3 rounded-lg transition-all uppercase tracking-wide`}
                     >
-                        Quitter le village
+                        {isLeaving ? 'Chargement...' : 'Quitter le village'}
                     </button>
                 </div>
             </div>

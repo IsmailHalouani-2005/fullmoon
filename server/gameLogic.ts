@@ -131,6 +131,20 @@ export function setupGameLogic(io: Server<ClientToServerEvents, ServerToClientEv
                 // Ensure new fields exist for old player objects
                 if (!existingPlayer.usedPowers) existingPlayer.usedPowers = [];
                 if (!existingPlayer.effects) existingPlayer.effects = [];
+
+                // If they were temporarily disconnected, mark them as active again
+                if (existingPlayer.isDisconnected) {
+                    existingPlayer.isDisconnected = false;
+                    const rejoinMsg: ChatMessage = {
+                        senderId: 'system',
+                        senderName: 'Système',
+                        text: `${existingPlayer.name} s'est reconnecté(e).`,
+                        time: Date.now(),
+                        chatType: 'system'
+                    };
+                    game.chatMessages.push(rejoinMsg);
+                    io.to(roomCode).emit("chat_message", rejoinMsg);
+                }
             }
 
             // JOIN WOLF ROOM (For secure night chat)
@@ -642,6 +656,18 @@ export function setupGameLogic(io: Server<ClientToServerEvents, ServerToClientEv
             socket.to(roomCode).emit("player_speaking", { userId, isSpeaking, type });
         });
 
+        socket.on("ping_activity", () => {
+            const game = games[roomCode];
+            if (game) {
+                game.lastActivity = Date.now();
+                const player = game.players.find(p => p.id === userId);
+                if (player) {
+                    player.lastActivityTime = Date.now();
+                    player.inactivityWarningSent = false;
+                }
+            }
+        });
+
         // Déconnexion explicite depuis le client (clic sur "Quitter le village")
         (socket as any).on("leave_game", () => {
             const game = games[roomCode];
@@ -693,10 +719,14 @@ export function setupGameLogic(io: Server<ClientToServerEvents, ServerToClientEv
                 const disconnectingPlayer = game?.players.find(p => p.id === userId);
 
                 if (disconnectingPlayer) {
+                    disconnectingPlayer.isDisconnected = true;
+                    // Emit the state so clients see the "disconnected" avatar
+                    emitGameState(roomCode, game, io);
+
                     const waitMsg: ChatMessage = {
                         senderId: 'system',
                         senderName: 'Système',
-                        text: `${disconnectingPlayer.name} s'est déconnecté(e). Il a 1 minute pour revenir...`,
+                        text: `${disconnectingPlayer.name} s'est déconnecté(e). Il lui reste 1 minute pour revenir...`,
                         time: Date.now(),
                         chatType: 'system'
                     };
@@ -711,6 +741,9 @@ export function setupGameLogic(io: Server<ClientToServerEvents, ServerToClientEv
                     const playerIndex = currentGame.players.findIndex(p => p.id === userId);
                     if (playerIndex === -1) return; // Player already removed or reconnected ailleurs
 
+                    // IF they reconnected, this flag would be false now
+                    if (!currentGame.players[playerIndex].isDisconnected) return;
+
                     const disconnectedName = currentGame.players[playerIndex].name;
 
                     if (!currentGame.disconnectedPlayers) {
@@ -724,12 +757,13 @@ export function setupGameLogic(io: Server<ClientToServerEvents, ServerToClientEv
                     const leaveMsg: ChatMessage = {
                         senderId: 'system',
                         senderName: 'Système',
-                        text: `${disconnectedName} a quitté définitivement le village.`,
+                        text: `${disconnectedName} a quitté définitivement le village (déconnexion en cours de partie).`,
                         time: Date.now(),
                         chatType: 'system'
                     };
                     currentGame.chatMessages.push(leaveMsg);
                     io.to(roomCode).emit("chat_message", leaveMsg);
+
                     if (currentGame.players.length === 0) {
                         delete games[roomCode];
                         if (gameTimers[roomCode]) clearInterval(gameTimers[roomCode]);
@@ -738,7 +772,7 @@ export function setupGameLogic(io: Server<ClientToServerEvents, ServerToClientEv
                         emitGameState(roomCode, currentGame, io);
                     }
                     delete disconnectTimeouts[userId];
-                }, 60000);
+                }, 60000); // 1 minute allowed to reconnect
             }
         });
     });
@@ -749,35 +783,94 @@ export function setupGameLogic(io: Server<ClientToServerEvents, ServerToClientEv
 function startInactivityCheck(games: Record<string, GameState>, gameTimers: Record<string, NodeJS.Timeout>, io: Server) {
     setInterval(() => {
         const now = Date.now();
-        const INACTIVITY_TIMEOUT = 10 * 60 * 1000; // 10 minutes
+        const IDLE_TIMEOUT = 10 * 60 * 1000; // 10 minutes
+        const WARNING_TIMEOUT = 9 * 60 * 1000; // 9 minutes
 
         for (const [roomCode, game] of Object.entries(games)) {
-            if (now - game.lastActivity > INACTIVITY_TIMEOUT) {
-                console.log(`[SHUTDOWN] Room ${roomCode} inactive for 10min. Shutting down.`);
+            if (game.phase === 'LOBBY') {
+                const idleTime = now - game.lastActivity;
 
-                // Inform players
-                io.to(roomCode).emit('room_shutdown', 'Le village a été abandonné suite à une inactivité prolongée (10 min).');
+                if (idleTime >= IDLE_TIMEOUT) {
+                    console.log(`[SHUTDOWN] Lobby ${roomCode} inactive for 10min. Shutting down.`);
+                    io.to(roomCode).emit('room_shutdown', 'Le salon a été fermé suite à une inactivité prolongée (10 min).');
 
-                // Kick all players (socket leave)
-                const room = io.sockets.adapter.rooms.get(roomCode);
-                if (room) {
-                    for (const socketId of room) {
-                        const socket = io.sockets.sockets.get(socketId);
-                        if (socket) {
-                            socket.leave(roomCode);
+                    const room = io.sockets.adapter.rooms.get(roomCode);
+                    if (room) {
+                        for (const socketId of room) {
+                            const socket = io.sockets.sockets.get(socketId);
+                            if (socket) socket.leave(roomCode);
+                        }
+                    }
+                    delete games[roomCode];
+                    if (gameTimers[roomCode]) {
+                        clearInterval(gameTimers[roomCode]);
+                        delete gameTimers[roomCode];
+                    }
+                } else if (idleTime >= WARNING_TIMEOUT && game.players.length >= 5 && !game.lobbyWarningSent) {
+                    // Send warning to host only
+                    const host = game.players.find(p => p.id === game.hostId);
+                    if (host && host.socketId) {
+                        console.log(`[WARNING] Lobby ${roomCode} inactive for 9min. Warning host.`);
+                        io.to(host.socketId).emit('lobby_idle_warning');
+                        game.lobbyWarningSent = true;
+                    }
+                }
+            } else {
+                // IN-GAME Inactivity loop
+                // Avoid looping if the game itself is inactive so long it needs hard shutdown as fallback
+                if (now - game.lastActivity > IDLE_TIMEOUT + 60000) {
+                    // Failsafe room shutdown if NO ONE does anything
+                    delete games[roomCode];
+                    if (gameTimers[roomCode]) {
+                        clearInterval(gameTimers[roomCode]);
+                        delete gameTimers[roomCode];
+                    }
+                    return;
+                }
+
+                // Check individual players
+                for (let i = game.players.length - 1; i >= 0; i--) {
+                    const player = game.players[i];
+                    const playerIdleTime = now - (player.lastActivityTime || game.lastActivity);
+
+                    if (playerIdleTime >= IDLE_TIMEOUT) {
+                        console.log(`[KICK] Player ${player.name} inactive for 10min in room ${roomCode}. Kicking.`);
+
+                        // Forcely kick
+                        if (player.socketId) {
+                            io.to(player.socketId).emit('room_shutdown', 'Vous avez été déconnecté(e) pour cause d\'inactivité (10 min).');
+                            const socket = io.sockets.sockets.get(player.socketId);
+                            if (socket) socket.leave(roomCode);
+                        }
+
+                        const disconnectedName = player.name;
+                        if (!game.disconnectedPlayers) game.disconnectedPlayers = [];
+                        game.disconnectedPlayers.push({ id: player.id, name: disconnectedName });
+
+                        game.players.splice(i, 1);
+
+                        const leaveMsg = { senderId: 'system', senderName: 'Système', text: `${disconnectedName} a été exclu(e) pour inactivité.`, time: Date.now(), chatType: 'system' as const };
+                        game.chatMessages.push(leaveMsg);
+                        io.to(roomCode).emit("chat_message", leaveMsg);
+
+                        if (game.players.length === 0) {
+                            delete games[roomCode];
+                            if (gameTimers[roomCode]) clearInterval(gameTimers[roomCode]);
+                        } else {
+                            if (game.hostId === player.id) game.hostId = game.players[0].id;
+                            emitGameState(roomCode, game, io);
+                        }
+                    } else if (playerIdleTime >= WARNING_TIMEOUT && !player.inactivityWarningSent) {
+                        if (player.socketId) {
+                            console.log(`[WARNING] Player ${player.name} inactive for 9min. Sending warning.`);
+                            io.to(player.socketId).emit('player_idle_warning');
+                            player.inactivityWarningSent = true;
                         }
                     }
                 }
-
-                // Cleanup state
-                delete games[roomCode];
-                if (gameTimers[roomCode]) {
-                    clearInterval(gameTimers[roomCode]);
-                    delete gameTimers[roomCode];
-                }
             }
         }
-    }, 60000); // Check every minute
+    }, 10000); // Check every 10 seconds for better precision on 9m vs 10m
 }
 
 function startPhase(roomCode: string, newPhase: Phase, games: Record<string, GameState>, gameTimers: Record<string, NodeJS.Timeout>, io: Server) {

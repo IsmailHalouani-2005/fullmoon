@@ -106,6 +106,12 @@ export default function RoomPage() {
     const [showSettings, setShowSettings] = useState(false);
     const [speakingPlayers, setSpeakingPlayers] = useState<Set<string>>(new Set());
 
+    const [isValidatingRoom, setIsValidatingRoom] = useState(true);
+
+    // Idle Warning State
+    const [showLobbyWarning, setShowLobbyWarning] = useState(false);
+    const [showPlayerIdleWarning, setShowPlayerIdleWarning] = useState(false);
+
     // --- SORCIÈRE MODALS ---
     const [witchHealTarget, setWitchHealTarget] = useState<string | null>(null);
     const [witchPoisonTarget, setWitchPoisonTarget] = useState<string | null>(null);
@@ -182,13 +188,45 @@ export default function RoomPage() {
     const getPlayerAvatar = (playerId: string, fallbackUrl?: string) =>
         playerAvatars[playerId] || fallbackUrl || "/assets/images/icones/Photo_Profil-transparent.png";
 
-    // 2. Se connecter au Serveur de Jeu (Socket.io)
+    // 2. Valider le salon dans Firestore AVANT de lancer la connexion Socket
+    useEffect(() => {
+        if (!user || !roomCode) return;
+
+        const validateRoom = async () => {
+            try {
+                const groupDoc = await getDoc(doc(db, "groups", roomCode as string));
+                if (!groupDoc.exists()) {
+                    alert("Ce salon n'existe plus ou a été fermé.");
+                    router.push('/play');
+                    return;
+                }
+
+                const data = groupDoc.data();
+                const isUserInGroup = data.players?.some((p: any) => p.uid === user.uid);
+
+                if (data.phase === 'GAME_OVER' && !isUserInGroup) {
+                    alert("Cette partie est terminée. Impossible de la rejoindre en cours.");
+                    router.push('/play');
+                    return;
+                }
+
+                setIsValidatingRoom(false);
+            } catch (error) {
+                console.error("Erreur de validation du salon:", error);
+                setIsValidatingRoom(false); // Faute de mieux, on laisse passer si c'est une erreur réseau
+            }
+        };
+
+        validateRoom();
+    }, [user, roomCode, router]);
+
+    // 3. Se connecter au Serveur de Jeu (Socket.io)
     useEffect(() => {
         if (!user || !roomCode) return;
 
         // Attendre que la photo Firestore soit chargée (undefined = toujours en cours)
         // null = chargée mais vide, string = chargée avec URL → les deux débloquent le socket
-        if (firestorePhotoURL === undefined) return;
+        if (firestorePhotoURL === undefined || isValidatingRoom) return;
         const baseUrl = process.env.NEXT_PUBLIC_SOCKET_URL || (typeof window !== 'undefined' ? window.location.origin : '');
         let socketUrl = baseUrl;
 
@@ -311,6 +349,14 @@ export default function RoomPage() {
             router.push('/play');
         });
 
+        newSocket.on('lobby_idle_warning', () => {
+            setShowLobbyWarning(true);
+        });
+
+        newSocket.on('player_idle_warning', () => {
+            setShowPlayerIdleWarning(true);
+        });
+
         // Rejoindre officiellement la salle UNIQUEMENT quand le socket est bien connecté
         newSocket.on('connect', () => {
             console.log("Socket connecté, envoi de join_game...");
@@ -341,9 +387,33 @@ export default function RoomPage() {
         };
     }, [user, roomCode, firestorePhotoURL]);
 
-    // 3. Récupérer la configuration de la room depuis Firestore The Lobby (En temps réel)
+    // Track user activity to prevent idle kick
     useEffect(() => {
-        if (!roomCode) return;
+        if (!socket) return;
+
+        let lastPing = Date.now();
+        const handleActivity = () => {
+            const now = Date.now();
+            if (now - lastPing > 30000) { // Send activity ping max once every 30 seconds
+                socket.emit('ping_activity');
+                lastPing = now;
+            }
+        };
+
+        const activityEvents = ['mousemove', 'keydown', 'touchstart', 'click'];
+        activityEvents.forEach(event => window.addEventListener(event, handleActivity));
+
+        // Initial ping
+        socket.emit('ping_activity');
+
+        return () => {
+            activityEvents.forEach(event => window.removeEventListener(event, handleActivity));
+        };
+    }, [socket]);
+
+    // 4. Récupérer la configuration de la room depuis Firestore The Lobby (En temps réel)
+    useEffect(() => {
+        if (!roomCode || isValidatingRoom) return;
         const unsubscribe = onSnapshot(doc(db, "groups", roomCode), (snapshot) => {
             if (snapshot.exists()) {
                 const data = snapshot.data();
@@ -694,7 +764,7 @@ export default function RoomPage() {
                         >
                             <Image src={currentPhase === 'NIGHT' ? '/assets/images/icones/parametre-icon_white.png' : '/assets/images/icones/parametre-icon_black.png'} alt="Paramètres" width={22} height={22} />
                         </button>
-                        <button onClick={() => { if (!isPlayersListOpen) { setIsPlayersListOpen(true); setIsInviteOpen(false); setIsMobileSidebarOpen(false)} else { setIsPlayersListOpen(false); } }} className="hover:opacity-70 transition-opacity flex items-center justify-center p-1">
+                        <button onClick={() => { if (!isPlayersListOpen) { setIsPlayersListOpen(true); setIsInviteOpen(false); setIsMobileSidebarOpen(false) } else { setIsPlayersListOpen(false); } }} className="hover:opacity-70 transition-opacity flex items-center justify-center p-1">
                             <Image src={currentPhase === 'NIGHT' ? '/assets/images/icones/friends-icon_white.png' : '/assets/images/icones/friends-icon_black.png'} alt="Joueurs" width={22} height={22} />
                         </button>
                     </div>
@@ -1019,6 +1089,56 @@ export default function RoomPage() {
                                 className="px-6 py-2 bg-red-600 hover:bg-red-500 text-white font-bold rounded shadow transition-colors flex-1 uppercase text-sm tracking-wide"
                             >
                                 Quitter
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Modal Avertissement Inactivité Salon */}
+            {showLobbyWarning && (
+                <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[2020] p-4 font-montserrat">
+                    <div className="bg-slate-900 border-2 border-orange-500 p-8 rounded-xl max-w-sm text-center shadow-[0_0_20px_rgba(249,115,22,0.4)] relative overflow-hidden">
+                        <div className="absolute top-0 left-0 w-full h-1 bg-orange-600 animate-pulse"></div>
+                        <h2 className="text-2xl font-enchanted tracking-wider text-orange-500 mb-4">Attention !</h2>
+                        <p className="text-slate-300 text-sm mb-8">
+                            Le salon est inactif depuis longtemps et vous êtes assez nombreux. <br /><br />
+                            <span className="text-white font-bold">Veuillez lancer la partie ou le salon sera fermé dans 1 minute.</span>
+                        </p>
+                        <div className="flex gap-4 justify-center">
+                            <button
+                                onClick={() => {
+                                    setShowLobbyWarning(false);
+                                    socket?.emit('ping_activity');
+                                }}
+                                className="px-6 py-2 bg-orange-600 hover:bg-orange-500 text-white font-bold rounded shadow transition-colors w-full uppercase text-sm tracking-wide"
+                            >
+                                J'ai compris
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Modal Avertissement Inactivité Joueur */}
+            {showPlayerIdleWarning && (
+                <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[2020] p-4 font-montserrat">
+                    <div className="bg-slate-900 border-2 border-orange-500 p-8 rounded-xl max-w-sm text-center shadow-[0_0_20px_rgba(249,115,22,0.4)] relative overflow-hidden">
+                        <div className="absolute top-0 left-0 w-full h-1 bg-orange-600 animate-pulse"></div>
+                        <h2 className="text-2xl font-enchanted tracking-wider text-orange-500 mb-4">Êtes-vous toujours là ?</h2>
+                        <p className="text-slate-300 text-sm mb-8">
+                            Vous n'avez eu aucune interaction depuis 9 minutes.<br /><br />
+                            <span className="text-white font-bold">Bougez la souris ou cliquez pour ne pas être déconnecté dans 1 minute !</span>
+                        </p>
+                        <div className="flex gap-4 justify-center">
+                            <button
+                                onClick={() => {
+                                    setShowPlayerIdleWarning(false);
+                                    socket?.emit('ping_activity');
+                                }}
+                                className="px-6 py-2 bg-orange-600 hover:bg-orange-500 text-white font-bold rounded shadow transition-colors w-full uppercase text-sm tracking-wide"
+                            >
+                                Je suis là !
                             </button>
                         </div>
                     </div>

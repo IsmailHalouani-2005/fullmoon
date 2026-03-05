@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import Image from 'next/image';
 import { ROLES, RoleId } from '@/types/roles';
 import { GameState, Phase } from '@/types/game';
@@ -65,6 +65,33 @@ export default function ActiveGame({
         if (camp === 'LOUPS') return 'text-red-600';
         return 'text-purple-600';
     };
+
+    // Vibrate on phase change for mobile devices
+    useEffect(() => {
+        if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+            try {
+                // Determine vibration pattern based on phase
+                if (currentPhase === 'NIGHT') {
+                    // Long, ominous vibration for night
+                    navigator.vibrate([500, 200, 500]);
+                } else if (currentPhase === 'DAY_DISCUSSION') {
+                    // Short, sharp wake-up vibration
+                    navigator.vibrate([200, 100, 200]);
+                } else if (currentPhase === 'DAY_VOTE' || currentPhase === 'MAYOR_ELECTION') {
+                    // Warning/Action required vibration
+                    navigator.vibrate([150, 100, 150, 100, 150]);
+                } else if (currentPhase === 'MAYOR_SUCCESSION' || currentPhase === 'HUNTER_SHOT') {
+                    // Urgent/Critical action vibration (SOS-like)
+                    navigator.vibrate([100, 50, 100, 50, 100, 200, 300]);
+                } else if (currentPhase !== 'LOBBY' && currentPhase !== 'ROLE_REVEAL' && currentPhase !== 'END') {
+                    // Default fallback for any other active phase
+                    navigator.vibrate(200);
+                }
+            } catch (e) {
+                console.warn("Vibration API not supported or blocked", e);
+            }
+        }
+    }, [currentPhase]);
 
     return (
         <main className={`flex-1 relative overflow-hidden flex flex-col items-center justify-center p-8 ${currentPhase === 'NIGHT' ? 'bg-dark text-white' : 'bg-white text-dark'}`}>

@@ -13,9 +13,15 @@ export default function PresenceManager() {
                 const uid = user.uid;
 
                 // ALWAYS set Firestore to true on login, regardless of RTDB
-                updateDoc(doc(db, 'users', uid), {
-                    isOnline: true
-                }).catch(err => console.error("Could not update Firestore online status", err));
+                // But first check if the document exists to avoid FirebaseError
+                import('firebase/firestore').then(({ getDoc, doc, updateDoc }) => {
+                    const userRef = doc(db, 'users', uid);
+                    getDoc(userRef).then((snap) => {
+                        if (snap.exists()) {
+                            updateDoc(userRef, { isOnline: true }).catch(err => console.error("Could not update Firestore online status", err));
+                        }
+                    }).catch(err => console.error("Could not check if user doc exists", err));
+                });
 
                 let hasConnected = false;
 
@@ -53,9 +59,14 @@ export default function PresenceManager() {
                             // We ONLY update Firestore directly here to false IF we actually connected first.
                             // This prevents falsely setting offline if the RTDB just fails to connect on boot.
                             if (hasConnected) {
-                                updateDoc(doc(db, 'users', uid), {
-                                    isOnline: false
-                                }).catch(err => console.error("Could not update Firestore offline status", err));
+                                import('firebase/firestore').then(({ getDoc, doc, updateDoc }) => {
+                                    const userRef = doc(db, 'users', uid);
+                                    getDoc(userRef).then((userSnap) => {
+                                        if (userSnap.exists()) {
+                                            updateDoc(userRef, { isOnline: false }).catch(err => console.error("Could not update Firestore offline status", err));
+                                        }
+                                    }).catch(() => { });
+                                });
                             }
                         }
                     });
@@ -65,9 +76,14 @@ export default function PresenceManager() {
 
                 // Add a backup listener for when the user closes the tab (graceful exit)
                 const handleUnload = () => {
-                    updateDoc(doc(db, 'users', uid), {
-                        isOnline: false
-                    }).catch(() => { });
+                    import('firebase/firestore').then(({ getDoc, doc, updateDoc }) => {
+                        const userRef = doc(db, 'users', uid);
+                        getDoc(userRef).then((userSnap) => {
+                            if (userSnap.exists()) {
+                                updateDoc(userRef, { isOnline: false }).catch(() => { });
+                            }
+                        }).catch(() => { });
+                    });
                 };
                 window.addEventListener('beforeunload', handleUnload);
 

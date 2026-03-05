@@ -143,6 +143,17 @@ export default function PlayerCircleNode({
     const isEssenceTarget = currentPhase === 'NIGHT' && me?.role === 'PYROMANE' && nightActions?.some(a => a.powerId === 'ESSENCE' && a.targetId === player.id && a.sourceId === me?.id);
     const isPoisonTargetSelection = currentPhase === 'NIGHT' && me?.role === 'EMPOISONNEUR' && nightActions?.some(a => a.powerId === 'POISON_TOXIQUE' && a.targetId === player.id && a.sourceId === me?.id);
 
+    // Détermine si l'indicateur vocal doit être visible pour l'utilisateur actuel
+    let displaySpeaking = false;
+    if (isSpeaking) {
+        if (currentPhase === 'NIGHT') {
+            displaySpeaking = Boolean(isMe ? isMeWolf : (isMeWolf && isTargetWolf));
+        } else {
+            // Dans les autres phases, si le joueur parle on peut l'afficher.
+            displaySpeaking = true;
+        }
+    }
+
     return (
         <div
             onClick={canVote && onVote ? () => onVote(player.id) : undefined}
@@ -155,7 +166,7 @@ export default function PlayerCircleNode({
             <div className={`relative ${sizeClass} rounded-full flex items-center justify-center shadow-lg transition-all
                 ${player.id === game.hostId && currentPhase === 'LOBBY' ? 'border-[3px] border-[#D1A07A]' : 'border-[3px] border-slate-800'} 
                 ${isTargeted || isTargetedByPower || isPoisonTarget || isPoisonTargetSelection || isCupidonTarget || isGmlVictim || isInfectedTarget || isLoupBlancVote || isAssassinVote || isEssenceTarget ? ((currentPhase === 'NIGHT') ? "border-dashed !border-4 border-white shadow-[0_0_20px_rgba(255,255,255,0.6)] scale-105" : 'border-dashed !border-4 border-slate-900 shadow-[0_0_20px_rgba(0,0,0,0.6)] scale-105') : ''}
-                ${isSpeaking ? '!border-[var(--voice-aura)]' : ''}
+                ${displaySpeaking ? '!border-[var(--voice-aura)]' : ''}
                 ${isTargetedByPower ? (activePower === 'COUP_DE_COEUR' ? '!border-[#ff69b4] shadow-[0_0_15px_#ff69b4] animate-pulse' : (activePower === 'MORSURE_INFECTE' ? '!border-green-500 shadow-[0_0_15px_#22c55e] animate-pulse' : '!border-[#D1A07A]')) : ''}
                 ${isCupidonTarget ? '!border-[#ff69b4] shadow-[0_0_15px_#ff69b4] animate-pulse scale-105' : ''}
                 ${displayAsWolfVictim ? ((isInfectedTarget) ? '!border-green-600 shadow-[0_0_15px_#22c55e] animate-pulse scale-105' : '!border-red-600 shadow-[0_0_15px_#ef4444] animate-pulse scale-105') : ''}
@@ -165,7 +176,7 @@ export default function PlayerCircleNode({
                 ${isPoisonTarget || isPoisonTargetSelection ? '!border-purple-600 shadow-[0_0_15px_#9333ea]' : ''}
                 ${isHealed ? '!border-green-500 shadow-[0_0_15px_#22c55e]' : ''}
             `} title={displayAsWolfVictim ? "Cible des Loups" : (isGmlVictim ? "Carnage (Votre 2e cible)" : (isAssassinVote ? "Lame Noire (Votre cible)" : (isLoupBlancVote ? "Trahison (Votre cible)" : (isInfectedTarget ? "Cible de l'infection" : (isPoisonTarget || isPoisonTargetSelection ? "Cible de votre poison" : (isHealed ? "Sauvé par votre potion" : (isEssenceTarget ? "Cible de l'arrosage" : "")))))))}>
-                {isSpeaking && <div className="voice-aura-wave" />}
+                {displaySpeaking && <div className="voice-aura-wave" />}
                 {/* MOCK: L'image de fond lune pour tout le monde */}
                 <div className={`absolute inset-0 bg-[#e3d1ae] rounded-full z-0 overflow-hidden ${isDead ? 'grayscale' : ''}`}></div>
                 <div className={`absolute inset-0 flex items-center justify-center opacity-30 z-0 select-none overflow-hidden ${isDead ? 'grayscale' : ''}`}>
@@ -174,7 +185,11 @@ export default function PlayerCircleNode({
 
                 {/* L'avatar personnage */}
                 <div className={`relative z-10 w-[95%] h-[95%] rounded-full overflow-hidden flex items-center justify-center text-slate-800 ${isDead ? 'grayscale opacity-90' : ''}`}>
-                    {isDead ? (
+                    {player.isDisconnected ? (
+                        <div className="absolute inset-0 bg-black flex items-center justify-center rounded-full z-10">
+                            <span className="text-white text-[10px] sm:text-xs font-bold font-montserrat truncate w-full text-center px-1">(déconnecté)</span>
+                        </div>
+                    ) : isDead ? (
                         <Image src="/assets/images/icones/Mort.png" alt="Mort" fill className="object-cover rounded-full" />
                     ) : (
                         <Image src={getPlayerAvatar(player.id, player.avatarUrl)} alt={player.name} fill className="object-cover rounded-full" />
@@ -222,10 +237,9 @@ export default function PlayerCircleNode({
                             <Image src="/assets/images/icones/powers/essance_bidon.png" alt="Essence" width={50} height={50} />
                         </div>
                     )}
-                    {showLover && (
-                        <div className="w-10 h-10 drop-shadow-md" title="Amoureux">
-                            <Image src="/assets/images/icones/powers/coup_coeur.png" alt="Amour" width={50} height={50} />
-                        </div>
+                    {showLover && (<div className="w-10 h-10 drop-shadow-md" title="Amoureux">
+                        <Image src="/assets/images/icones/powers/coup_coeur.png" alt="Amour" width={50} height={50} />
+                    </div>
                     )}
                 </div>
             </div>

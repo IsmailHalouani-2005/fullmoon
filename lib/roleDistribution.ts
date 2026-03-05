@@ -4,10 +4,10 @@ import { RoleId } from '../types/roles';
  * Priorities for role selection within categories
  */
 export const WOLF_PRIORITY: RoleId[] = [
-    'LOUP_INFECT',
-    'GRAND_MECHANT_LOUP',
-    'LOUP_ALPHA',
     'LOUP_GAROU',
+    'LOUP_ALPHA',
+    'GRAND_MECHANT_LOUP',
+    'LOUP_INFECT',
 ];
 
 export const VILLAGE_SPECIAL_PRIORITY: RoleId[] = [

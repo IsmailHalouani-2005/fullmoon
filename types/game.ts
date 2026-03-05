@@ -17,6 +17,9 @@ export interface Player {
     usedPowers: PowerId[];
     effects: string[]; // e.g., 'infected', 'gasoline', 'poisoned', 'lover'
     isMute?: boolean;  // From poisoner
+    lastActivityTime?: number;
+    inactivityWarningSent?: boolean;
+    isDisconnected?: boolean;
     stats: {
         kills: number;
         saves: number;
@@ -68,6 +71,7 @@ export interface GameState {
     rolesCount?: Partial<Record<RoleId, number>>;
     deadRolesCount?: Partial<Record<RoleId, number>>;
     lastActivity: number;
+    lobbyWarningSent?: boolean;
     lovers?: string[];
     areLoversSameCamp?: boolean;
     gmlVictimId?: string | null;
@@ -87,6 +91,7 @@ export interface ClientToServerEvents {
     voice_signal: (payload: { targetId: string; signal: any; type: 'room' | 'group' }) => void;
     voice_request_connect: (payload: { targetId: string; type: 'room' | 'group' }) => void;
     player_speaking: (payload: { isSpeaking: boolean; type: 'room' | 'group' }) => void;
+    ping_activity: () => void;
     leave_game: () => void;
 }
 
@@ -99,4 +104,6 @@ export interface ServerToClientEvents {
     voice_signal: (payload: { senderId: string; signal: any; type: 'room' | 'group' }) => void;
     voice_request_connect: (payload: { senderId: string; type: 'room' | 'group' }) => void;
     player_speaking: (payload: { userId: string; isSpeaking: boolean; type: 'room' | 'group' }) => void;
+    lobby_idle_warning: () => void;
+    player_idle_warning: () => void;
 }
