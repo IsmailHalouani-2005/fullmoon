@@ -4,6 +4,7 @@ import { User } from 'firebase/auth';
 import { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
+import { useThemeStore } from '@/store/themeStore';
 
 interface SidebarProps {
     user: User;
@@ -26,6 +27,7 @@ export default function Sidebar({
 }: SidebarProps) {
 
     const [chatMessage, setChatMessage] = useState('');
+    const { isDarkMode } = useThemeStore();
 
     const copyCode = () => {
         navigator.clipboard.writeText(secretCode);
@@ -33,11 +35,11 @@ export default function Sidebar({
     };
 
     return (
-        <div className="flex flex-col h-full gap-5">
+        <div className="flex flex-col h-full gap-5 ">
             {/* Top Nav (Home, Settings, Group) */}
-            <div className="flex mt-4 justify-between items-center border-[3px] border-dark rounded-lg py-1 px-3 bg-white">
+            <div className={`flex mt-4 justify-between items-center border-[3px] ${isDarkMode ? "border-white" : "border-dark"} rounded-lg py-1 px-3 bg-transparent`}>
                 <Link href="/play" className="p-1 hover:bg-slate-100 rounded">
-                    <Image src="/assets/images/icones/home-icon_black.png" alt="Accueil" width={22} height={22} />
+                    <Image src={isDarkMode ? "/assets/images/icones/home-icon_white.png" : "/assets/images/icones/home-icon_black.png"} alt="Accueil" width={22} height={22} />
                 </Link>
                 {/* <div className="flex gap-2">
                     <button className="p-1 hover:bg-slate-100 rounded"><Image src="/assets/images/icones/parametre-icon_black.png" alt="Paramètres" width={22} height={22} /></button>
@@ -57,7 +59,7 @@ export default function Sidebar({
                             <Image src="/assets/images/icones/Photo_Profil-transparent.png" alt="Profil" fill className="object-cover" />
                         )}
                     </div>
-                    <span className="text-sm font-bold truncate max-w-[120px]">{user.displayName || user.email?.split('@')[0] || "Joueur"}</span>
+                    <span className="text-sm font-bold text-dark truncate max-w-[120px]">{user.displayName || user.email?.split('@')[0] || "Joueur"}</span>
                 </div>
             </div>
 

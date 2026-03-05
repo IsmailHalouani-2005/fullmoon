@@ -1,8 +1,11 @@
 'use client';
 
 import Image from 'next/image';
+import { useThemeStore } from '../store/themeStore';
+
 
 export default function RulesSection() {
+    const { isDarkMode } = useThemeStore();
     const steps = [
         { src: "/assets/images/icones/roles_distribution.png", label: "La Distribution\ndes Rôles Secrets" },
         { src: "/assets/images/icones/nuit_dormir.png", label: "La Nuit :\nLe Village s'endort..." },
@@ -12,10 +15,10 @@ export default function RulesSection() {
     ];
 
     return (
-        <section id="regles" className="w-full py-20">
+        <section id="regles" className={`w-full ${isDarkMode ? "text-[#fafafa]" : "text-dark"} py-20`}>
             <div className="conteneur">
 
-                <h2 className="font-enchanted text-6xl md:text-7xl text-center text-dark mb-12 underline decoration-dark/30 underline-offset-8">
+                <h2 className="font-enchanted text-6xl md:text-7xl text-center mb-12 underline decoration-dark/30 underline-offset-8">
                     LES LOIS DU VILLAGE
                 </h2>
 

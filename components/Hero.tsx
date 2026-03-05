@@ -5,9 +5,11 @@ import { useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import { auth } from '../lib/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
+import { useThemeStore } from '../store/themeStore';
 
 export default function Hero() {
     const router = useRouter();
+    const { isDarkMode } = useThemeStore();
     const [user, setUser] = useState<any>(null);
 
     useEffect(() => {
@@ -16,7 +18,7 @@ export default function Hero() {
     }, []);
 
     return (
-        <section className="relative w-full overflow-hidden min-h-[500px] flex items-center justify-center py-20">
+        <section className={`relative w-full overflow-hidden min-h-[500px] flex items-center justify-center pb-20 pt-12`}>
             <div className="conteneur">
                 {/* Container for the bordered box */}
                 <div className="bg-primary relative z-10 max-w-5xl w-full mx-4 border-2 rounded-lg border-dark flex flex-col items-center justify-center p-12 text-center overflow-hidden">

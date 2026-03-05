@@ -2,6 +2,7 @@
 
 import Image from 'next/image';
 import { useState, useRef, MouseEvent } from 'react';
+import { useThemeStore } from '../store/themeStore';
 
 const cards = [
     {
@@ -46,6 +47,7 @@ function TiltCard({ card }: { card: any }) {
     const cardRef = useRef<HTMLDivElement>(null);
     const [rotate, setRotate] = useState({ x: 0, y: 0 });
     const [isHovered, setIsHovered] = useState(false);
+    const { isDarkMode } = useThemeStore();
 
     const handleMouseMove = (e: MouseEvent<HTMLDivElement>) => {
         if (!cardRef.current) return;
@@ -80,7 +82,7 @@ function TiltCard({ card }: { card: any }) {
                 transition: isHovered ? "transform 0.1s ease-out, padding 0.3s ease" : "transform 0.5s ease-out, padding 0.3s ease",
                 padding: isHovered ? "2.5rem" : "2rem"
             }}
-            className="flex flex-col items-center text-center border-2 border-slate-200 bg-white/50 backdrop-blur-sm shadow-md rounded-sm cursor-default"
+            className={`flex flex-col items-center text-center border-2 border-slate-200 backdrop-blur-sm shadow-md rounded-lg cursor-default`}
         >
             <div
                 style={{
@@ -104,23 +106,26 @@ function TiltCard({ card }: { card: any }) {
                         className="object-contain drop-shadow-lg"
                     />
                 </div>
-                <h3 className="font-enchanted text-5xl text-dark mb-4">{card.title}</h3>
-                <p className="text-dark font-medium text-sm leading-relaxed max-w-xs">{card.description}</p>
+                <h3 className="font-enchanted text-5xl mb-4">{card.title}</h3>
+                <p className="font-medium text-sm leading-relaxed max-w-xs">{card.description}</p>
             </div>
         </div>
     );
 }
 
 export default function HeroCards() {
+    const { isDarkMode } = useThemeStore();
     return (
-        <section id="histoire" className="w-full conteneur py-12">
-            <h2 className="font-enchanted text-6xl md:text-7xl text-center text-dark mb-16 underline decoration-dark/30 underline-offset-8">
+        <section id="histoire" className={`w-full ${isDarkMode ? "text-[#fafafa]" : "text-dark"} py-12`}>
+            <div className="conteneur">
+            <h2 className={`font-enchanted text-6xl  md:text-7xl text-center mb-16 underline decoration-dark/30 underline-offset-8`}>
                 UNE NOUVELLE FAÇON DE CHASSER
             </h2>
             <div className="max-w-6xl mx-auto px-4 grid grid-cols-1 md:grid-cols-3 gap-8">
                 {features.map((card, index) => (
                     <TiltCard key={index} card={card} />
                 ))}
+            </div>
             </div>
         </section>
     );

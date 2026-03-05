@@ -5,6 +5,7 @@ import Image from 'next/image';
 import { useState } from 'react';
 import RoleInfoModal from './RoleInfoModal';
 import { getDefaultRolesForPlayerCount } from '@/app/room/[code]/edit/page';
+import { useThemeStore } from '@/store/themeStore';
 
 interface MainContentProps {
     playerCount: number;
@@ -20,6 +21,7 @@ export default function MainContent({
 }: MainContentProps) {
 
     const [selectedRole, setSelectedRole] = useState<RoleDefinition | null>(null);
+    const { isDarkMode } = useThemeStore();
 
     // Handlers for adjusting player count
     const handlePlayerCountChange = (delta: number) => {
@@ -34,7 +36,7 @@ export default function MainContent({
     return (
         <div className="flex flex-col items-center w-full max-w-5xl mx-auto h-full gap-8 pb-10">
 
-            <h1 className="text-4xl sm:text-5xl font-enchanted text-center font-extrabold tracking-wider text-[#2C3338]">
+            <h1 className={`text-4xl sm:text-5xl font-enchanted text-center font-extrabold tracking-wider ${isDarkMode ? "text-[#fafafa]" : "text-dark"}`}>
                 NOMBRE DE JOUEURS
             </h1>
 
@@ -62,7 +64,7 @@ export default function MainContent({
 
             {/* Mode Selection Toggle */}
             <div className="mt-6 flex flex-col items-center gap-4 w-full">
-                <h2 className="text-2xl font-bold text-center font-enchanted tracking-widest text-[#2C3338]">ALGORITHME DE DISTRIBUTION</h2>
+                <h2 className={`text-2xl font-bold text-center font-enchanted tracking-widest ${isDarkMode ? "text-[#fafafa]" : "text-dark"}`}>ALGORITHME DE DISTRIBUTION</h2>
                 <div className="flex bg-[#2C3338] p-1.5 rounded-xl border-2 border-slate-800 shadow-inner w-full max-w-md">
                     <button
                         onClick={() => {
@@ -87,7 +89,7 @@ export default function MainContent({
                 )}
             </div>
 
-            <h1 className="text-4xl sm:text-5xl font-enchanted text-center font-extrabold tracking-wider mt-6 text-[#2C3338]">
+            <h1 className={`text-4xl sm:text-5xl font-enchanted text-center font-extrabold tracking-wider mt-6 ${isDarkMode ? "text-[#fafafa]" : "text-dark"}`}>
                 {isCustom ? 'CHOISISSEZ LES RÔLES' : 'COMPOSITION DU VILLAGE'}
             </h1>
             <p className="text-xs text-slate-500 font-medium italic">

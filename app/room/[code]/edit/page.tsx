@@ -9,6 +9,7 @@ import Sidebar from '@/components/room/edit/Sidebar';
 import MainContent from '@/components/room/edit/MainContent';
 import { RoleId } from '@/types/roles';
 import { distributeRoles } from '@/lib/roleDistribution';
+import { useThemeStore } from '@/store/themeStore';
 
 // Re-exported so MainContent can import it
 export const getDefaultRolesForPlayerCount = (playerCount: number): Partial<Record<RoleId, number>> =>
@@ -34,6 +35,7 @@ export default function EditRoomPage() {
     const [livePlayerCounts, setLivePlayerCounts] = useState<Record<string, number>>({});
     const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(false);
 
+    const { isDarkMode } = useThemeStore();
     // Polling du nombre de joueurs connectés en direct (Socket.io) via /api/rooms-live
     useEffect(() => {
         let socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL || '';
@@ -125,7 +127,7 @@ export default function EditRoomPage() {
     }
 
     return (
-        <div className="h-screen w-full overflow-hidden bg-[#FCF8E8] text-slate-900 flex flex-col md:flex-row">
+        <div className={`h-screen w-full overflow-hidden ${isDarkMode ? "" : "bg-primary"} text-slate-900 flex flex-col md:flex-row`}>
             {/* Mobile Header (Hamburger Menu) */}
             <div className="md:hidden flex items-center justify-between p-4 bg-white border-b border-slate-200 shadow-sm z-30">
                 <h1 className="font-enchanted text-2xl tracking-widest text-slate-900">Paramètres</h1>
@@ -143,7 +145,7 @@ export default function EditRoomPage() {
             )}
 
             {/* Left Sidebar */}
-            <div className={`fixed inset-y-0 left-0 z-50 w-[85%] sm:w-[400px] h-full pt-12 md:pt-6 p-6 flex flex-col gap-6 bg-[#FCF8E8] border-r border-black/10 transform transition-transform duration-300 ease-in-out md:relative md:translate-x-0 flex-shrink-0 ${isSidebarOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full'}`}>
+            <div className={`fixed inset-y-0 left-0 z-50 w-[85%] sm:w-[400px] h-full pt-12 md:pt-6 p-6 flex flex-col gap-6 ${isDarkMode ? "border-white/10 text-[#fafafa]" : "bg-[#FCF8E8] text-dark border-black/10"} border-r transform transition-transform duration-300 ease-in-out md:relative md:translate-x-0 flex-shrink-0 ${isSidebarOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full'}`}>
 
                 {/* Close Button Mobile */}
                 <button onClick={() => setIsSidebarOpen(false)} className="md:hidden absolute top-3 right-4 p-2 text-slate-500 hover:text-slate-900">

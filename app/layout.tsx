@@ -3,6 +3,7 @@ import "./globals.css";
 import PresenceManager from "../components/PresenceManager";
 import GlobalActionBar from "../components/GlobalActionBar";
 
+
 export const metadata: Metadata = {
   title: "FullMoon | Le village s'endort",
   description: "Jeu du Loup-Garou en ligne réinventé.",

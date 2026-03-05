@@ -7,6 +7,7 @@ import { auth, db } from '../lib/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 import { collection, query, where, onSnapshot, orderBy, doc, getDoc, updateDoc, setDoc, deleteDoc, addDoc, arrayUnion, arrayRemove } from 'firebase/firestore';
 import PrivateChat from './PrivateChat';
+import { useThemeStore } from '../store/themeStore';
 
 export default function GlobalActionBar() {
     const router = useRouter();
@@ -21,6 +22,7 @@ export default function GlobalActionBar() {
     const [friends, setFriends] = useState<Record<string, any>>({});
     const [showMessagesDropdown, setShowMessagesDropdown] = useState(false);
     const [isExpanded, setIsExpanded] = useState(false);
+    const { isDarkMode, toggleDarkMode } = useThemeStore();
 
     // Private chat state
     const [activeChatFriend, setActiveChatFriend] = useState<{ id: string, pseudo: string, photoURL: string } | null>(null);
@@ -298,6 +300,21 @@ export default function GlobalActionBar() {
 
             {/* Collapsible Container for Notifications and Messages */}
             <div className={`flex flex-col gap-3 items-center transition-all duration-300 ease-in-out origin-top ${isExpanded ? 'opacity-100 translate-y-0 scale-100 z-[200] pointer-events-auto' : 'opacity-0 -z-[200] -translate-y-10 scale-95 pointer-events-none'}`}>
+
+                {/* Dark Mode Toggle */}
+                <button
+                    onClick={toggleDarkMode}
+                    className="group relative md:w-10 md:h-10 w-8.5 h-8.5 bg-dark rounded-full shadow-lg border-2 border-[#1A1D20] hover:-translate-y-1 transition-all flex items-center justify-center cursor-pointer"
+                    title={isDarkMode ? "Passer en mode clair" : "Passer en mode sombre"}
+                >
+                    <Image
+                        src={isDarkMode ? "/assets/images/icones/moon-icon.png" : "/assets/images/icones/sun-icon.png"}
+                        alt="Thème"
+                        width={18}
+                        height={18}
+                        className="transition-transform duration-300 group-hover:scale-110"
+                    />
+                </button>
                 {/* Notifications Button */}
                 <div className="relative" ref={dropdownRef}>
                     <button

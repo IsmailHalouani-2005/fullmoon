@@ -4,8 +4,10 @@ import Image from 'next/image';
 import { useEffect, useState } from 'react';
 import { collection, query, orderBy, limit, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { useThemeStore } from '../store/themeStore';
 
 export default function Leaderboard() {
+    const { isDarkMode } = useThemeStore();
     const [topPlayers, setTopPlayers] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
 
@@ -52,7 +54,7 @@ export default function Leaderboard() {
         <section id="leaderboard" className="w-full py-24">
             <div className="max-w-6xl mx-auto px-4 ">
 
-                <h2 className="font-enchanted text-5xl md:text-7xl text-center text-dark mb-16 underline decoration-dark/30 underline-offset-8">
+                <h2 className={`font-enchanted ${isDarkMode ? "text-[#fafafa]" : "text-dark"} text-5xl md:text-7xl text-center mb-16 underline decoration-dark/30 underline-offset-8`}>
                     TOP 10 DES MEILLEURS JOUEURS
                 </h2>
 
@@ -86,7 +88,7 @@ export default function Leaderboard() {
 
                         {/* 2nd Place Avatar (Right on image "2") */}
                         {podium[0] && (
-                            <div className="absolute bottom-[55%] right-[5%] md:right-[18%] w-24 h-24 sm:w-28 sm:h-28 rounded-full border-4 border-slate-400 bg-secondary flex items-center justify-center overflow-hidden z-10 transition-transform hover:scale-105">
+                            <div className="absolute bottom-[60%] right-[5%] md:right-[18%] w-24 h-24 sm:w-28 sm:h-28 rounded-full border-4 border-slate-400 bg-secondary flex items-center justify-center overflow-hidden z-10 transition-transform hover:scale-105">
                                 <Image src={podium[0].photoURL || "/assets/images/icones/Photo_Profil-transparent.png"} alt="2nd Place" fill className="object-cover" />
                             </div>
                         )}

@@ -10,6 +10,7 @@ import { auth, db, rtdb } from '../../lib/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 import { doc, getDoc, collection, query, orderBy, onSnapshot, where, getDocs, addDoc, setDoc, updateDoc, arrayUnion, arrayRemove, deleteDoc } from 'firebase/firestore';
 import { ref, onValue } from 'firebase/database';
+import { useThemeStore } from '@/store/themeStore';
 
 export default function PlayPage() {
     const router = useRouter();
@@ -78,6 +79,9 @@ export default function PlayPage() {
     const [rejoinCountdown, setRejoinCountdown] = useState<number | null>(null);
     const isNavigatingRef = useRef(false);
     const rejoinCountdownRef = useRef<NodeJS.Timeout | null>(null);
+
+    const { isDarkMode } = useThemeStore();
+    const [loadingAction, setLoadingAction] = useState<string | null>(null);
 
     useEffect(() => {
         let unsubscribeVillages = () => { };
@@ -945,7 +949,7 @@ export default function PlayPage() {
     }
 
     return (
-        <div className="min-h-screen w-full bg-white text-dark font-montserrat">
+        <div className={`min-h-screen w-full ${isDarkMode ? "text-[#fafafa]" : "text-dark"} font-montserrat`}>
             {/* Global Header */}
             <Header onQuickJoin={handleQuickJoin} />
 
@@ -955,19 +959,33 @@ export default function PlayPage() {
 
                     {/* Left: Actions */}
                     <div className="flex flex-col items-center md:items-start flex-1">
-                        <h1 className="font-enchanted text-center md:text-left text-7xl text-dark tracking-wide mb-10">Prêts pour Chasser ?</h1>
+                        <h1 className="font-enchanted text-center md:text-left text-7xl tracking-wide mb-10">Prêts pour Chasser ?</h1>
                         <div className="flex flex-col w-full max-w-sm gap-4">
                             <button
-                                onClick={handleQuickJoin}
-                                className="w-full bg-secondary text-white font-bold text py-4 rounded shadow-md hover:-translate-y-1 transition-transform uppercase tracking-wide"
+                                onClick={() => { setLoadingAction('quick'); handleQuickJoin(); }}
+                                disabled={loadingAction !== null}
+                                className={`w-full bg-secondary text-white font-bold py-4 rounded shadow-md transition-all uppercase tracking-wide
+                                    ${loadingAction === 'quick' ? 'opacity-70 cursor-wait' : loadingAction !== null ? 'opacity-40 cursor-not-allowed' : 'hover:-translate-y-1'}`}
                             >
-                                REJOINDRE UN VILLAGE RAPIDE
+                                {loadingAction === 'quick' ? (
+                                    <span className="flex items-center justify-center gap-2">
+                                        <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin inline-block" />
+                                        Chargement...
+                                    </span>
+                                ) : 'REJOINDRE UN VILLAGE RAPIDE'}
                             </button>
                             <button
-                                onClick={handleCreateGroup}
-                                className="w-full bg-dark text-white font-bold text py-4 rounded shadow-md hover:-translate-y-1 transition-transform uppercase tracking-wide"
+                                onClick={() => { setLoadingAction('create'); handleCreateGroup(); }}
+                                disabled={loadingAction !== null}
+                                className={`w-full bg-dark text-white font-bold py-4 rounded shadow-md transition-all uppercase tracking-wide
+                                    ${loadingAction === 'create' ? 'opacity-70 cursor-wait' : loadingAction !== null ? 'opacity-40 cursor-not-allowed' : 'hover:-translate-y-1'}`}
                             >
-                                CRÉER SON VILLAGE
+                                {loadingAction === 'create' ? (
+                                    <span className="flex items-center justify-center gap-2">
+                                        <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin inline-block" />
+                                        Chargement...
+                                    </span>
+                                ) : 'CRÉER SON VILLAGE'}
                             </button>
                         </div>
                     </div>
@@ -988,9 +1006,9 @@ export default function PlayPage() {
                                     className="object-cover z-10"
                                 />
                             </div>
-                            <h2 className="font-bold text-2xl text-dark tracking-wide">{userData?.pseudo || "Joueur"}</h2>
-                            <p className="text-dark/70 text-lg font-semibold">{userData?.stats?.points || 0} pts</p>
-                            <p className="text-dark/70 text-[10px] font-light italic">(Cliquez sur votre photo pour modifier votre profil)</p>
+                            <h2 className="font-bold text-2xl tracking-wide">{userData?.pseudo || "Joueur"}</h2>
+                            <p className={`${isDarkMode ? "text-[#fafafa]/70" : "text-dark/70"} text-lg font-semibold`}>{userData?.stats?.points || 0} pts</p>
+                            <p className={`${isDarkMode ? "text-[#fafafa]/70" : "text-dark/70"} text-[10px] font-light italic`}> (Cliquez sur votre photo pour modifier votre profil)</p>
                             {/* Optionnel: Si vous vouliez rajouter le niveau, ce serait ici */}
                         </div>
                     </div>
@@ -1098,9 +1116,13 @@ export default function PlayPage() {
                                             return (
                                                 <div
                                                     key={village.id}
-                                                    className={`flex relative items-center rounded-lg shadow-sm border border-dark/20 pr-4 transition-transform hover:-translate-y-1 ${isStarted ? 'cursor-not-allowed opacity-80' : 'cursor-pointer'}`}
+                                                    className={`flex relative items-center rounded-lg shadow-sm border border-dark/20 pr-4 transition-all
+                                                        ${loadingAction === village.id ? 'opacity-70 cursor-wait' : ''}
+                                                        ${loadingAction !== null && loadingAction !== village.id ? 'opacity-40 cursor-not-allowed pointer-events-none' : ''}
+                                                        ${isStarted ? 'cursor-not-allowed opacity-80' : loadingAction === null ? 'cursor-pointer hover:-translate-y-1' : ''}`}
                                                     style={{ background: 'linear-gradient(to right, #E3D1A5 15%, #F9F4DF 15%)' }}
                                                     onClick={() => {
+                                                        if (loadingAction !== null) return;
                                                         const isUserInGroup = village.players?.some((p: any) => p.uid === user?.uid);
 
                                                         // If it's already started and user is NOT inside, block join
@@ -1109,10 +1131,12 @@ export default function PlayPage() {
                                                             return;
                                                         }
 
+                                                        setLoadingAction(village.id);
                                                         if (village.isPrivate) {
                                                             setSelectedPrivateVillage(village);
                                                             setInputSecretCode("");
                                                             setJoiningError("");
+                                                            setLoadingAction(null);
                                                         } else {
                                                             handleJoinVillage(village);
                                                         }
@@ -1129,7 +1153,7 @@ export default function PlayPage() {
                                                             <p className="text-dark/60 text-xs md:text-sm flex items-center gap-1 mt-1">
                                                                 {village.mode} <Image src={village.isMicro ? '/assets/images/icones/microphone-icon.png' : '/assets/images/icones/non_microphone-icon.png'} alt={village.isMicro ? 'Micro activé' : 'Micro désactivé'} width={14} height={14} className="inline-block" />
                                                             </p>
-                                                            <p className="font-bold text-xs md:text-sm mt-1">{village.hostPseudo}</p>
+                                                            <p className="font-bold text-dark text-xs md:text-sm mt-1">{village.hostPseudo}</p>
                                                         </div>
                                                         <div className="flex flex-col items-center">
                                                             <span className="font-enchanted tracking-wide text-lg md:text-2xl text-dark">{village.isPrivate ? 'Privé' : 'Publique'}</span>

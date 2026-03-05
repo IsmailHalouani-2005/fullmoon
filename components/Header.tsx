@@ -6,6 +6,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import { auth } from '../lib/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
+import { useThemeStore } from '../store/themeStore';
 
 interface HeaderProps {
     onQuickJoin?: () => void;
@@ -15,6 +16,7 @@ interface HeaderProps {
 export default function Header({ onQuickJoin, isDark = false }: HeaderProps) {
     const router = useRouter();
     const pathname = usePathname();
+    const { isDarkMode } = useThemeStore();
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const [user, setUser] = useState<any>(null);
 
@@ -38,7 +40,7 @@ export default function Header({ onQuickJoin, isDark = false }: HeaderProps) {
     };
 
     return (
-        <header className={`bg-transparent text-sm sticky top-0 z-50 ${isDark ? 'text-white' : 'text-dark'}`}>
+        <header className={` text-sm sticky top-0 z-50 ${isDark || isDarkMode ? 'text-white' : 'text-dark'}`}>
             <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
                 {/* Logo */}
                 <div className="flex-shrink-0">
@@ -57,7 +59,7 @@ export default function Header({ onQuickJoin, isDark = false }: HeaderProps) {
                 <div className="md:hidden flex items-center">
                     <button
                         onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-                        className={`${isDark ? 'text-white' : 'text-dark'} focus:outline-none cursor-pointer`}
+                        className={`focus:outline-none cursor-pointer`}
                         aria-label="Toggle menu"
                     >
                         <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -76,28 +78,28 @@ export default function Header({ onQuickJoin, isDark = false }: HeaderProps) {
                         <Link
                             href="/#histoire"
                             onClick={(e) => handleScroll(e, 'histoire')}
-                            className={`font-bold tracking-wider ${isDark ? 'text-white' : 'text-dark'} hover:text-secondary transition-colors`}
+                            className={`font-bold tracking-wider hover:text-secondary transition-colors`}
                         >
                             C'EST QUOI ?
                         </Link>
                         <Link
                             href="/#regles"
                             onClick={(e) => handleScroll(e, 'regles')}
-                            className={`font-bold tracking-wider ${isDark ? 'text-white' : 'text-dark'} hover:text-secondary transition-colors`}
+                            className={`font-bold tracking-wider hover:text-secondary transition-colors`}
                         >
                             RÈGLES
                         </Link>
                         <Link
                             href="/#roles"
                             onClick={(e) => handleScroll(e, 'roles')}
-                            className={`font-bold tracking-wider ${isDark ? 'text-white' : 'text-dark'} hover:text-secondary transition-colors`}
+                            className={`font-bold tracking-wider hover:text-secondary transition-colors`}
                         >
                             RÔLES
                         </Link>
                         <Link
                             href="/#leaderboard"
                             onClick={(e) => handleScroll(e, 'leaderboard')}
-                            className={`font-bold tracking-wider ${isDark ? 'text-white' : 'text-dark'} hover:text-secondary transition-colors`}
+                            className={`font-bold tracking-wider hover:text-secondary transition-colors`}
                         >
                             CLASSEMENT
                         </Link>
@@ -110,7 +112,7 @@ export default function Header({ onQuickJoin, isDark = false }: HeaderProps) {
                                 setIsMobileMenuOpen(false);
                                 router.push(user ? '/play' : '/auth');
                             }}
-                            className={`cursor-pointer text-white font-bold px-12 py-3 rounded-md shadow-md transition-colors bg-[#E3D1A5] text-dark hover:bg-[#c9a785]`}
+                            className={`cursor-pointer !text-white font-bold px-12 py-3 rounded-md shadow-md transition-colors bg-[#E3D1A5] text-dark hover:bg-[#c9a785]`}
                         >
                             JOUER
                         </button>
@@ -124,7 +126,7 @@ export default function Header({ onQuickJoin, isDark = false }: HeaderProps) {
                                     router.push(user ? '/play' : '/auth');
                                 }
                             }}
-                            className={`cursor-pointer text-white font-bold px-12 py-3 rounded-md shadow-md transition-colors bg-secondary hover:bg-[#c9a785]`}
+                            className={`cursor-pointer !text-white font-bold px-12 py-3 rounded-md shadow-md transition-colors bg-secondary hover:bg-[#c9a785]`}
                         >
                             PARTIE RAPIDE
                         </button>
@@ -138,28 +140,28 @@ export default function Header({ onQuickJoin, isDark = false }: HeaderProps) {
                     <Link
                         href="/#histoire"
                         onClick={(e) => handleScroll(e, 'histoire')}
-                        className={`font-bold tracking-wider ${isDark ? 'text-white' : 'text-dark'} hover:text-secondary transition-colors`}
+                        className={`font-bold tracking-wider hover:text-secondary transition-colors`}
                     >
                         C'EST QUOI ?
                     </Link>
                     <Link
                         href="/#regles"
                         onClick={(e) => handleScroll(e, 'regles')}
-                        className={`font-bold tracking-wider ${isDark ? 'text-white' : 'text-dark'} hover:text-secondary transition-colors`}
+                        className={`font-bold tracking-wider hover:text-secondary transition-colors`}
                     >
                         RÈGLES
                     </Link>
                     <Link
                         href="/#roles"
                         onClick={(e) => handleScroll(e, 'roles')}
-                        className={`font-bold tracking-wider ${isDark ? 'text-white' : 'text-dark'} hover:text-secondary transition-colors`}
+                        className={`font-bold tracking-wider hover:text-secondary transition-colors`}
                     >
                         RÔLES
                     </Link>
                     <Link
                         href="/#leaderboard"
                         onClick={(e) => handleScroll(e, 'leaderboard')}
-                        className={`font-bold tracking-wider ${isDark ? 'text-white' : 'text-dark'} hover:text-secondary transition-colors`}
+                        className={`font-bold tracking-wider hover:text-secondary transition-colors`}
                     >
                         CLASSEMENT
                     </Link>
@@ -172,7 +174,7 @@ export default function Header({ onQuickJoin, isDark = false }: HeaderProps) {
                                 setIsMobileMenuOpen(false);
                                 router.push(user ? '/play' : '/auth');
                             }}
-                            className={`cursor-pointer text-white font-bold px-12 py-3 rounded-md shadow-md transition-colors bg-[#E3D1A5] text-dark hover:bg-[#c9a785]`}
+                            className={`cursor-pointer !text-white font-bold px-12 py-3 rounded-md shadow-md transition-colors bg-[#E3D1A5] text-dark hover:bg-[#c9a785]`}
                         >
                             JOUER
                         </button>
@@ -186,7 +188,7 @@ export default function Header({ onQuickJoin, isDark = false }: HeaderProps) {
                                     router.push(user ? '/play' : '/auth');
                                 }
                             }}
-                            className={`cursor-pointer text-white font-bold px-12 py-3 rounded-md shadow-md transition-colors bg-secondary hover:bg-[#c9a785]`}
+                            className={`cursor-pointer !text-white font-bold px-12 py-3 rounded-md shadow-md transition-colors bg-secondary hover:bg-[#c9a785]`}
                         >
                             PARTIE RAPIDE
                         </button>

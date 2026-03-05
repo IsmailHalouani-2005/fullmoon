@@ -11,7 +11,7 @@ export default function Home() {
     return (
         <>
             <Header />
-            <main className="overflow-x-hidden">
+            <main className="overflow-x-hidden ">
                 <Hero />
                 <HeroCards />
                 {/* <InfoSection /> */}
