@@ -1,0 +1,699 @@
+﻿
+D:\Users\Documents\IsmailHalouani\MMI\BUT3\SAE601-ThreeChess\ProjectDirectory\werewolf\app\admin\components\page.tsx
+    4:8    warning  'Image' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       @typescript-eslint/no-unused-vars
+   66:31   error    Error: Cannot call impure function during render
+
+`Math.random` is an impure function. Calling an impure function can produce unstable results that update unpredictably when the component happens to re-render. (https://react.dev/reference/rules/components-and-hooks-must-be-pure#components-and-hooks-must-be-idempotent).
+
+D:\Users\Documents\IsmailHalouani\MMI\BUT3\SAE601-ThreeChess\ProjectDirectory\werewolf\app\admin\components\page.tsx:66:31
+  64 |         effects: i === 1 ? ['infected'] : [], // Mock an infected player
+  65 |         stats: {
+> 66 |             kills: Math.floor(Math.random() * 3),
+     |                               ^^^^^^^^^^^^^ Cannot call impure function
+  67 |             saves: Math.floor(Math.random() * 2),
+  68 |             daysSurvived: Math.floor(Math.random() * 5) + 1,
+  69 |             powerUses: Math.floor(Math.random() * 2),  react-hooks/purity
+   67:31   error    Error: Cannot call impure function during render
+
+`Math.random` is an impure function. Calling an impure function can produce unstable results that update unpredictably when the component happens to re-render. (https://react.dev/reference/rules/components-and-hooks-must-be-pure#components-and-hooks-must-be-idempotent).
+
+D:\Users\Documents\IsmailHalouani\MMI\BUT3\SAE601-ThreeChess\ProjectDirectory\werewolf\app\admin\components\page.tsx:67:31
+  65 |         stats: {
+  66 |             kills: Math.floor(Math.random() * 3),
+> 67 |             saves: Math.floor(Math.random() * 2),
+     |                               ^^^^^^^^^^^^^ Cannot call impure function
+  68 |             daysSurvived: Math.floor(Math.random() * 5) + 1,
+  69 |             powerUses: Math.floor(Math.random() * 2),
+  70 |             points: Math.floor(Math.random() * 50) + 10,                  react-hooks/purity
+   68:38   error    Error: Cannot call impure function during render
+
+`Math.random` is an impure function. Calling an impure function can produce unstable results that update unpredictably when the component happens to re-render. (https://react.dev/reference/rules/components-and-hooks-must-be-pure#components-and-hooks-must-be-idempotent).
+
+D:\Users\Documents\IsmailHalouani\MMI\BUT3\SAE601-ThreeChess\ProjectDirectory\werewolf\app\admin\components\page.tsx:68:38
+  66 |             kills: Math.floor(Math.random() * 3),
+  67 |             saves: Math.floor(Math.random() * 2),
+> 68 |             daysSurvived: Math.floor(Math.random() * 5) + 1,
+     |                                      ^^^^^^^^^^^^^ Cannot call impure function
+  69 |             powerUses: Math.floor(Math.random() * 2),
+  70 |             points: Math.floor(Math.random() * 50) + 10,
+  71 |             fled: 0,       react-hooks/purity
+   69:35   error    Error: Cannot call impure function during render
+
+`Math.random` is an impure function. Calling an impure function can produce unstable results that update unpredictably when the component happens to re-render. (https://react.dev/reference/rules/components-and-hooks-must-be-pure#components-and-hooks-must-be-idempotent).
+
+D:\Users\Documents\IsmailHalouani\MMI\BUT3\SAE601-ThreeChess\ProjectDirectory\werewolf\app\admin\components\page.tsx:69:35
+  67 |             saves: Math.floor(Math.random() * 2),
+  68 |             daysSurvived: Math.floor(Math.random() * 5) + 1,
+> 69 |             powerUses: Math.floor(Math.random() * 2),
+     |                                   ^^^^^^^^^^^^^ Cannot call impure function
+  70 |             points: Math.floor(Math.random() * 50) + 10,
+  71 |             fled: 0,
+  72 |             wins: 1,                                       react-hooks/purity
+   70:32   error    Error: Cannot call impure function during render
+
+`Math.random` is an impure function. Calling an impure function can produce unstable results that update unpredictably when the component happens to re-render. (https://react.dev/reference/rules/components-and-hooks-must-be-pure#components-and-hooks-must-be-idempotent).
+
+D:\Users\Documents\IsmailHalouani\MMI\BUT3\SAE601-ThreeChess\ProjectDirectory\werewolf\app\admin\components\page.tsx:70:32
+  68 |             daysSurvived: Math.floor(Math.random() * 5) + 1,
+  69 |             powerUses: Math.floor(Math.random() * 2),
+> 70 |             points: Math.floor(Math.random() * 50) + 10,
+     |                                ^^^^^^^^^^^^^ Cannot call impure function
+  71 |             fled: 0,
+  72 |             wins: 1,
+  73 |             losses: 0,                                                                     react-hooks/purity
+  128:23   error    Error: Cannot call impure function during render
+
+`Date.now` is an impure function. Calling an impure function can produce unstable results that update unpredictably when the component happens to re-render. (https://react.dev/reference/rules/components-and-hooks-must-be-pure#components-and-hooks-must-be-idempotent).
+
+D:\Users\Documents\IsmailHalouani\MMI\BUT3\SAE601-ThreeChess\ProjectDirectory\werewolf\app\admin\components\page.tsx:128:23
+  126 |         secretCode: '1234',
+  127 |         nightActions: [],
+> 128 |         lastActivity: Date.now()
+      |                       ^^^^^^^^^^ Cannot call impure function
+  129 |     };
+  130 |
+  131 |     const handleMockVote = (id: string) => {                                                                                                                                                                              react-hooks/purity
+  161:31   error    `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         react/no-unescaped-entities
+  420:72   error    `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         react/no-unescaped-entities
+  420:108  error    `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         react/no-unescaped-entities
+  469:72   error    `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         react/no-unescaped-entities
+  469:108  error    `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         react/no-unescaped-entities
+  500:72   error    `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         react/no-unescaped-entities
+  500:108  error    `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         react/no-unescaped-entities
+  527:72   error    `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         react/no-unescaped-entities
+  527:108  error    `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         react/no-unescaped-entities
+  617:59   warning  'id' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          @typescript-eslint/no-unused-vars
+  624:92   error    `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         react/no-unescaped-entities
+
+D:\Users\Documents\IsmailHalouani\MMI\BUT3\SAE601-ThreeChess\ProjectDirectory\werewolf\app\admin\page.tsx
+   63:108  error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+   81:124  error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+  131:96   error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+  150:84   error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+
+D:\Users\Documents\IsmailHalouani\MMI\BUT3\SAE601-ThreeChess\ProjectDirectory\werewolf\app\admin\simulation\page.tsx
+    3:31  warning  'useMemo' is defined but never used                                                                                                                                                                                                                                                      @typescript-eslint/no-unused-vars
+   10:8   warning  'Image' is defined but never used                                                                                                                                                                                                                                                        @typescript-eslint/no-unused-vars
+   51:53  error    Unexpected any. Specify a different type                                                                                                                                                                                                                                                 @typescript-eslint/no-explicit-any
+   63:89  error    Unexpected any. Specify a different type                                                                                                                                                                                                                                                 @typescript-eslint/no-explicit-any
+  186:45  warning  Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` or a custom image loader to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+  215:45  warning  Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` or a custom image loader to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+  246:57  warning  Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` or a custom image loader to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+
+D:\Users\Documents\IsmailHalouani\MMI\BUT3\SAE601-ThreeChess\ProjectDirectory\werewolf\app\auth\page.tsx
+   74:23  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  114:23  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+D:\Users\Documents\IsmailHalouani\MMI\BUT3\SAE601-ThreeChess\ProjectDirectory\werewolf\app\cgu\page.tsx
+   12:43   error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+   19:61   error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+   19:106  error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+   19:239  error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+   19:250  error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+   19:283  error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+   26:25   error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+   30:26   error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+   34:69   error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+   37:162  error  `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`  react/no-unescaped-entities
+   37:195  error  `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`  react/no-unescaped-entities
+   38:290  error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+   42:150  error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+   47:43   error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+   47:87   error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+   47:207  error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+   50:98   error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+   50:120  error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+   50:131  error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+   50:176  error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+   50:218  error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+   53:41   error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+   59:117  error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+   59:125  error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+   59:223  error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+   62:26   error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+   62:56   error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+   62:161  error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+   65:116  error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+   65:143  error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+   65:219  error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+   68:56   error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+   68:113  error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+   68:188  error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+   73:156  error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+   73:185  error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+   73:198  error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+   76:378  error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+   76:398  error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+   76:418  error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+   79:96   error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+   79:138  error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+   79:184  error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+   79:225  error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+   82:138  error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+   87:83   error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+   87:110  error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+   87:197  error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+   92:26   error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+   92:104  error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+   95:106  error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+   95:122  error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+   95:183  error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+   95:264  error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+   95:343  error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+   95:480  error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+   95:495  error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+   98:26   error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+  101:52   error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+  104:26   error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+  104:87   error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+  104:131  error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+  104:146  error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+  107:26   error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+  107:74   error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+  110:36   error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+  115:51   error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+  115:89   error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+  115:121  error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+  118:57   error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+  118:110  error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+  118:148  error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+
+D:\Users\Documents\IsmailHalouani\MMI\BUT3\SAE601-ThreeChess\ProjectDirectory\werewolf\app\cookies\page.tsx
+  18:75   error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+  18:141  error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+  21:74   error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+  21:84   error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+  25:78   error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+  53:113  error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+  58:138  error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+
+D:\Users\Documents\IsmailHalouani\MMI\BUT3\SAE601-ThreeChess\ProjectDirectory\werewolf\app\legal\page.tsx
+  19:114  error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+  19:207  error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+  19:209  error  `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`  react/no-unescaped-entities
+  19:221  error  `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`  react/no-unescaped-entities
+  19:289  error  `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`  react/no-unescaped-entities
+  19:294  error  `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`  react/no-unescaped-entities
+  22:72   error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+  25:82   error  `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`  react/no-unescaped-entities
+  25:99   error  `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`  react/no-unescaped-entities
+  30:26   error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+  30:160  error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+  32:34   error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+  32:35   error  `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`  react/no-unescaped-entities
+  32:43   error  `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`  react/no-unescaped-entities
+  36:26   error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+  41:79   error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+  41:105  error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+  41:265  error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+  41:395  error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+  46:43   error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+  46:204  error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+  46:472  error  `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`  react/no-unescaped-entities
+  46:557  error  `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`  react/no-unescaped-entities
+  49:127  error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+  49:149  error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+  49:160  error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+  49:205  error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+  49:247  error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+  52:41   error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+  58:160  error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+  63:44   error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+  64:44   error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+  65:44   error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+
+D:\Users\Documents\IsmailHalouani\MMI\BUT3\SAE601-ThreeChess\ProjectDirectory\werewolf\app\page.tsx
+  4:8  warning  'InfoSection' is defined but never used  @typescript-eslint/no-unused-vars
+
+D:\Users\Documents\IsmailHalouani\MMI\BUT3\SAE601-ThreeChess\ProjectDirectory\werewolf\app\play\page.tsx
+    11:42   warning  'orderBy' is defined but never used                                                                                                       @typescript-eslint/no-unused-vars
+    45:38   error    Unexpected any. Specify a different type                                                                                                  @typescript-eslint/no-explicit-any
+    46:46   error    Unexpected any. Specify a different type                                                                                                  @typescript-eslint/no-explicit-any
+    50:46   error    Unexpected any. Specify a different type                                                                                                  @typescript-eslint/no-explicit-any
+    51:68   error    Unexpected any. Specify a different type                                                                                                  @typescript-eslint/no-explicit-any
+    53:44   error    Unexpected any. Specify a different type                                                                                                  @typescript-eslint/no-explicit-any
+    54:75   error    Unexpected any. Specify a different type                                                                                                  @typescript-eslint/no-explicit-any
+    55:71   error    Unexpected any. Specify a different type                                                                                                  @typescript-eslint/no-explicit-any
+    58:40   error    Unexpected any. Specify a different type                                                                                                  @typescript-eslint/no-explicit-any
+    74:74   error    Unexpected any. Specify a different type                                                                                                  @typescript-eslint/no-explicit-any
+    78:70   error    Unexpected any. Specify a different type                                                                                                  @typescript-eslint/no-explicit-any
+   163:44   error    Unexpected any. Specify a different type                                                                                                  @typescript-eslint/no-explicit-any
+   170:60   error    Unexpected any. Specify a different type                                                                                                  @typescript-eslint/no-explicit-any
+   173:37   error    Unexpected any. Specify a different type                                                                                                  @typescript-eslint/no-explicit-any
+   173:45   error    Unexpected any. Specify a different type                                                                                                  @typescript-eslint/no-explicit-any
+   191:8    warning  React Hook useEffect has a missing dependency: 'user?.uid'. Either include it or remove the dependency array                              react-hooks/exhaustive-deps
+   196:36   error    Unexpected any. Specify a different type                                                                                                  @typescript-eslint/no-explicit-any
+   209:22   warning  'e' is defined but never used                                                                                                             @typescript-eslint/no-unused-vars
+   211:8    warning  React Hook useEffect has a missing dependency: 'hostAvatars'. Either include it or remove the dependency array                            react-hooks/exhaustive-deps
+   215:13   error    'socketUrl' is never reassigned. Use 'const' instead                                                                                      prefer-const
+   278:70   error    Unexpected any. Specify a different type                                                                                                  @typescript-eslint/no-explicit-any
+   299:8    warning  React Hook useEffect has a missing dependency: 'userData'. Either include it or remove the dependency array                               react-hooks/exhaustive-deps
+   327:8    warning  React Hook useEffect has a missing dependency: 'rejoinCountdown'. Either include it or remove the dependency array                        react-hooks/exhaustive-deps
+   327:9    warning  React Hook useEffect has a complex expression in the dependency array. Extract it to a separate variable so it can be statically checked  react-hooks/exhaustive-deps
+   333:37   error    Unexpected any. Specify a different type                                                                                                  @typescript-eslint/no-explicit-any
+   436:21   error    'results' is never reassigned. Use 'const' instead                                                                                        prefer-const
+   450:30   warning  'err' is defined but never used                                                                                                           @typescript-eslint/no-unused-vars
+   495:11   warning  'handleAcceptFriend' is assigned a value but never used                                                                                   @typescript-eslint/no-unused-vars
+   495:46   error    Unexpected any. Specify a different type                                                                                                  @typescript-eslint/no-explicit-any
+   535:11   warning  'handleRejectFriend' is assigned a value but never used                                                                                   @typescript-eslint/no-unused-vars
+   535:46   error    Unexpected any. Specify a different type                                                                                                  @typescript-eslint/no-explicit-any
+   574:11   warning  'handleAcceptGroupInvite' is assigned a value but never used                                                                              @typescript-eslint/no-unused-vars
+   574:51   error    Unexpected any. Specify a different type                                                                                                  @typescript-eslint/no-explicit-any
+   670:53   error    Unexpected any. Specify a different type                                                                                                  @typescript-eslint/no-explicit-any
+   701:62   error    Unexpected any. Specify a different type                                                                                                  @typescript-eslint/no-explicit-any
+   812:62   error    Unexpected any. Specify a different type                                                                                                  @typescript-eslint/no-explicit-any
+   861:57   error    Unexpected any. Specify a different type                                                                                                  @typescript-eslint/no-explicit-any
+   867:41   error    Unexpected any. Specify a different type                                                                                                  @typescript-eslint/no-explicit-any
+   870:27   error    Unexpected any. Specify a different type                                                                                                  @typescript-eslint/no-explicit-any
+   870:35   error    Unexpected any. Specify a different type                                                                                                  @typescript-eslint/no-explicit-any
+   908:66   error    Unexpected any. Specify a different type                                                                                                  @typescript-eslint/no-explicit-any
+   927:51   error    Unexpected any. Specify a different type                                                                                                  @typescript-eslint/no-explicit-any
+  1089:75   error    Unexpected any. Specify a different type                                                                                                  @typescript-eslint/no-explicit-any
+  1108:53   error    `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`                                                                           react/no-unescaped-entities
+  1139:105  error    Unexpected any. Specify a different type                                                                                                  @typescript-eslint/no-explicit-any
+  1238:58   error    Unexpected any. Specify a different type                                                                                                  @typescript-eslint/no-explicit-any
+  1348:104  error    `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`                                                                           react/no-unescaped-entities
+  1348:122  error    `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`                                                                           react/no-unescaped-entities
+  1348:154  error    `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`                                                                           react/no-unescaped-entities
+  1477:210  error    `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`                                                                           react/no-unescaped-entities
+  1599:101  error    Unexpected any. Specify a different type                                                                                                  @typescript-eslint/no-explicit-any
+
+D:\Users\Documents\IsmailHalouani\MMI\BUT3\SAE601-ThreeChess\ProjectDirectory\werewolf\app\privacy\page.tsx
+   18:77   error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+   20:172  error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+   20:221  error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+   27:100  error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+   27:150  error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+   31:40   error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+   34:169  error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+   37:67   error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+   37:127  error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+   38:226  error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+   38:252  error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+   41:40   error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+   41:296  error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+   41:308  error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+   41:366  error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+   41:481  error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+   51:168  error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+   52:102  error  `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`  react/no-unescaped-entities
+   52:115  error  `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`  react/no-unescaped-entities
+   52:195  error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+   53:46   error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+   53:148  error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+   56:201  error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+   61:106  error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+   61:154  error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+   65:87   error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+   65:240  error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+   66:118  error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+   66:175  error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+   67:97   error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+   78:94   error  `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`  react/no-unescaped-entities
+   78:102  error  `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`  react/no-unescaped-entities
+   80:279  error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+   80:302  error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+   83:36   error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+   83:179  error  `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`  react/no-unescaped-entities
+   83:189  error  `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`  react/no-unescaped-entities
+   98:35   error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+  101:85   error  `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`  react/no-unescaped-entities
+  101:110  error  `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`  react/no-unescaped-entities
+  104:99   error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+  109:44   error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+  109:63   error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+  109:100  error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+  110:167  error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+  111:46   error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+  111:82   error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+  112:85   error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+  113:44   error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+  113:94   error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+  113:113  error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+  114:84   error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+  114:162  error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+  117:98   error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+  122:26   error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+  122:152  error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+  125:26   error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+  125:108  error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+  125:141  error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+  125:165  error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+
+D:\Users\Documents\IsmailHalouani\MMI\BUT3\SAE601-ThreeChess\ProjectDirectory\werewolf\app\profil\[id]\page.tsx
+    8:76  warning  'getDocs' is defined but never used             @typescript-eslint/no-unused-vars
+   20:50  error    Unexpected any. Specify a different type        @typescript-eslint/no-explicit-any
+   21:52  error    Unexpected any. Specify a different type        @typescript-eslint/no-explicit-any
+   22:60  error    Unexpected any. Specify a different type        @typescript-eslint/no-explicit-any
+  260:11  warning  'winRate' is assigned a value but never used    @typescript-eslint/no-unused-vars
+  261:11  warning  'lossRate' is assigned a value but never used   @typescript-eslint/no-unused-vars
+  262:11  warning  'leaveRate' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+D:\Users\Documents\IsmailHalouani\MMI\BUT3\SAE601-ThreeChess\ProjectDirectory\werewolf\app\profil\page.tsx
+    8:20  warning  'storage' is defined but never used                                                                                                                                                                                                                                                      @typescript-eslint/no-unused-vars
+   11:10  warning  'ref' is defined but never used                                                                                                                                                                                                                                                          @typescript-eslint/no-unused-vars
+   11:15  warning  'uploadBytes' is defined but never used                                                                                                                                                                                                                                                  @typescript-eslint/no-unused-vars
+   11:28  warning  'getDownloadURL' is defined but never used                                                                                                                                                                                                                                               @typescript-eslint/no-unused-vars
+   17:38  error    Unexpected any. Specify a different type                                                                                                                                                                                                                                                 @typescript-eslint/no-explicit-any
+   18:46  error    Unexpected any. Specify a different type                                                                                                                                                                                                                                                 @typescript-eslint/no-explicit-any
+  104:29  error    Unexpected any. Specify a different type                                                                                                                                                                                                                                                 @typescript-eslint/no-explicit-any
+  124:75  error    Unexpected any. Specify a different type                                                                                                                                                                                                                                                 @typescript-eslint/no-explicit-any
+  131:40  error    Unexpected any. Specify a different type                                                                                                                                                                                                                                                 @typescript-eslint/no-explicit-any
+  163:32  error    Unexpected any. Specify a different type                                                                                                                                                                                                                                                 @typescript-eslint/no-explicit-any
+  165:25  error    Unexpected any. Specify a different type                                                                                                                                                                                                                                                 @typescript-eslint/no-explicit-any
+  183:25  error    Unexpected any. Specify a different type                                                                                                                                                                                                                                                 @typescript-eslint/no-explicit-any
+  207:25  error    Unexpected any. Specify a different type                                                                                                                                                                                                                                                 @typescript-eslint/no-explicit-any
+  265:11  warning  'winRate' is assigned a value but never used                                                                                                                                                                                                                                             @typescript-eslint/no-unused-vars
+  266:11  warning  'lossRate' is assigned a value but never used                                                                                                                                                                                                                                            @typescript-eslint/no-unused-vars
+  267:11  warning  'leaveRate' is assigned a value but never used                                                                                                                                                                                                                                           @typescript-eslint/no-unused-vars
+  269:68  error    Unexpected any. Specify a different type                                                                                                                                                                                                                                                 @typescript-eslint/no-explicit-any
+  417:33  warning  Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` or a custom image loader to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+
+D:\Users\Documents\IsmailHalouani\MMI\BUT3\SAE601-ThreeChess\ProjectDirectory\werewolf\app\room\[code]\edit\page.tsx
+  35:12  warning  'livePlayerCounts' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  41:13  error    'socketUrl' is never reassigned. Use 'const' instead   prefer-const
+
+D:\Users\Documents\IsmailHalouani\MMI\BUT3\SAE601-ThreeChess\ProjectDirectory\werewolf\app\room\[code]\page.tsx
+    10:73   warning  'Phase' is defined but never used                                                                                                      @typescript-eslint/no-unused-vars
+    16:8    warning  'RoleCard' is defined but never used                                                                                                   @typescript-eslint/no-unused-vars
+    17:8    warning  'PlayerCircleNode' is defined but never used                                                                                           @typescript-eslint/no-unused-vars
+    34:52   error    Unexpected any. Specify a different type                                                                                               @typescript-eslint/no-explicit-any
+    61:11   warning  'getCampColor' is assigned a value but never used                                                                                      @typescript-eslint/no-unused-vars
+    89:44   error    Unexpected any. Specify a different type                                                                                               @typescript-eslint/no-explicit-any
+   185:8    warning  React Hook useEffect has a missing dependency: 'playerAvatars'. Either include it or remove the dependency array                       react-hooks/exhaustive-deps
+   205:62   error    Unexpected any. Specify a different type                                                                                               @typescript-eslint/no-explicit-any
+   264:58   error    Unexpected any. Specify a different type                                                                                               @typescript-eslint/no-explicit-any
+   293:27   warning  'isSolo' is assigned a value but never used                                                                                            @typescript-eslint/no-unused-vars
+   295:36   error    Unexpected any. Specify a different type                                                                                               @typescript-eslint/no-explicit-any
+   388:8    warning  React Hook useEffect has missing dependencies: 'groupConfig?.hostId' and 'router'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+   430:8    warning  React Hook useEffect has a missing dependency: 'isValidatingRoom'. Either include it or remove the dependency array                    react-hooks/exhaustive-deps
+   509:77   error    Unexpected any. Specify a different type                                                                                               @typescript-eslint/no-explicit-any
+   582:13   warning  'response' is defined but never used                                                                                                   @typescript-eslint/no-unused-vars
+   594:11   warning  'copySecretCode' is assigned a value but never used                                                                                    @typescript-eslint/no-unused-vars
+   859:35   warning  'myPlayer' is assigned a value but never used                                                                                          @typescript-eslint/no-unused-vars
+   962:97   error    `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`                                                                        react/no-unescaped-entities
+  1042:59   error    Unexpected any. Specify a different type                                                                                               @typescript-eslint/no-explicit-any
+  1121:34   error    `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`                                                                        react/no-unescaped-entities
+  1135:35   error    `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`                                                                        react/no-unescaped-entities
+  1306:62   error    `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`                                                                        react/no-unescaped-entities
+  1307:100  error    `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`                                                                        react/no-unescaped-entities
+
+D:\Users\Documents\IsmailHalouani\MMI\BUT3\SAE601-ThreeChess\ProjectDirectory\werewolf\components\Footer.tsx
+  32:112  error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+
+D:\Users\Documents\IsmailHalouani\MMI\BUT3\SAE601-ThreeChess\ProjectDirectory\werewolf\components\GlobalActionBar.tsx
+   14:38  error    Unexpected any. Specify a different type                @typescript-eslint/no-explicit-any
+   15:46  error    Unexpected any. Specify a different type                @typescript-eslint/no-explicit-any
+   17:56  error    Unexpected any. Specify a different type                @typescript-eslint/no-explicit-any
+   21:60  error    Unexpected any. Specify a different type                @typescript-eslint/no-explicit-any
+   22:59  error    Unexpected any. Specify a different type                @typescript-eslint/no-explicit-any
+   67:54  error    Unexpected any. Specify a different type                @typescript-eslint/no-explicit-any
+   83:26  error    Unexpected any. Specify a different type                @typescript-eslint/no-explicit-any
+   94:39  error    Unexpected any. Specify a different type                @typescript-eslint/no-explicit-any
+  153:46  error    Unexpected any. Specify a different type                @typescript-eslint/no-explicit-any
+  193:46  error    Unexpected any. Specify a different type                @typescript-eslint/no-explicit-any
+  213:51  error    Unexpected any. Specify a different type                @typescript-eslint/no-explicit-any
+  271:11  warning  'unreadNotifsCount' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+D:\Users\Documents\IsmailHalouani\MMI\BUT3\SAE601-ThreeChess\ProjectDirectory\werewolf\components\GroupChat.tsx
+    5:80  warning  'setDoc' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     @typescript-eslint/no-unused-vars
+   18:16  error    Unexpected any. Specify a different type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               @typescript-eslint/no-explicit-any
+   29:52  error    Unexpected any. Specify a different type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               @typescript-eslint/no-explicit-any
+   30:52  error    Unexpected any. Specify a different type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               @typescript-eslint/no-explicit-any
+   42:54  error    Unexpected any. Specify a different type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               @typescript-eslint/no-explicit-any
+   61:17  error    Error: Cannot access variable before it is declared
+
+`setGroupData` is accessed before it is declared, which prevents the earlier access from updating when this value changes over time.
+
+D:\Users\Documents\IsmailHalouani\MMI\BUT3\SAE601-ThreeChess\ProjectDirectory\werewolf\components\GroupChat.tsx:61:17
+  59 |             if (snapshot.exists()) {
+  60 |                 const data = snapshot.data();
+> 61 |                 setGroupData(data); // Using local groupData state if it exists, otherwise define it
+     |                 ^^^^^^^^^^^^ `setGroupData` accessed before it is declared
+  62 |                 const playersList = (data.players || []).map((p: any) => ({
+  63 |                     id: p.uid,
+  64 |                     name: p.pseudo || "Joueur",
+
+D:\Users\Documents\IsmailHalouani\MMI\BUT3\SAE601-ThreeChess\ProjectDirectory\werewolf\components\GroupChat.tsx:76:23
+  74 |     }, [groupId]);
+  75 |
+> 76 |     const [groupData, setGroupData] = useState<any>(null);
+     |                       ^^^^^^^^^^^^ `setGroupData` is declared here
+  77 |
+  78 |     // Get current user and their data
+  79 |     useEffect(() => {  react-hooks/immutability
+   62:66  error    Unexpected any. Specify a different type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               @typescript-eslint/no-explicit-any
+   76:12  warning  'groupData' is assigned a value but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         @typescript-eslint/no-unused-vars
+   76:48  error    Unexpected any. Specify a different type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               @typescript-eslint/no-explicit-any
+  184:28  error    Unexpected any. Specify a different type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               @typescript-eslint/no-explicit-any
+  189:47  error    Unexpected any. Specify a different type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               @typescript-eslint/no-explicit-any
+  294:61  error    `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        react/no-unescaped-entities
+
+D:\Users\Documents\IsmailHalouani\MMI\BUT3\SAE601-ThreeChess\ProjectDirectory\werewolf\components\Header.tsx
+   21:38  error  Unexpected any. Specify a different type                         @typescript-eslint/no-explicit-any
+   83:30  error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+  145:26  error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+
+D:\Users\Documents\IsmailHalouani\MMI\BUT3\SAE601-ThreeChess\ProjectDirectory\werewolf\components\Hero.tsx
+  12:13  warning  'isDarkMode' is assigned a value but never used                                                                                                                                                                                                                                          @typescript-eslint/no-unused-vars
+  13:38  error    Unexpected any. Specify a different type                                                                                                                                                                                                                                                 @typescript-eslint/no-explicit-any
+  40:41  error    `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`                                                                                                                                                                                                                          react/no-unescaped-entities
+  56:25  warning  Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` or a custom image loader to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+
+D:\Users\Documents\IsmailHalouani\MMI\BUT3\SAE601-ThreeChess\ProjectDirectory\werewolf\components\HeroCards.tsx
+   7:7   warning  'cards' is assigned a value but never used       @typescript-eslint/no-unused-vars
+  46:37  error    Unexpected any. Specify a different type         @typescript-eslint/no-explicit-any
+  50:13  warning  'isDarkMode' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+D:\Users\Documents\IsmailHalouani\MMI\BUT3\SAE601-ThreeChess\ProjectDirectory\werewolf\components\Leaderboard.tsx
+  11:50  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  21:32  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+D:\Users\Documents\IsmailHalouani\MMI\BUT3\SAE601-ThreeChess\ProjectDirectory\werewolf\components\Login.tsx
+  21:23  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+D:\Users\Documents\IsmailHalouani\MMI\BUT3\SAE601-ThreeChess\ProjectDirectory\werewolf\components\PresenceManager.tsx
+  6:10  warning  'doc' is defined but never used        @typescript-eslint/no-unused-vars
+  6:15  warning  'updateDoc' is defined but never used  @typescript-eslint/no-unused-vars
+
+D:\Users\Documents\IsmailHalouani\MMI\BUT3\SAE601-ThreeChess\ProjectDirectory\werewolf\components\PrivateChat.tsx
+   13:16  error    Unexpected any. Specify a different type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           @typescript-eslint/no-explicit-any
+   26:52  error    Unexpected any. Specify a different type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           @typescript-eslint/no-explicit-any
+   87:13  error    Error: Cannot access variable before it is declared
+
+`scrollToBottom` is accessed before it is declared, which prevents the earlier access from updating when this value changes over time.
+
+D:\Users\Documents\IsmailHalouani\MMI\BUT3\SAE601-ThreeChess\ProjectDirectory\werewolf\components\PrivateChat.tsx:87:13
+  85 |             });
+  86 |             setMessages(msgs);
+> 87 |             scrollToBottom();
+     |             ^^^^^^^^^^^^^^ `scrollToBottom` accessed before it is declared
+  88 |         });
+  89 |
+  90 |         // Mark as read whenchat is open
+
+D:\Users\Documents\IsmailHalouani\MMI\BUT3\SAE601-ThreeChess\ProjectDirectory\werewolf\components\PrivateChat.tsx:107:5
+  105 |     }, [currentUser, friendId, isFriend, isBlocked, hasBlockedMe]);
+  106 |
+> 107 |     const scrollToBottom = () => {
+      |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 108 |         setTimeout(() => {
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 109 |             messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 110 |         }, 100);
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 111 |     };
+      | ^^^^^^^ `scrollToBottom` is declared here
+  112 |
+  113 |     const handleSendMessage = async (e: React.FormEvent) => {
+  114 |         e.preventDefault();  react-hooks/immutability
+  100:22  warning  'err' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    @typescript-eslint/no-unused-vars
+  105:8   warning  React Hook useEffect has a missing dependency: 'getChatId'. Either include it or remove the dependency array                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       react-hooks/exhaustive-deps
+
+D:\Users\Documents\IsmailHalouani\MMI\BUT3\SAE601-ThreeChess\ProjectDirectory\werewolf\components\RoleCarousel.tsx
+  28:9  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+D:\Users\Documents\IsmailHalouani\MMI\BUT3\SAE601-ThreeChess\ProjectDirectory\werewolf\components\RoleCarousel.tsx:28:9
+  26 |     useEffect(() => {
+  27 |         if (!emblaApi) return;
+> 28 |         onSelect();
+     |         ^^^^^^^^ Avoid calling setState() directly within an effect
+  29 |         emblaApi.on('select', onSelect);
+  30 |         emblaApi.on('reInit', onSelect);
+  31 |     }, [emblaApi, onSelect]);  react-hooks/set-state-in-effect
+
+D:\Users\Documents\IsmailHalouani\MMI\BUT3\SAE601-ThreeChess\ProjectDirectory\werewolf\components\RulesSection.tsx
+  32:94   error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+  32:102  error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+  34:103  error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+  36:82   error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+  42:104  error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+
+D:\Users\Documents\IsmailHalouani\MMI\BUT3\SAE601-ThreeChess\ProjectDirectory\werewolf\components\game\ActiveGame.tsx
+   14:25   error    Unexpected any. Specify a different type                         @typescript-eslint/no-explicit-any
+   17:18   error    Unexpected any. Specify a different type                         @typescript-eslint/no-explicit-any
+   22:13   error    Unexpected any. Specify a different type                         @typescript-eslint/no-explicit-any
+   23:11   error    Unexpected any. Specify a different type                         @typescript-eslint/no-explicit-any
+   47:5    warning  'isPlayersListOpen' is defined but never used                    @typescript-eslint/no-unused-vars
+   55:5    warning  'setActivePower' is defined but never used                       @typescript-eslint/no-unused-vars
+   57:5    warning  'setPowerTargets' is defined but never used                      @typescript-eslint/no-unused-vars
+  112:172  error    Unexpected any. Specify a different type                         @typescript-eslint/no-explicit-any
+  112:180  error    Unexpected any. Specify a different type                         @typescript-eslint/no-explicit-any
+  114:77   error    `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+  148:61   error    Unexpected any. Specify a different type                         @typescript-eslint/no-explicit-any
+  166:52   error    `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+  176:67   error    Unexpected any. Specify a different type                         @typescript-eslint/no-explicit-any
+  176:125  error    Unexpected any. Specify a different type                         @typescript-eslint/no-explicit-any
+  217:61   error    Unexpected any. Specify a different type                         @typescript-eslint/no-explicit-any
+  218:72   error    Unexpected any. Specify a different type                         @typescript-eslint/no-explicit-any
+  241:105  error    Unexpected any. Specify a different type                         @typescript-eslint/no-explicit-any
+  245:109  error    Unexpected any. Specify a different type                         @typescript-eslint/no-explicit-any
+  247:145  error    Unexpected any. Specify a different type                         @typescript-eslint/no-explicit-any
+  259:82   error    Unexpected any. Specify a different type                         @typescript-eslint/no-explicit-any
+  283:104  error    Unexpected any. Specify a different type                         @typescript-eslint/no-explicit-any
+  284:112  error    Unexpected any. Specify a different type                         @typescript-eslint/no-explicit-any
+  285:114  error    Unexpected any. Specify a different type                         @typescript-eslint/no-explicit-any
+  352:89   error    `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+  359:118  error    `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+  373:81   error    `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+  386:131  error    Unexpected any. Specify a different type                         @typescript-eslint/no-explicit-any
+  399:44   error    Unexpected any. Specify a different type                         @typescript-eslint/no-explicit-any
+
+D:\Users\Documents\IsmailHalouani\MMI\BUT3\SAE601-ThreeChess\ProjectDirectory\werewolf\components\game\EndGame.tsx
+    7:19  error  Unexpected any. Specify a different type                         @typescript-eslint/no-explicit-any
+   20:20  error  Unexpected any. Specify a different type                         @typescript-eslint/no-explicit-any
+   21:20  error  Unexpected any. Specify a different type                         @typescript-eslint/no-explicit-any
+   22:18  error  Unexpected any. Specify a different type                         @typescript-eslint/no-explicit-any
+   23:18  error  Unexpected any. Specify a different type                         @typescript-eslint/no-explicit-any
+   27:38  error  Unexpected any. Specify a different type                         @typescript-eslint/no-explicit-any
+  101:30  error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+  112:60  error  Unexpected any. Specify a different type                         @typescript-eslint/no-explicit-any
+
+D:\Users\Documents\IsmailHalouani\MMI\BUT3\SAE601-ThreeChess\ProjectDirectory\werewolf\components\game\InfectedModal.tsx
+  41:92  error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+  47:80  error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+
+D:\Users\Documents\IsmailHalouani\MMI\BUT3\SAE601-ThreeChess\ProjectDirectory\werewolf\components\game\LoversModal.tsx
+  53:182  error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+
+D:\Users\Documents\IsmailHalouani\MMI\BUT3\SAE601-ThreeChess\ProjectDirectory\werewolf\components\game\PlayerCircleNode.tsx
+  12:18  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  15:19  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  22:20  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+D:\Users\Documents\IsmailHalouani\MMI\BUT3\SAE601-ThreeChess\ProjectDirectory\werewolf\components\game\RoleCard.tsx
+  54:120  error  `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`  react/no-unescaped-entities
+  54:142  error  `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`  react/no-unescaped-entities
+
+D:\Users\Documents\IsmailHalouani\MMI\BUT3\SAE601-ThreeChess\ProjectDirectory\werewolf\components\profile\ProfileAvatarHeader.tsx
+   5:17  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   6:18  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  22:5   warning  'currentUser' is defined but never used   @typescript-eslint/no-unused-vars
+  24:5   warning  'hasBlockedMe' is defined but never used  @typescript-eslint/no-unused-vars
+
+D:\Users\Documents\IsmailHalouani\MMI\BUT3\SAE601-ThreeChess\ProjectDirectory\werewolf\components\profile\ProfileStats.tsx
+   79:78   error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+  103:40   error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+  111:111  error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+
+D:\Users\Documents\IsmailHalouani\MMI\BUT3\SAE601-ThreeChess\ProjectDirectory\werewolf\components\room\VoiceChatManager.tsx
+    5:18  warning  'Phase' is defined but never used                                                                                                 @typescript-eslint/no-unused-vars
+   56:12  warning  'speakingPlayers' is assigned a value but never used                                                                              @typescript-eslint/no-unused-vars
+  106:8   warning  React Hook useEffect has a missing dependency: 'isMicroOn'. Either include it or remove the dependency array                      react-hooks/exhaustive-deps
+  142:69  error    Unexpected any. Specify a different type                                                                                          @typescript-eslint/no-explicit-any
+  209:8   warning  React Hook useEffect has a missing dependency: 'type'. Either include it or remove the dependency array                           react-hooks/exhaustive-deps
+  229:8   warning  React Hook useMemo has a missing dependency: 'game'. Either include it or remove the dependency array                             react-hooks/exhaustive-deps
+  269:8   warning  React Hook useEffect has missing dependencies: 'game?.players' and 'players'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+  300:81  error    Unexpected any. Specify a different type                                                                                          @typescript-eslint/no-explicit-any
+  301:59  error    Unexpected any. Specify a different type                                                                                          @typescript-eslint/no-explicit-any
+  338:87  error    Unexpected any. Specify a different type                                                                                          @typescript-eslint/no-explicit-any
+  416:8   warning  React Hook useEffect has a missing dependency: 'createPeerConnection'. Either include it or remove the dependency array           react-hooks/exhaustive-deps
+  583:8   warning  React Hook useEffect has missing dependencies: 'socket' and 'type'. Either include them or remove the dependency array            react-hooks/exhaustive-deps
+  590:71  error    Unexpected any. Specify a different type                                                                                          @typescript-eslint/no-explicit-any
+  631:63  error    Unexpected any. Specify a different type                                                                                          @typescript-eslint/no-explicit-any
+
+D:\Users\Documents\IsmailHalouani\MMI\BUT3\SAE601-ThreeChess\ProjectDirectory\werewolf\components\room\edit\MainContent.tsx
+  143:22   warning  'camp' is defined but never used          @typescript-eslint/no-unused-vars
+  143:107  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  154:96   error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+D:\Users\Documents\IsmailHalouani\MMI\BUT3\SAE601-ThreeChess\ProjectDirectory\werewolf\components\room\edit\Sidebar.tsx
+  26:11  warning  'roomCode' is defined but never used                 @typescript-eslint/no-unused-vars
+  29:12  warning  'chatMessage' is assigned a value but never used     @typescript-eslint/no-unused-vars
+  29:25  warning  'setChatMessage' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+D:\Users\Documents\IsmailHalouani\MMI\BUT3\SAE601-ThreeChess\ProjectDirectory\werewolf\debug-friends.js
+  1:27  error    A `require()` style import is forbidden      @typescript-eslint/no-require-imports
+  2:44  warning  'doc' is assigned a value but never used     @typescript-eslint/no-unused-vars
+  2:49  warning  'getDoc' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  2:60  error    A `require()` style import is forbidden      @typescript-eslint/no-require-imports
+  3:35  error    A `require()` style import is forbidden      @typescript-eslint/no-require-imports
+
+D:\Users\Documents\IsmailHalouani\MMI\BUT3\SAE601-ThreeChess\ProjectDirectory\werewolf\dist\test.js
+  1:9   warning  'ROLES' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  1:33  error    A `require()` style import is forbidden     @typescript-eslint/no-require-imports
+
+D:\Users\Documents\IsmailHalouani\MMI\BUT3\SAE601-ThreeChess\ProjectDirectory\werewolf\lib\firebase.ts
+  28:5  warning  'analytics' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+D:\Users\Documents\IsmailHalouani\MMI\BUT3\SAE601-ThreeChess\ProjectDirectory\werewolf\scripts\seed-rooms.mjs
+  2:44  warning  'setDoc' is defined but never used  @typescript-eslint/no-unused-vars
+  2:52  warning  'doc' is defined but never used     @typescript-eslint/no-unused-vars
+
+D:\Users\Documents\IsmailHalouani\MMI\BUT3\SAE601-ThreeChess\ProjectDirectory\werewolf\scripts\seed.mjs
+  2:44  warning  'setDoc' is defined but never used  @typescript-eslint/no-unused-vars
+  2:52  warning  'doc' is defined but never used     @typescript-eslint/no-unused-vars
+
+D:\Users\Documents\IsmailHalouani\MMI\BUT3\SAE601-ThreeChess\ProjectDirectory\werewolf\server.js
+   3:1   error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  12:26  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  13:19  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  14:14  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  15:20  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  21:42  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+D:\Users\Documents\IsmailHalouani\MMI\BUT3\SAE601-ThreeChess\ProjectDirectory\werewolf\server\gameLogic.ts
+     1:18  warning  'Socket' is defined but never used                       @typescript-eslint/no-unused-vars
+     3:25  warning  'Camp' is defined but never used                         @typescript-eslint/no-unused-vars
+     5:10  warning  'io' is defined but never used                           @typescript-eslint/no-unused-vars
+     9:5   error    '_games' is never reassigned. Use 'const' instead        prefer-const
+   164:21  error    'roles' is never reassigned. Use 'const' instead         prefer-const
+   166:23  warning  'configTotal' is assigned a value but never used         @typescript-eslint/no-unused-vars
+   397:31  warning  'roleLabel' is assigned a value but never used           @typescript-eslint/no-unused-vars
+   672:20  error    Unexpected any. Specify a different type                 @typescript-eslint/no-explicit-any
+  1027:17  error    'wolfVictimId' is never reassigned. Use 'const' instead  prefer-const
+
+D:\Users\Documents\IsmailHalouani\MMI\BUT3\SAE601-ThreeChess\ProjectDirectory\werewolf\temp-replace.js
+  1:12  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+D:\Users\Documents\IsmailHalouani\MMI\BUT3\SAE601-ThreeChess\ProjectDirectory\werewolf\temp-revert.js
+  1:12  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  2:14  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+D:\Users\Documents\IsmailHalouani\MMI\BUT3\SAE601-ThreeChess\ProjectDirectory\werewolf\test_roles.ts
+  1:10  warning  'ROLES' is defined but never used   @typescript-eslint/no-unused-vars
+  1:17  warning  'RoleId' is defined but never used  @typescript-eslint/no-unused-vars
+  1:25  warning  'Camp' is defined but never used    @typescript-eslint/no-unused-vars
+
+D:\Users\Documents\IsmailHalouani\MMI\BUT3\SAE601-ThreeChess\ProjectDirectory\werewolf\tests\wolf_chat.test.ts
+   9:21  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  23:45  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  51:95  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  53:96  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  78:65  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  97:22  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+D:\Users\Documents\IsmailHalouani\MMI\BUT3\SAE601-ThreeChess\ProjectDirectory\werewolf\types\game.ts
+   91:57  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  104:57  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+Ô£û 468 problems (381 errors, 87 warnings)
+  6 errors and 0 warnings potentially fixable with the `--fix` option.
+

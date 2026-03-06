@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import Image from 'next/image';
 import { auth, db } from '../lib/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
@@ -11,6 +11,7 @@ import { useThemeStore } from '../store/themeStore';
 
 export default function GlobalActionBar() {
     const router = useRouter();
+    const pathname = usePathname();
     const [user, setUser] = useState<any>(null);
     const [userData, setUserData] = useState<any>(null);
 
@@ -273,6 +274,9 @@ export default function GlobalActionBar() {
     const activeNotifsCount = notifications.length;
 
     if (!user) return null;
+
+    // Ne pas afficher la barre d'action globale sur la page de salon (mais l'afficher sur la page d'édition)
+    if (pathname && pathname.startsWith('/room/') && !pathname.endsWith('/edit')) return null;
 
     const totalUnreadCount = activeNotifsCount + unreadMessages;
 

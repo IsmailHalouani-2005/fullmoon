@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import Header from '../../components/Header';
@@ -158,8 +158,10 @@ export default function PlayPage() {
             }));
 
             // Auto-cleanup des salons vides
+            // Pour éviter un épuisement des quotas (Quota Exceeded),
+            // on demande uniquement à l'hôte initial de nettoyer le salon s'il est vide.
             villagesData.forEach(async (v: any) => {
-                if (!v.players || v.players.length === 0) {
+                if ((!v.players || v.players.length === 0) && v.hostId === user?.uid) {
                     await deleteGroupCompletely(v.id);
                 }
             });
@@ -325,13 +327,18 @@ export default function PlayPage() {
     }, [rejoinCountdown !== null]);
 
     // Real-time listener pour les amis ET les membres du groupe courant
-    useEffect(() => {
-        // Fusionner amis + membres du groupe (sans doublons, sans soi-même)
+    const idsToWatchString = useMemo(() => {
         const idsToWatch = new Set<string>();
         friends.forEach(f => { if (f.friendId) idsToWatch.add(f.friendId); });
         group?.players?.forEach((p: any) => { if (p.uid && p.uid !== user?.uid) idsToWatch.add(p.uid); });
+        return Array.from(idsToWatch).sort().join(',');
+    }, [friends, group?.players, user?.uid]);
 
-        const unsubscribes = Array.from(idsToWatch).map(uid =>
+    useEffect(() => {
+        if (!idsToWatchString) return;
+        const ids = idsToWatchString.split(',');
+
+        const unsubscribes = ids.map((uid: string) =>
             onSnapshot(doc(db, "users", uid), (docSnap) => {
                 if (docSnap.exists()) {
                     setFriendsStatuses(prev => ({
@@ -343,20 +350,26 @@ export default function PlayPage() {
         );
 
         return () => {
-            unsubscribes.forEach(unsub => unsub());
+            unsubscribes.forEach((unsub: () => void) => unsub());
         };
-    }, [friends, group?.players, user?.uid]);
+    }, [idsToWatchString]);
 
     // Real-time listener for friends' groups to know the exact player count
-    useEffect(() => {
+    const groupIdsString = useMemo(() => {
         const groupIds = new Set<string>();
         Object.values(friendsStatuses).forEach(status => {
             if (status.currentGroupId) {
                 groupIds.add(status.currentGroupId);
             }
         });
+        return Array.from(groupIds).sort().join(',');
+    }, [friendsStatuses]);
 
-        const unsubscribes = Array.from(groupIds).map(groupId => {
+    useEffect(() => {
+        if (!groupIdsString) return;
+        const groupIds = groupIdsString.split(',');
+
+        const unsubscribes = groupIds.map((groupId: string) => {
             return onSnapshot(doc(db, "groups", groupId), (snap) => {
                 if (snap.exists()) {
                     setFriendsGroups(prev => ({
@@ -368,9 +381,9 @@ export default function PlayPage() {
         });
 
         return () => {
-            unsubscribes.forEach(unsub => unsub());
+            unsubscribes.forEach((unsub: () => void) => unsub());
         };
-    }, [friendsStatuses]);
+    }, [groupIdsString]);
 
     // Listen to Realtime Database for online status of friends
     useEffect(() => {
@@ -1082,7 +1095,7 @@ export default function PlayPage() {
 
                             return (
                                 <>
-                                    <p className="text-xs text-dark/70 -mb-2 font-semibold">
+                                    <p className={`text-xs ${!isDarkMode ? "text-dark/70" : "text-[#fafafa]/70"} -mb-2 font-semibold`}>
                                         Rejoindre un village : ({filteredVillages.length})
                                     </p>
 

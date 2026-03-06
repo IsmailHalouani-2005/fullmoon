@@ -19,7 +19,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="fr" className="scroll-smooth" suppressHydrationWarning>
-      <body className="antialiased bg-background text-dark font-montserrat min-h-screen flex flex-col">
+      <body className="antialiased bg-background text-dark font-montserrat min-h-screen flex flex-col" suppressHydrationWarning>
         <PresenceManager />
         <GlobalActionBar />
         {children}

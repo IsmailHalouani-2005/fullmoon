@@ -385,7 +385,7 @@ export default function RoomPage() {
         return () => {
             newSocket.disconnect();
         };
-    }, [user, roomCode, firestorePhotoURL]);
+    }, [user, roomCode, firestorePhotoURL, isValidatingRoom]);
 
     // Track user activity to prevent idle kick
     useEffect(() => {
@@ -444,23 +444,28 @@ export default function RoomPage() {
     }, [user]);
 
     // 4b. Écouter la présence en ligne des amis (Firebase Realtime Database)
+    const friendsIdsString = useMemo(() => {
+        return friends.map(f => f.id).sort().join(',');
+    }, [friends]);
+
     useEffect(() => {
-        if (friends.length === 0) return;
+        if (!friendsIdsString) return;
+        const friendsIds = friendsIdsString.split(',');
         const rtdb = getDatabase();
         const unsubscribers: (() => void)[] = [];
 
-        friends.forEach(friend => {
-            const presenceRef = ref(rtdb, `status/${friend.id}`);
+        friendsIds.forEach(id => {
+            const presenceRef = ref(rtdb, `status/${id}`);
             const unsub = onValue(presenceRef, (snapshot) => {
                 const data = snapshot.val();
                 const isOnline = data && data.state === 'online';
-                setFriendsOnlinePresence(prev => ({ ...prev, [friend.id]: isOnline }));
+                setFriendsOnlinePresence(prev => ({ ...prev, [id]: isOnline }));
             });
             unsubscribers.push(unsub);
         });
 
         return () => unsubscribers.forEach(u => u());
-    }, [friends]);
+    }, [friendsIdsString]);
 
     // 5. Demander confirmation avant de quitter la page (fermeture ou refresh)
     useEffect(() => {
