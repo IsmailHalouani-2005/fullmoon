@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import PresenceManager from "../components/PresenceManager";
 import GlobalActionBar from "../components/GlobalActionBar";
+import MicrophoneDebug from "../components/MicrophoneDebug";
 
 
 export const metadata: Metadata = {
@@ -22,6 +23,7 @@ export default function RootLayout({
       <body className="antialiased bg-background text-dark font-montserrat min-h-screen flex flex-col" suppressHydrationWarning>
         <PresenceManager />
         <GlobalActionBar />
+        <MicrophoneDebug />
         {children}
       </body>
     </html>

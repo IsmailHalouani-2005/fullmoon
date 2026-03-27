@@ -3,10 +3,12 @@ import { ClientToServerEvents, ServerToClientEvents, GameState, Player, ChatMess
 import { ROLES, RoleId, Camp, isInWolfCamp } from '../types/roles';
 import { distributeRoles, distributeCustomRoles, getCountsForJ } from '../lib/roleDistribution';
 import { io } from './index';
+import { db } from '../lib/firebase';
+import { doc, deleteDoc } from 'firebase/firestore';
 
 
 // Shared games state so the HTTP layer can serve live stats
-let _games: Record<string, GameState> = {};
+const _games: Record<string, GameState> = {};
 
 /** Returns live connected player counts per room (for /api/rooms-live) */
 export function getRoomStats(): Record<string, number> {
@@ -33,8 +35,6 @@ export function setupGameLogic(io: Server<ClientToServerEvents, ServerToClientEv
             socket.disconnect();
             return;
         }
-
-        console.log(`[SOCKET] Connexion de ${username} (ID: ${userId}) dans ${roomCode} (type=${connectionType || 'room'})`);
 
         // Always join the base room so that both game and group voice chats
         // can use room-scoped helpers like getTargetSocketInRoom.
@@ -151,7 +151,6 @@ export function setupGameLogic(io: Server<ClientToServerEvents, ServerToClientEv
             const player = game.players.find(p => p.id === userId);
             if (player && isInWolfCamp(player.role)) {
                 socket.join(`wolf_room_${roomCode}`);
-                console.log(`[SOCKET] ${player.name} joined wolf_room_${roomCode}`);
             }
 
             emitGameState(roomCode, game, io);
@@ -161,23 +160,18 @@ export function setupGameLogic(io: Server<ClientToServerEvents, ServerToClientEv
             const game = games[roomCode];
             if (game && game.hostId === userId && game.phase === 'LOBBY') {
                 const playerCount = game.players.length;
-                let roles: RoleId[] = [];
+                const roles: RoleId[] = [];
 
                 const configTotal = config?.rolesCount
                     ? Object.values(config.rolesCount).reduce((s, c) => s + (c as number || 0), 0)
                     : 0;
-                console.log(`[DIAGNOSTIC] Room ${roomCode}: Start Game with ${playerCount} players.`);
-                console.log(`[DIAGNOSTIC] Config received: `, JSON.stringify(config?.rolesCount));
 
                 const { A, B, C } = getCountsForJ(playerCount);
-                console.log(`[DIAGNOSTIC] Target Counts: Village = ${A}, Wolves = ${B}, Solos = ${C} `);
 
                 let distrib;
                 if (config?.isCustom) {
-                    console.log(`[DIAGNOSTIC] Using CUSTOM distribution for ${playerCount} players.`);
                     distrib = distributeCustomRoles(playerCount, config.rolesCount || {});
                 } else {
-                    console.log(`[DIAGNOSTIC] Using DEFAULT distribution for ${playerCount} players.`);
                     distrib = distributeRoles(playerCount);
                 }
 
@@ -189,7 +183,6 @@ export function setupGameLogic(io: Server<ClientToServerEvents, ServerToClientEv
 
                 // Final shuffle for assignment
                 roles.sort(() => Math.random() - 0.5);
-                console.log(`[DIAGNOSTIC] Final Balanced Roles Array: `, JSON.stringify(roles));
 
                 game.players.forEach((player, index) => {
                     player.role = roles[index];
@@ -203,7 +196,6 @@ export function setupGameLogic(io: Server<ClientToServerEvents, ServerToClientEv
                         const s = io.sockets.sockets.get(player.socketId);
                         if (s) {
                             s.join(`wolf_room_${roomCode}`);
-                            console.log(`[START_GAME] Joined wolf_room for ${player.name}`);
                         }
                     }
                     player.isMute = false;
@@ -242,11 +234,8 @@ export function setupGameLogic(io: Server<ClientToServerEvents, ServerToClientEv
             const explicitSenderWolf = sender.role === 'LOUP_GAROU' || sender.role === 'LOUP_ALPHA' || sender.role === 'GRAND_MECHANT_LOUP' || sender.role === 'LOUP_INFECT';
             const senderInWolfCamp = isInWolfCamp(sender.role) || explicitSenderWolf;
 
-            console.log(`[SERVER_RECEIVE_CHAT] From: ${sender.name} | Role: ${sender.role} | Type: ${payload.chatType} | isNightMsg: ${isNightMsg} | senderInWolfCamp: ${senderInWolfCamp}`);
-
             if (isNightMsg) {
                 if (game.phase !== 'NIGHT' || !senderInWolfCamp) {
-                    console.log(`[CHAT_BLOCKED] Night message from ${sender.name} (Role: ${sender.role}) blocked! Phase: ${game.phase}, InCamp: ${senderInWolfCamp}`);
                     if (callback) callback({ status: 'error', reason: 'Night chat not allowed' });
                     return;
                 }
@@ -260,9 +249,6 @@ export function setupGameLogic(io: Server<ClientToServerEvents, ServerToClientEv
             game.chatMessages.push(payload);
 
             if (isNightMsg) {
-                // Emit explicitly to all wolves directly to bypass Socket rooms cache/issues
-                console.log(`[SERVER_BROADCAST_WOLF_CHAT] Broadcasting explicitly to all wolves and Petite Fille.`);
-
                 const anonymizedPayload = {
                     ...payload,
                     senderId: 'loup_anim',
@@ -601,20 +587,35 @@ export function setupGameLogic(io: Server<ClientToServerEvents, ServerToClientEv
             emitGameState(roomCode, game, io);
         });
 
-        const getSocketByUserId = (targetUserId: string) => {
+        const getSocketByUserId = (targetUserId: string, targetType?: string, targetRoom?: string) => {
             // Scan all connected sockets to find the one matching the userId.
-            // This is more robust than room-based lookup if there's any sync lag.
+            // If targetType and targetRoom are provided, we prioritize the socket that matches them perfectly.
+            let fallbackSocketId: string | null = null;
+
             for (const [sid, s] of io.sockets.sockets) {
-                if (s.handshake.query.userId === targetUserId) return sid;
+                const queryUserId = s.handshake.query.userId;
+                const queryType = s.handshake.query.type;
+                const queryRoomCode = s.handshake.query.roomCode;
+
+                if (queryUserId === targetUserId) {
+                    if (targetType && targetRoom) {
+                        if (queryType === targetType && queryRoomCode === targetRoom) {
+                            return sid; // Exact match found
+                        }
+                    }
+                    // Keep the first matching userId as fallback in case we don't find an exact match
+                    if (!fallbackSocketId) {
+                        fallbackSocketId = sid;
+                    }
+                }
             }
-            return null;
+            return fallbackSocketId;
         };
 
         socket.on("voice_request_connect", (payload) => {
             const { targetId, type } = payload;
-            const targetSocketId = getSocketByUserId(targetId);
+            const targetSocketId = getSocketByUserId(targetId, type, roomCode);
             if (!targetSocketId) {
-                console.log(`[VOICE] Target ${targetId} not found globally.`);
                 return;
             }
 
@@ -791,7 +792,6 @@ function startInactivityCheck(games: Record<string, GameState>, gameTimers: Reco
                 const idleTime = now - game.lastActivity;
 
                 if (idleTime >= IDLE_TIMEOUT) {
-                    console.log(`[SHUTDOWN] Lobby ${roomCode} inactive for 10min. Shutting down.`);
                     io.to(roomCode).emit('room_shutdown', 'Le salon a été fermé suite à une inactivité prolongée (10 min).');
 
                     const room = io.sockets.adapter.rooms.get(roomCode);
@@ -806,11 +806,12 @@ function startInactivityCheck(games: Record<string, GameState>, gameTimers: Reco
                         clearInterval(gameTimers[roomCode]);
                         delete gameTimers[roomCode];
                     }
+
+                    deleteDoc(doc(db, "groups", roomCode)).catch(e => console.error("Erreur gamedoc idle delete:", e));
                 } else if (idleTime >= WARNING_TIMEOUT && game.players.length >= 5 && !game.lobbyWarningSent) {
                     // Send warning to host only
                     const host = game.players.find(p => p.id === game.hostId);
                     if (host && host.socketId) {
-                        console.log(`[WARNING] Lobby ${roomCode} inactive for 9min. Warning host.`);
                         io.to(host.socketId).emit('lobby_idle_warning');
                         game.lobbyWarningSent = true;
                     }
@@ -825,6 +826,7 @@ function startInactivityCheck(games: Record<string, GameState>, gameTimers: Reco
                         clearInterval(gameTimers[roomCode]);
                         delete gameTimers[roomCode];
                     }
+                    deleteDoc(doc(db, "groups", roomCode)).catch(e => console.error("Erreur gamedoc failsafe delete:", e));
                     return;
                 }
 
@@ -834,8 +836,6 @@ function startInactivityCheck(games: Record<string, GameState>, gameTimers: Reco
                     const playerIdleTime = now - (player.lastActivityTime || game.lastActivity);
 
                     if (playerIdleTime >= IDLE_TIMEOUT) {
-                        console.log(`[KICK] Player ${player.name} inactive for 10min in room ${roomCode}. Kicking.`);
-
                         // Forcely kick
                         if (player.socketId) {
                             io.to(player.socketId).emit('room_shutdown', 'Vous avez été déconnecté(e) pour cause d\'inactivité (10 min).');
@@ -856,13 +856,13 @@ function startInactivityCheck(games: Record<string, GameState>, gameTimers: Reco
                         if (game.players.length === 0) {
                             delete games[roomCode];
                             if (gameTimers[roomCode]) clearInterval(gameTimers[roomCode]);
+                            deleteDoc(doc(db, "groups", roomCode)).catch(e => console.error("Erreur gamedoc empty delete:", e));
                         } else {
                             if (game.hostId === player.id) game.hostId = game.players[0].id;
                             emitGameState(roomCode, game, io);
                         }
                     } else if (playerIdleTime >= WARNING_TIMEOUT && !player.inactivityWarningSent) {
                         if (player.socketId) {
-                            console.log(`[WARNING] Player ${player.name} inactive for 9min. Sending warning.`);
                             io.to(player.socketId).emit('player_idle_warning');
                             player.inactivityWarningSent = true;
                         }
@@ -1024,7 +1024,7 @@ function handlePhaseEnd(roomCode: string, endedPhase: Phase, games: Record<strin
                 }
             });
 
-            let wolfVictimId = tallyVotes(game);
+            const wolfVictimId = tallyVotes(game);
             const deaths: string[] = [];
             let infectedId: string | null = null;
             let protectedId: string | null = null;
@@ -1507,8 +1507,6 @@ function triggerGameOver(roomCode: string, victoryDetails: { winner: string, pla
         setTimeout(() => {
             const currentGame = games[roomCode];
             if (currentGame && currentGame.phase === 'GAME_OVER') {
-                console.log(`[SHUTDOWN] Room ${roomCode} closing 5 minutes after GAME_OVER.`);
-
                 io.to(roomCode).emit('room_shutdown', 'La partie est terminée depuis 5 minutes. Le salon va être fermé.');
 
                 const room = io.sockets.adapter.rooms.get(roomCode);
@@ -1624,18 +1622,14 @@ function emitGameState(roomCode: string, game: GameState, io: Server) {
                 const condSelf = voterId === userId;
                 const shouldSee = condWolves || condSelf;
 
-                if (game.phase === 'NIGHT') {
-                    console.log(`[VOTE_PARTITION] To: ${player?.name} | Voter: ${voter?.name} | IsVoterWolf: ${isVoterWolf} | MeIsWolf: ${playerIsWolf} | ShouldSee: ${shouldSee} (Wolves: ${condWolves}, Self: ${condSelf})`);
-                }
+                if (game.phase === 'NIGHT') { }
 
                 if (shouldSee) {
                     visibleVotes[voterId] = tId;
                 }
             }
             tailoredGame.votes = visibleVotes;
-            if (voteEntries.length > 0) {
-                console.log(`[PARTITION_DEBUG] ${player?.name} (${playerRole}) sees ${Object.keys(visibleVotes).length}/${voteEntries.length} votes. isWolf: ${playerIsWolf}`);
-            }
+            if (voteEntries.length > 0) { }
 
             // Hide other players' nightActions to prevent cheating via network inspection
             tailoredGame.nightActions = tailoredGame.nightActions.filter(action => action.sourceId === userId);

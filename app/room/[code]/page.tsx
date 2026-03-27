@@ -107,6 +107,7 @@ export default function RoomPage() {
     const [speakingPlayers, setSpeakingPlayers] = useState<Set<string>>(new Set());
 
     const [isValidatingRoom, setIsValidatingRoom] = useState(true);
+    const [micPermissionGranted, setMicPermissionGranted] = useState(false);
 
     // Idle Warning State
     const [showLobbyWarning, setShowLobbyWarning] = useState(false);
@@ -223,32 +224,30 @@ export default function RoomPage() {
     // 3. Se connecter au Serveur de Jeu (Socket.io)
     useEffect(() => {
         if (!user || !roomCode) return;
-
-        // Attendre que la photo Firestore soit chargée (undefined = toujours en cours)
-        // null = chargée mais vide, string = chargée avec URL → les deux débloquent le socket
         if (firestorePhotoURL === undefined || isValidatingRoom) return;
-        const baseUrl = process.env.NEXT_PUBLIC_SOCKET_URL || (typeof window !== 'undefined' ? window.location.origin : '');
-        let socketUrl = baseUrl;
+        if (!groupConfig) return; // Wait until config is loaded
+        if (groupConfig.isMicro && !micPermissionGranted) return; // Wait for mic permission
 
-        // En local, si aucune URL n'est définie, on pointe vers 3001
-        if (!process.env.NEXT_PUBLIC_SOCKET_URL && baseUrl.includes('localhost')) {
-            socketUrl = 'http://localhost:3001';
+        const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL || '';
+        let baseUrl = socketUrl || (typeof window !== 'undefined' ? window.location.origin : '');
+        if (!socketUrl && baseUrl.includes('localhost')) {
+            baseUrl = 'http://localhost:3001';
         }
-        socketUrl = socketUrl.replace(/\/$/, '');
+        baseUrl = baseUrl.replace(/\/$/, '');
+        console.log("Connecting to socket at:", baseUrl);
 
-        console.log(`[DIAGNOSTIC] Connecting to Socket at ${socketUrl} for room ${roomCode}`);
-        const newSocket = io(socketUrl, {
+        const newSocket = io(baseUrl, {
             query: {
-                roomCode: roomCode,
+                roomCode,
                 userId: user.uid,
                 username: user.displayName || user.email?.split('@')[0] || "Anonyme",
-                avatarUrl: getSafeAvatarUrl(user.photoURL || firestorePhotoURL) || "/assets/images/icones/Photo_Profil-transparent.png"
+                avatarUrl: getSafeAvatarUrl(user.photoURL || firestorePhotoURL) || "/assets/images/icones/Photo_Profil-transparent.png",
+                type: 'room' // Add type to identify as room connection
             }
         });
 
         // Écouter les mises à jour du jeu
         newSocket.on('update_game', (gameState) => {
-            console.log("Mise à jour reçue du serveur :", gameState);
             setGame(gameState);
             if (gameState.chatMessages) {
                 setChatMessages(gameState.chatMessages);
@@ -330,7 +329,6 @@ export default function RoomPage() {
                                 "stats.fled": (dStats.fled || 0) + 1,
                                 "stats.points": (dStats.points || 0) - 2
                             });
-                            console.log(`Pénalité appliquée à ${dPlayer.name} pour fuite.`);
                         }
                     }
                 }
@@ -340,12 +338,21 @@ export default function RoomPage() {
         });
 
         newSocket.on('chat_message', (msg) => {
-            console.log(`[CLIENT_RECEIVE_CHAT] Received message from ${msg.senderName} (Type: ${msg.chatType}):`, msg);
             setChatMessages(prev => [...prev, msg]);
         });
 
-        newSocket.on('room_shutdown', (reason) => {
+        newSocket.on('room_shutdown', async (reason) => {
             alert(reason);
+            // Fallback : Si on est l'hôte et qu'on reçoit cet événement (ex: inactivité), 
+            // on s'assure que la room est bien supprimée de la base de données
+            if (groupConfig?.hostId === user.uid) {
+                try {
+                    const { deleteDoc } = await import('firebase/firestore');
+                    await deleteDoc(doc(db, "groups", roomCode as string));
+                } catch (e) {
+                    console.error("Client fallback delete failed", e);
+                }
+            }
             router.push('/play');
         });
 
@@ -359,7 +366,6 @@ export default function RoomPage() {
 
         // Rejoindre officiellement la salle UNIQUEMENT quand le socket est bien connecté
         newSocket.on('connect', () => {
-            console.log("Socket connecté, envoi de join_game...");
             newSocket.emit('join_game', {
                 roomCode,
                 userId: user.uid,
@@ -370,7 +376,6 @@ export default function RoomPage() {
 
         // Gestion de la reconnexion automatique par Socket.io
         newSocket.on('reconnect', () => {
-            console.log("Socket reconnecté, ré-envoi de join_game...");
             newSocket.emit('join_game', {
                 roomCode,
                 userId: user.uid,
@@ -385,7 +390,7 @@ export default function RoomPage() {
         return () => {
             newSocket.disconnect();
         };
-    }, [user, roomCode, firestorePhotoURL, isValidatingRoom]);
+    }, [user, roomCode, firestorePhotoURL, isValidatingRoom, groupConfig?.isMicro, micPermissionGranted]);
 
     // Track user activity to prevent idle kick
     useEffect(() => {
@@ -427,7 +432,7 @@ export default function RoomPage() {
         });
 
         return () => unsubscribe();
-    }, [roomCode]);
+    }, [roomCode, isValidatingRoom]);
 
     // 4. Récupérer les amis pour le panneau d'invitation
     useEffect(() => {
@@ -550,6 +555,39 @@ export default function RoomPage() {
         return Object.keys(counts).length > 0 ? counts : null;
     }, [game?.players]);
 
+    // ⚠️ BLOCKER 1 : Configuration du salon en cours de chargement
+    if (!groupConfig) {
+        return <LoadingScreen roomCode={roomCode} />;
+    }
+
+    // ⚠️ BLOCKER 2 : Permission Micro Requise
+    if (groupConfig.isMicro && !micPermissionGranted && !isValidatingRoom) {
+        return (
+            <div className="h-screen w-screen bg-primary flex flex-col items-center justify-center p-4 text-center z-[9999]">
+                <h1 className="text-secondary font-enchanted text-5xl mb-6">Chat Vocal Activé</h1>
+                <p className="text-dark/70 font-montserrat mb-8 max-w-md bg-white p-4 rounded-lg shadow-md border-2 border-dark/10 text-sm">
+                    Pour rejoindre ce village, nous devons activer votre microphone. Le navigateur vous demandera l'autorisation.
+                </p>
+                <button
+                    onClick={async () => {
+                        try {
+                            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                            stream.getTracks().forEach(t => t.stop());
+                            setMicPermissionGranted(true);
+                        } catch (err) {
+                            alert("Le microphone est nécessaire pour ce salon.");
+                            setMicPermissionGranted(true);
+                        }
+                    }}
+                    className="bg-secondary text-primary px-8 py-3 rounded-xl font-bold font-montserrat shadow-lg hover:bg-black hover:text-white transition-all transform hover:scale-105"
+                >
+                    Autoriser et Rejoindre
+                </button>
+            </div>
+        );
+    }
+
+    // ⚠️ BLOCKER 3 : Chargement du jeu via Socket
     if (!user || !game) {
         return <LoadingScreen roomCode={roomCode} />;
     }
@@ -571,7 +609,6 @@ export default function RoomPage() {
         if (me && !me.isAlive) return; // Un mort ne parle plus (sauf ongle système peut-être plus tard, mais simplifions)
 
         const camp = me?.role ? ROLES[me.role as RoleId]?.camp : 'UNKNOWN';
-        console.log(`[CLIENT_SEND_CHAT] Text: "${chatInput}" | Sender: ${me?.name} | Role: ${me?.role} | Camp: ${camp} | Tab: ${activeChatTab}`);
 
         socket.emit('chat_message', {
             senderId: user.uid,
@@ -717,7 +754,6 @@ export default function RoomPage() {
 
     return (
         <div className={`h-screen max-h-screen overflow-hidden flex font-montserrat transition-colors duration-1000 ${currentPhase === 'NIGHT' ? 'bg-[#1a1b26] text-slate-200' : 'bg-[#fafafa] text-slate-900'} relative`}>
-
             {/* Mobile Toggle Button (Visible only on small screens) */}
             <button
                 onClick={() => { setIsMobileSidebarOpen(!isMobileSidebarOpen); setIsPlayersListOpen(false); setIsInviteOpen(false); }}
@@ -730,7 +766,6 @@ export default function RoomPage() {
                     <Image src="/assets/images/icones/list-icon.png" alt="Menu" width={24} height={24} />
                 )}
             </button>
-
             {/* Default Voice Chat Manager */}
             {groupConfig?.isMicro && user && game && (
                 <VoiceChatManager
@@ -747,7 +782,6 @@ export default function RoomPage() {
                 />
             )}
             {/* --- SIDEBAR GAUCHE --- */}
-
             {/* Mobile Overlay */}
             {isMobileSidebarOpen && (
                 <div
@@ -755,7 +789,6 @@ export default function RoomPage() {
                     onClick={() => setIsMobileSidebarOpen(false)}
                 />
             )}
-
             <aside className={`fixed md:relative inset-y-0 left-0 z-[100] w-80 md:w-100 flex flex-col p-4 transition-transform duration-300 transform md:translate-x-0 ${isMobileSidebarOpen ? 'translate-x-0' : '-translate-x-full'} ${currentPhase === 'NIGHT' ? 'bg-[#16161e] border-r border-[#2a2b3d]' : 'bg-[#fafafa] shadow-2xl md:shadow-none'}`}>
                 {/* Ligne du haut : Home, Params, Amis */}
                 <div className={`flex justify-between items-center bg-transparent border-3 rounded-lg px-3 py-1 ml-14 mb-6 md:ml-0 transition-colors duration-1000 ${currentPhase === 'NIGHT' ? 'bg-[#1f202e] border-slate-600 text-white' : 'bg-white border-dark text-slate-900'}`}>
@@ -843,7 +876,6 @@ export default function RoomPage() {
                                 const isPetiteFille = mePlayer?.role === 'PETITE_FILLE';
                                 const isMeSender = msg.senderId === user?.uid;
                                 const show = (activeChatTab === 'night' && (isMeWolf || isPetiteFille)) || (isMeSender && isMeWolf);
-                                console.log(`[CLIENT_RENDER_CHAT] msg: "${msg.text}" | tab: ${activeChatTab} | isMeWolf: ${isMeWolf} | isPF: ${isPetiteFille} | show: ${show}`);
                                 return show;
                             }
                             return activeChatTab === 'day';
@@ -988,7 +1020,6 @@ export default function RoomPage() {
                     })()}
                 </div>
             </aside>
-
             {/* --- ZONE CENTRALE DROITE (Fin de partie vs Jeu En Cours) --- */}
             {/* ENDGAME COMPONENT */}
             {(currentPhase === 'GAME_OVER' && gameOverData) ? (
@@ -1026,12 +1057,10 @@ export default function RoomPage() {
                     speakingPlayers={speakingPlayers}
                 />
             )}
-
             {/* Pop-up d'information sur le rôle (Plein Écran) */}
             {selectedRole && ROLES[selectedRole] && (
                 <RoleInfoModal role={ROLES[selectedRole]!} onClose={() => setSelectedRole(null)} />
             )}
-
             {/* Modal des Amoureux */}
             {(() => {
                 const amILover = game?.lovers?.includes(mePlayer?.id || '');
@@ -1056,7 +1085,6 @@ export default function RoomPage() {
                 }
                 return null;
             })()}
-
             {/* Modal Infected */}
             {(() => {
                 const amIInfected = mePlayer?.effects?.includes('infected');
@@ -1070,7 +1098,6 @@ export default function RoomPage() {
                 }
                 return null;
             })()}
-
             {/* Modal Confirmation de départ */}
             {showLeaveConfirm && (
                 <div className="fixed inset-0 bg-black/80 z-50 flex flex-col items-center justify-center p-6 backdrop-blur-sm">
@@ -1099,7 +1126,6 @@ export default function RoomPage() {
                     </div>
                 </div>
             )}
-
             {/* Modal Avertissement Inactivité Salon */}
             {showLobbyWarning && (
                 <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[2020] p-4 font-montserrat">
@@ -1124,7 +1150,6 @@ export default function RoomPage() {
                     </div>
                 </div>
             )}
-
             {/* Modal Avertissement Inactivité Joueur */}
             {showPlayerIdleWarning && (
                 <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[2020] p-4 font-montserrat">
@@ -1149,9 +1174,7 @@ export default function RoomPage() {
                     </div>
                 </div>
             )}
-
             {/* Pop-up Modale de FIN DE PARTIE supprimée pour être affichée dans le Main Content */}
-
             {/* Overlay partagé pour les panneaux de droite */}
             {(isInviteOpen || isPlayersListOpen) && (
                 <div
@@ -1159,7 +1182,6 @@ export default function RoomPage() {
                     onClick={() => { setIsInviteOpen(false); setIsPlayersListOpen(false); }}
                 />
             )}
-
             {/* Panneau latéral droit (Inviter des amis) */}
             <div className={`absolute top-0 right-0 w-80 h-full bg-white border-l-4 border-slate-800 shadow-2xl z-50 flex flex-col font-montserrat transition-transform duration-300 ease-in-out transform ${isInviteOpen ? 'translate-x-0' : 'translate-x-full'}`}>
                 <div className="p-6 bg-[#FCF8E8] border-b-2 border-slate-800 flex justify-between items-center shrink-0">
@@ -1206,7 +1228,6 @@ export default function RoomPage() {
                     })()}
                 </div>
             </div>
-
             {/* Panneau latéral droit (Liste des Joueurs) */}
             <div className={`absolute top-0 right-0 w-80 h-full bg-white border-l-4 border-slate-800 shadow-2xl z-50 flex flex-col font-montserrat transition-transform duration-300 ease-in-out transform ${isPlayersListOpen ? 'translate-x-0' : 'translate-x-full'}`}>
                 <div className="p-6 bg-[#FCF8E8] border-b-2 border-slate-800 flex justify-between items-center shrink-0">
@@ -1232,7 +1253,6 @@ export default function RoomPage() {
                     ))}
                 </div>
             </div>
-
             {/* --- MODAL POTION DE VIE --- */}
             {witchHealTarget && (
                 <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[2000] p-4 font-montserrat" onClick={() => { setWitchHealTarget(null); setActivePower(null); }}>
@@ -1263,7 +1283,6 @@ export default function RoomPage() {
                     </div>
                 </div>
             )}
-
             {/* --- MODAL POTION DE MORT --- */}
             {witchPoisonTarget && (
                 <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[2000] p-4 font-montserrat" onClick={() => { setWitchPoisonTarget(null); setActivePower(null); }}>
@@ -1323,7 +1342,6 @@ export default function RoomPage() {
                     </div>
                 </div>
             )}
-
             {/* Modal Paramètres (Vocal) */}
             {showSettings && (
                 <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[2100] p-4 font-montserrat" onClick={() => setShowSettings(false)}>

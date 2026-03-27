@@ -362,13 +362,11 @@ try {
 
         content = content.substring(0, startIdx) + newMain + content.substring(endIdx + endMatch.length);
         fs.writeFileSync(file, content);
-        console.log('Restored old content');
 
         // Delete components directory recursively
         const componentsDir = path.join(__dirname, 'app/play/components');
         if (fs.existsSync(componentsDir)) {
             fs.rmSync(componentsDir, { recursive: true, force: true });
-            console.log('Deleted components directory');
         }
     } else {
         console.error('Could not find existing <main> tags to replace');

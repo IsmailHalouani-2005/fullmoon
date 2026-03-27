@@ -51,7 +51,6 @@ app.prepare().then(() => {
     const PORT = process.env.PORT || 3000;
     server.listen(PORT, (err) => {
         if (err) throw err;
-        console.log(`> Ready on http://localhost:${PORT}`);
     });
 }).catch((ex) => {
     console.error(ex.stack);

@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { auth, db } from '@/lib/firebase';
-import { doc, updateDoc } from 'firebase/firestore';
+import { doc, updateDoc, getDoc } from 'firebase/firestore';
 import Sidebar from '@/components/room/edit/Sidebar';
 import MainContent from '@/components/room/edit/MainContent';
 import { RoleId } from '@/types/roles';
@@ -38,7 +38,7 @@ export default function EditRoomPage() {
     const { isDarkMode } = useThemeStore();
     // Polling du nombre de joueurs connectés en direct (Socket.io) via /api/rooms-live
     useEffect(() => {
-        let socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL || '';
+        const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL || '';
 
         // CORRECTION : Utiliser NEXT_PUBLIC_SOCKET_URL ou l'origine actuelle
         let baseUrl = socketUrl || (typeof window !== 'undefined' ? window.location.origin : '');
@@ -66,7 +66,7 @@ export default function EditRoomPage() {
     }, []);
 
     useEffect(() => {
-        const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+        const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
             if (!currentUser) {
                 router.push('/');
             } else {
@@ -74,10 +74,30 @@ export default function EditRoomPage() {
                 if (!secretCode) {
                     setSecretCode(Math.random().toString(36).substring(2, 8).toUpperCase());
                 }
+
+                // Fetch existing room configuration
+                if (roomCode) {
+                    try {
+                        const roomDoc = await getDoc(doc(db, 'groups', roomCode));
+                        if (roomDoc.exists()) {
+                            const data = roomDoc.data();
+                            if (data.name) setVillageName(data.name);
+                            if (data.isPrivate !== undefined) setIsPrivate(data.isPrivate);
+                            if (data.isMicro !== undefined) setIsMicroEnabled(data.isMicro);
+                            if (data.isMayorEnabled !== undefined) setIsMayorEnabled(data.isMayorEnabled);
+                            if (data.maxPlayers !== undefined) setPlayerCount(data.maxPlayers);
+                            if (data.rolesCount) setRolesCount(data.rolesCount);
+                            if (data.isCustom !== undefined) setIsCustom(data.isCustom);
+                            if (data.secretCode) setSecretCode(data.secretCode);
+                        }
+                    } catch (error) {
+                        console.error('Error fetching room configuration:', error);
+                    }
+                }
             }
         });
         return () => unsubscribe();
-    }, [router, secretCode]);
+    }, [router, roomCode, secretCode]);
 
     const handleApplyDefaults = () => {
         setPlayerCount(16);
@@ -109,7 +129,6 @@ export default function EditRoomPage() {
                 isConfigured: true
             });
 
-            console.log("[DIAGNOSTIC] Village saved with isCustom:", isCustom, "Settings:", { villageName, isPrivate, isMicroEnabled, isMayorEnabled, playerCount, rolesCount, totalRoles, secretCode });
             router.push(`/room/${roomCode}`);
         } catch (error) {
             console.error("Error saving village configuration:", error);

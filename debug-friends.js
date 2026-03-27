@@ -19,20 +19,12 @@ const rtdb = getDatabase(app);
 async function check() {
     const usersSnap = await getDocs(collection(db, "users"));
     for (const userDoc of usersSnap.docs) {
-        console.log(`\nUser: ${userDoc.id} (${userDoc.data().pseudo}) - isOnline: ${userDoc.data().isOnline}`);
-
         try {
             const rtdbSnap = await get(ref(rtdb, 'status/' + userDoc.id));
-            console.log(`  RTDB Status:`, rtdbSnap.val());
-        } catch (e) {
-            console.log('  RTDB Error:', e.message);
-        }
+        } catch (e) {}
 
         const friendsSnap = await getDocs(collection(db, `users/${userDoc.id}/friends`));
-        console.log(`  Friends:`);
-        friendsSnap.forEach(fDoc => {
-            console.log(`    - DocID: ${fDoc.id}, mapped friendId: ${fDoc.data().friendId}, pseudo: ${fDoc.data().pseudo}`);
-        });
+        friendsSnap.forEach(fDoc => {});
     }
 }
 

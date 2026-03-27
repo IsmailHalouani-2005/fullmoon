@@ -5,10 +5,12 @@ import { Socket } from 'socket.io-client';
 import { Player, Phase, GameState } from '@/types/game';
 import { isInWolfCamp } from '@/types/roles';
 
+const ADMIN_EMAILS = ['ismail.halouani@gmail.com', 'ilovehacking25@gmail.com', 'admin@admin.admin'];
+
 interface VoiceChatManagerProps {
     socket: Socket | null;
     roomCode: string;
-    currentUser: { uid: string; pseudo?: string };
+    currentUser: { uid: string; pseudo?: string; email?: string | null };
     game: GameState | null;
     isMicroOn: boolean;       // Local setting: Am I speaking?
     isHeadphonesOn: boolean;  // Local setting: Am I listening?
@@ -140,9 +142,24 @@ export default function VoiceChatManager({
         }
 
         const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+
+        // Ensure context is running for volume detection
+        if (audioContext.state === 'suspended') {
+            audioContext.resume().catch(console.warn);
+        }
+
         const analyser = audioContext.createAnalyser();
         const source = audioContext.createMediaStreamSource(localStream);
         source.connect(analyser);
+
+        // Try to resume on any user interaction as a fallback
+        const resumeOnInteraction = () => {
+            if (audioContext.state === 'suspended') {
+                audioContext.resume().catch(console.warn);
+            }
+        };
+        window.addEventListener('click', resumeOnInteraction);
+        window.addEventListener('touchstart', resumeOnInteraction);
 
         analyser.fftSize = 256;
         const bufferLength = analyser.frequencyBinCount;
@@ -200,6 +217,8 @@ export default function VoiceChatManager({
         return () => {
             isActive = false;
             cancelAnimationFrame(animationId);
+            window.removeEventListener('click', resumeOnInteraction);
+            window.removeEventListener('touchstart', resumeOnInteraction);
             audioContext.close().catch(() => { });
             socket.emit('player_speaking', { isSpeaking: false, type });
             if (currentUser?.uid) {
@@ -287,9 +306,11 @@ export default function VoiceChatManager({
     const handleInteraction = useCallback(() => {
         console.log("VoiceChat: User interaction detected - Resuming all audio.");
         Object.values(audioElementsRef.current).forEach(audio => {
-            if (isHeadphonesOn) {
+            if (audio && isHeadphonesOn) {
                 audio.muted = false;
-                audio.play().catch(e => console.warn("VoiceChat: Play blocked", e));
+                if (audio.paused) {
+                    audio.play().catch(e => console.warn("VoiceChat: Play blocked on interaction", e));
+                }
             }
         });
 
@@ -470,6 +491,15 @@ export default function VoiceChatManager({
             try {
                 console.log(`VoiceChat: Negotiation needed for ${peerId}`);
                 isMakingOffer.current[peerId] = true;
+                const senders = pc.getSenders();
+                const hasAudio = senders.some(s => s.track && s.track.kind === 'audio');
+                if (!hasAudio && localStreamRefForCleanup.current) {
+                    localStreamRefForCleanup.current.getTracks().forEach(track => {
+                        if (!pc.getSenders().find(s => s.track === track)) {
+                            pc.addTrack(track, localStreamRefForCleanup.current!);
+                        }
+                    });
+                }
                 const offer = await pc.createOffer();
                 if (pc.signalingState !== 'stable') return;
                 await pc.setLocalDescription(offer);
@@ -482,33 +512,37 @@ export default function VoiceChatManager({
         };
 
         pc.ontrack = (event) => {
-            console.log(`VoiceChat: Received remote track (${event.track.kind}) from ${peerId}`, event.streams[0]);
+            console.log(`VoiceChat: Received remote track (${event.track.kind}) from ${peerId}`);
 
-            // Some browsers don't provide event.streams[0], we must create one if needed
-            let stream = event.streams[0];
-            if (!stream) {
-                stream = new MediaStream([event.track]);
-            }
+            setRemoteStreams(prev => {
+                const next = { ...prev };
+                let stream = next[peerId];
+                if (!stream) {
+                    stream = new MediaStream();
+                    next[peerId] = stream;
+                }
+                if (!stream.getTracks().includes(event.track)) {
+                    stream.addTrack(event.track);
+                }
+                return next;
+            });
 
-            setRemoteStreams(prev => ({
-                ...prev,
-                [peerId]: stream
-            }));
-
-            // Auto-play attempt
             if (isHeadphonesOn) {
                 setTimeout(() => {
-                    audioElementsRef.current[peerId]?.play().catch(() => { });
-                }, 100);
+                    const el = audioElementsRef.current[peerId];
+                    if (el && el.paused) {
+                        el.play().catch(e => console.warn("VoiceChat ontrack play blocked:", e));
+                    }
+                }, 200);
             }
         };
 
         // Add local tracks (triggers onnegotiationneeded if not already present)
-        if (localStream) {
-            localStream.getTracks().forEach(track => {
+        if (localStreamRefForCleanup.current) {
+            localStreamRefForCleanup.current.getTracks().forEach(track => {
                 const senders = pc.getSenders();
                 if (!senders.find(s => s.track === track)) {
-                    pc.addTrack(track, localStream);
+                    pc.addTrack(track, localStreamRefForCleanup.current!);
                 }
             });
         }
@@ -672,81 +706,85 @@ export default function VoiceChatManager({
     }
 
     return (
-        <div style={{ position: 'fixed', bottom: 10, right: 10, zIndex: 9999, pointerEvents: 'none', display: 'none' }}>
-            {/* Direct Interaction Layer for Reset (only on the button) */}
-            <div style={{ pointerEvents: 'auto' }} className="mb-1 text-right flex flex-col items-end gap-1">
-                <button
-                    onClick={forceAudio}
-                    className="bg-blue-500/40 hover:bg-blue-500/60 text-[8px] text-white px-2 py-1 rounded border border-white/10"
-                >
-                    🔊 DÉBLOQUER SON
-                </button>
-                <button
-                    onClick={resetConnections}
-                    className="bg-red-500/20 hover:bg-red-500/40 text-[8px] text-white px-2 py-1 rounded border border-white/10"
-                >
-                    Réinitialiser
-                </button>
-            </div>
-
-            {/* Visible Debug Info (Small) */}
-            <div className="bg-black/95 text-[9px] text-white p-2 rounded border border-white/20 shadow-xl w-[190px] font-mono">
-                <p className="font-bold border-bottom border-white/10 pb-1 mb-1 uppercase tracking-tighter">Voice: {type}</p>
-                <p>Moi: {currentUser?.pseudo || currentUser?.uid.slice(0, 5)} <span className="opacity-50">({currentUser?.uid.slice(0, 3)})</span></p>
-                <p>Micro: <span className={isMicroOn ? 'text-green-400' : 'text-red-400'}>{isMicroOn ? 'ON' : (game?.players.find(p => p.id === currentUser?.uid)?.isAlive === false && game.phase !== 'LOBBY' && game.phase !== 'GAME_OVER' ? 'OFF (MORT)' : 'OFF (MUTE)')}</span></p>
-                <p>Socket: <span className={socket?.connected ? 'text-green-400' : 'text-red-400'}>{socket?.connected ? 'OK' : 'ERR'}</span></p>
-                <div className="flex items-center gap-2">
-                    <p className={!isMicroOn ? 'opacity-50' : ''}>Flux:</p>
-                    <div className="flex-1 h-1 bg-white/10 rounded-full overflow-hidden">
-                        <div
-                            className={`h-full transition-all duration-100 ${!isMicroOn ? 'bg-red-500/50' : 'bg-blue-400'}`}
-                            style={{ width: `${Math.min(100, localVolume * 4)}%`, opacity: !isMicroOn ? 0.3 : 1 }}
-                        />
+        <div style={{ position: 'fixed', bottom: 10, right: 10, zIndex: 9999, pointerEvents: 'none', display: 'block' }}>
+            {ADMIN_EMAILS.includes(currentUser?.email || '') && (
+                <>
+                    {/* Direct Interaction Layer for Reset (only on the button) */}
+                    <div style={{ pointerEvents: 'auto' }} className="mb-1 text-right flex flex-col items-end gap-1">
+                        <button
+                            onClick={forceAudio}
+                            className="bg-blue-500/40 hover:bg-blue-500/60 text-[8px] text-white px-2 py-1 rounded border border-white/10"
+                        >
+                            🔊 DÉBLOQUER SON
+                        </button>
+                        <button
+                            onClick={resetConnections}
+                            className="bg-red-500/20 hover:bg-red-500/40 text-[8px] text-white px-2 py-1 rounded border border-white/10"
+                        >
+                            Réinitialiser
+                        </button>
                     </div>
-                </div>
-                <p>Sortie: <span className={isHeadphonesOn ? 'text-green-400' : 'text-red-400'}>{isHeadphonesOn ? 'HP ON' : 'MUET'}</span> <span className="opacity-50 text-[7px]">({acState})</span></p>
-                <p>Flux Dist: {Object.keys(remoteStreams).length} <span className="opacity-50 text-[7px]">({Object.keys(audioElementsRef.current).length} el)</span></p>
-                <p>Cibles: {targets.length} <span className="opacity-50">(W:{targets.filter((t: Player) => currentUser.uid <= t.id).length} I:{targets.filter((t: Player) => currentUser.uid > t.id).length})</span></p>
-                <p className="text-blue-300">REQ: ↑{stats.sentReq} ↓{stats.recvReq}</p>
-                <p className="text-purple-300">SIG: ↑{stats.sentSig} ↓{stats.recvSig} • ICE: {stats.cand}</p>
 
-                <div className="mt-1 pt-1 border-t border-white/10">
-                    <p className="text-[8px] opacity-70 mb-1 underline">Pairs ({Object.keys(iceStates).length}):</p>
-                    {Object.keys(iceStates).length === 0 ? (
-                        <p className="italic opacity-50">Aucun pair actif</p>
-                    ) : (
-                        Object.entries(iceStates).map(([id, state]) => (
-                            <div key={id} className="mb-1 border-b border-white/5 pb-1 last:border-0">
-                                <p className="truncate font-bold">
-                                    {(players?.find(p => p.id === id)?.name || (game?.players || []).find(p => p.id === id)?.name || id.slice(0, 5))}
-                                    <span className="opacity-50 font-normal"> ({id.slice(0, 3)})</span>
-                                </p>
-                                <p className="flex justify-between pl-1">
-                                    <span>ICE:</span>
-                                    <span className={state === 'connected' ? 'text-green-400 font-bold' : state === 'failed' ? 'text-red-400' : 'text-yellow-400'}>{state}</span>
-                                </p>
-                                <p className="flex justify-between pl-1 text-[8px] opacity-70">
-                                    <span>GATH/SIG:</span>
-                                    <span>{gatheringStates[id] || 'new'}/{peerConnections.current[id]?.signalingState?.slice(0, 4) || 'none'} <span className="opacity-40 text-[6px]">({peerConnections.current[id]?.getSenders().length}S/{peerConnections.current[id]?.getReceivers().length}R)</span></span>
-                                </p>
-                                <p className="flex justify-between pl-1 text-[8px] text-orange-300">
-                                    <span>SON:</span>
-                                    <span className="flex items-center gap-1">
-                                        {audioStatus[id]?.playing ? '🔊' : '🔇'}
-                                        <span className="w-10 h-1 bg-white/20 rounded-full overflow-hidden">
-                                            <span
-                                                className="block h-full bg-green-400"
-                                                style={{ width: `${Math.min(100, (audioStatus[id]?.volume || 0) * 1000)}%` }}
-                                            />
-                                        </span>
-                                    </span>
-                                </p>
+                    {/* Visible Debug Info (Small) */}
+                    <div className="bg-black/95 text-[9px] text-white p-2 rounded border border-white/20 shadow-xl w-[190px] font-mono">
+                        <p className="font-bold border-bottom border-white/10 pb-1 mb-1 uppercase tracking-tighter">Voice: {type}</p>
+                        <p>Moi: {currentUser?.pseudo || currentUser?.uid.slice(0, 5)} <span className="opacity-50">({currentUser?.uid.slice(0, 3)})</span></p>
+                        <p>Micro: <span className={isMicroOn ? 'text-green-400' : 'text-red-400'}>{isMicroOn ? 'ON' : (game?.players.find(p => p.id === currentUser?.uid)?.isAlive === false && game.phase !== 'LOBBY' && game.phase !== 'GAME_OVER' ? 'OFF (MORT)' : 'OFF (MUTE)')}</span></p>
+                        <p>Socket: <span className={socket?.connected ? 'text-green-400' : 'text-red-400'}>{socket?.connected ? 'OK' : 'ERR'}</span></p>
+                        <div className="flex items-center gap-2">
+                            <p className={!isMicroOn ? 'opacity-50' : ''}>Flux:</p>
+                            <div className="flex-1 h-1 bg-white/10 rounded-full overflow-hidden">
+                                <div
+                                    className={`h-full transition-all duration-100 ${!isMicroOn ? 'bg-red-500/50' : 'bg-blue-400'}`}
+                                    style={{ width: `${Math.min(100, localVolume * 4)}%`, opacity: !isMicroOn ? 0.3 : 1 }}
+                                />
                             </div>
-                        ))
-                    )}
-                </div>
-                {debugInfo && <p className="mt-1 text-[7px] text-yellow-400 break-words leading-tight border-t border-white/5 pt-1 italic">{debugInfo}</p>}
-            </div>
+                        </div>
+                        <p>Sortie: <span className={isHeadphonesOn ? 'text-green-400' : 'text-red-400'}>{isHeadphonesOn ? 'HP ON' : 'MUET'}</span> <span className="opacity-50 text-[7px]">({acState})</span></p>
+                        <p>Flux Dist: {Object.keys(remoteStreams).length} <span className="opacity-50 text-[7px]">({Object.keys(audioElementsRef.current).length} el)</span></p>
+                        <p>Cibles: {targets.length} <span className="opacity-50">(W:{targets.filter((t: Player) => currentUser.uid <= t.id).length} I:{targets.filter((t: Player) => currentUser.uid > t.id).length})</span></p>
+                        <p className="text-blue-300">REQ: ↑{stats.sentReq} ↓{stats.recvReq}</p>
+                        <p className="text-purple-300">SIG: ↑{stats.sentSig} ↓{stats.recvSig} • ICE: {stats.cand}</p>
+
+                        <div className="mt-1 pt-1 border-t border-white/10">
+                            <p className="text-[8px] opacity-70 mb-1 underline">Pairs ({Object.keys(iceStates).length}):</p>
+                            {Object.keys(iceStates).length === 0 ? (
+                                <p className="italic opacity-50">Aucun pair actif</p>
+                            ) : (
+                                Object.entries(iceStates).map(([id, state]) => (
+                                    <div key={id} className="mb-1 border-b border-white/5 pb-1 last:border-0">
+                                        <p className="truncate font-bold">
+                                            {(players?.find(p => p.id === id)?.name || (game?.players || []).find(p => p.id === id)?.name || id.slice(0, 5))}
+                                            <span className="opacity-50 font-normal"> ({id.slice(0, 3)})</span>
+                                        </p>
+                                        <p className="flex justify-between pl-1">
+                                            <span>ICE:</span>
+                                            <span className={state === 'connected' ? 'text-green-400 font-bold' : state === 'failed' ? 'text-red-400' : 'text-yellow-400'}>{state}</span>
+                                        </p>
+                                        <p className="flex justify-between pl-1 text-[8px] opacity-70">
+                                            <span>GATH/SIG:</span>
+                                            <span>{gatheringStates[id] || 'new'}/{peerConnections.current[id]?.signalingState?.slice(0, 4) || 'none'} <span className="opacity-40 text-[6px]">({peerConnections.current[id]?.getSenders().length}S/{peerConnections.current[id]?.getReceivers().length}R)</span></span>
+                                        </p>
+                                        <p className="flex justify-between pl-1 text-[8px] text-orange-300">
+                                            <span>SON:</span>
+                                            <span className="flex items-center gap-1">
+                                                {audioStatus[id]?.playing ? '🔊' : '🔇'}
+                                                <span className="w-10 h-1 bg-white/20 rounded-full overflow-hidden">
+                                                    <span
+                                                        className="block h-full bg-green-400"
+                                                        style={{ width: `${Math.min(100, (audioStatus[id]?.volume || 0) * 1000)}%` }}
+                                                    />
+                                                </span>
+                                            </span>
+                                        </p>
+                                    </div>
+                                ))
+                            )}
+                        </div>
+                        {debugInfo && <p className="mt-1 text-[7px] text-yellow-400 break-words leading-tight border-t border-white/5 pt-1 italic">{debugInfo}</p>}
+                    </div>
+                </>
+            )}
 
             {/* Audio Elements */}
             {Object.entries(remoteStreams).map(([peerId, stream]) => (

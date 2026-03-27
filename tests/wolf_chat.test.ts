@@ -67,22 +67,17 @@ describe('Wolf Chat Logic', () => {
 
         clientAlpha.on('chat_message', (msg) => {
             if (msg.text === 'Hello Alpha!' && msg.chatType === 'night') {
-                console.log("Got direct msg!");
                 gotDirectMsg = true;
             }
         });
 
         clientAlpha.on('update_game', (state) => {
             if (gotDirectMsg) {
-                console.log("Alpha got update_game. Chat messages length:", state.chatMessages?.length || 0);
                 const hasMessage = state.chatMessages?.find((m: any) => m.text === 'Hello Alpha!');
                 if (hasMessage && !gotStateMessage) {
                     gotStateMessage = true;
-                    console.log("Got state msg!");
                     done();
-                } else if (!hasMessage) {
-                    console.log("MESSAGES SEEN BY ALPHA:", JSON.stringify(state.chatMessages?.slice(-2)));
-                }
+                } else if (!hasMessage) {}
             }
         });
 
@@ -94,7 +89,7 @@ describe('Wolf Chat Logic', () => {
                 text: 'Hello Alpha!',
                 time: Date.now(),
                 chatType: 'night'
-            }, (res: any) => console.log('Chat SEND result:', res));
+            }, (res: any) => );
 
             // Fail if not received in state within 5s
             setTimeout(() => {

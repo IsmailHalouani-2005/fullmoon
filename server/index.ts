@@ -44,6 +44,4 @@ export const io = new Server(server, {
 setupGameLogic(io);
 
 // 3. Listen on port 3001
-server.listen(3001, () => {
-    console.log("🐺 Serveur Loup-Garou (Standalone + API) prêt sur le port 3001 !");
-});
+server.listen(3001, () => {});

@@ -95,13 +95,11 @@ export default function ActiveGame({
 
     return (
         <main className={`flex-1 relative overflow-hidden flex flex-col items-center justify-center p-8 ${currentPhase === 'NIGHT' ? 'bg-dark text-white' : 'bg-white text-dark'}`}>
-
             {/* Image de fond léger pour l'ambiance */}
             <div
                 className={`absolute inset-0 pointer-events-none bg-center bg-no-repeat bg-cover transition-opacity duration-1000 ${currentPhase === 'NIGHT' ? 'opacity-5' : 'opacity-[0.03]'}`}
                 style={{ backgroundImage: "url('/assets/images/icones/village_batiments.png')" }}
             />
-
             {/* Le conteneur du cercle (Responsive en pourcentage pour s'adapter à l'écran) */}
             <div className="relative w-full max-w-[800px] aspect-square max-h-[90vh] sm:max-h-[80vh] flex items-center justify-center">
 
@@ -150,7 +148,6 @@ export default function ActiveGame({
                                             startPayload.rolesCount = dynamicRolesConfig;
                                             startPayload.isCustom = groupConfig?.isCustom;
                                         }
-                                        console.log("[DIAGNOSTIC] Emitting start_game with payload:", JSON.stringify(startPayload));
                                         socket?.emit('start_game', startPayload);
                                         // Persister dans Firestore pour que le Quick Join sache que la partie est lancée
                                         try {

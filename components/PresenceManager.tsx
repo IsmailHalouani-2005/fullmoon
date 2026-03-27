@@ -33,29 +33,22 @@ export default function PresenceManager() {
                     onValue(connectedRef, (snap) => {
                         if (snap.val() === true) {
                             hasConnected = true;
-                            // We're connected (or reconnected)!
-                            console.log("Presence: Connected to RTDB successfully.");
 
                             // Set up the disconnect hook.
                             onDisconnect(userStatusDatabaseRef).set({
                                 state: 'offline',
                                 last_changed: serverTimestamp(),
                             }).then(() => {
-                                console.log("Presence: onDisconnect setup successful.");
                                 set(userStatusDatabaseRef, {
                                     state: 'online',
                                     last_changed: serverTimestamp(),
-                                }).then(() => {
-                                    console.log("Presence: status set to 'online' in RTDB.");
-                                }).catch((err) => {
+                                }).then(() => {}).catch((err) => {
                                     console.error("Presence: Could not set status 'online' in RTDB.", err);
                                 });
                             }).catch((err) => {
                                 console.error("Presence: Could not setup onDisconnect in RTDB.", err);
                             });
                         } else {
-                            // If snap.val() is false, we are disconnected.
-                            console.log("Presence: Disconnected from RTDB");
                             // We ONLY update Firestore directly here to false IF we actually connected first.
                             // This prevents falsely setting offline if the RTDB just fails to connect on boot.
                             if (hasConnected) {

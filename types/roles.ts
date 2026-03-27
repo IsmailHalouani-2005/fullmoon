@@ -80,7 +80,7 @@ export const ROLES: Record<RoleId, RoleDefinition> = {
         camp: 'VILLAGE',
         image: "/assets/images/roles/villagers/Cupidon.png",
         powers: [
-            { id: 'COUP_DE_COEUR', label: "Mariage", description: "Liez deux joueurs par un amour éternel. S'il l'un meurt, l'autre succombe.", icon: "/assets/images/roles/villagers/coup_coeur.png", type: 'one-time', timing: 'night' }
+            { id: 'COUP_DE_COEUR', label: "Mariage", description: "Liez deux joueurs par un amour éternel. S'il l'un meurt, l'autre succombe.", icon: "/assets/images/icones/powers/coup_coeur.png", type: 'one-time', timing: 'night' }
         ]
     },
     PETITE_FILLE: {
@@ -107,7 +107,7 @@ export const ROLES: Record<RoleId, RoleDefinition> = {
         camp: 'LOUPS',
         image: "/assets/images/roles/werwolves/Loup_Alpha.png",
         powers: [
-            { id: 'DOUBLE_VOTE', label: "Double Vote", description: "Votre vote compte double lors du conseil nocturne des loups.", icon: "/assets/images/icones/powers/griffure_mortel.png", type: 'passive', timing: 'night' }
+            { id: 'DOUBLE_VOTE', label: "Double Vote", description: "Votre vote compte double lors du conseil nocturne des loups.", icon: "", type: 'passive', timing: 'night' }
         ]
     },
     GRAND_MECHANT_LOUP: {
@@ -140,7 +140,7 @@ export const ROLES: Record<RoleId, RoleDefinition> = {
         camp: 'SOLO',
         image: "/assets/images/roles/werwolves/Loup_Blanc.png",
         powers: [
-            { id: 'TRAHISON', label: "Trahison", description: "Une nuit sur deux, dévorez l'un de vos semblables.", icon: "/assets/images/icones/powers/morsure.png", type: 'active', timing: 'night' }
+            { id: 'TRAHISON', label: "Trahison", description: "Une nuit sur deux, dévorez l'un de vos semblables.", icon: "/assets/images/icones/powers/Morsure.png", type: 'active', timing: 'night' }
         ]
     },
     ASSASSIN: {

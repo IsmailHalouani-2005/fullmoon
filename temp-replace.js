@@ -67,7 +67,6 @@ import SocialSection from './components/SocialSection';
     content = content.substring(0, startIdx) + newMain + content.substring(endIdx + endMatch.length);
 
     fs.writeFileSync(file, content);
-    console.log('Successfully replaced file content');
 } catch (e) {
     console.error('Error:', e);
 }

@@ -212,7 +212,7 @@ export default function PlayPage() {
 
     // Polling du nombre de joueurs connectés en direct (Socket.io) via /api/rooms-live
     useEffect(() => {
-        let socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL || '';
+        const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL || '';
 
         // CORRECTION : Utiliser NEXT_PUBLIC_SOCKET_URL ou l'origine actuelle
         // On ne force plus le port 3001 si on est sur un domaine personnalisé.
@@ -392,7 +392,6 @@ export default function PlayPage() {
             const statusRef = ref(rtdb, 'status/' + friend.friendId);
             const unsubscribe = onValue(statusRef, (snapshot) => {
                 const data = snapshot.val();
-                console.log(`Presence Friend [${friend.friendId}]:`, data);
                 const isOnline = data && data.state === 'online';
                 setFriendsOnlinePresence(prev => ({
                     ...prev,
@@ -433,7 +432,7 @@ export default function PlayPage() {
                 );
 
                 const snapshot = await getDocs(q);
-                let results = snapshot.docs
+                const results = snapshot.docs
                     .map(doc => ({ id: doc.id, ...doc.data() }))
                     .filter(u => u.id !== user.uid); // Don't show yourself
 
@@ -965,7 +964,6 @@ export default function PlayPage() {
         <div className={`min-h-screen w-full ${isDarkMode ? "text-[#fafafa]" : "text-dark"} font-montserrat`}>
             {/* Global Header */}
             <Header onQuickJoin={handleQuickJoin} />
-
             <main className="max-w-6xl mx-auto px-4 pb-20">
                 {/* TOP SECTION: Hero & Profile */}
                 <div className="flex flex-col md:flex-row justify-between items-center mt-12 mb-16 gap-12">
@@ -1098,13 +1096,12 @@ export default function PlayPage() {
                                     <p className={`text-xs ${!isDarkMode ? "text-dark/70" : "text-[#fafafa]/70"} -mb-2 font-semibold`}>
                                         Rejoindre un village : ({filteredVillages.length})
                                     </p>
-
                                     {/* Empty State */}
                                     {filteredVillages.length === 0 ? (
-                                        <div className="flex flex-col items-center justify-center p-8 mt-4 bg-white/5 border-2 border-dashed border-dark/20 rounded-xl text-center">
+                                        <div className="flex flex-col items-center justify-center p-8 mt-4 bg-white/5 border-2 border-dashed border-dark/20 rounded-lg text-center">
                                             <Image src="/assets/images/icones/house-icon_black.png" alt="Aucun village" width={64} height={64} className="mb-4 opacity-40" />
-                                            <h3 className="text-dark font-enchanted text-3xl mb-2">Aucun village trouvé</h3>
-                                            <p className="text-dark/60 text-sm mb-6 max-w-sm">
+                                            <h3 className="font-enchanted text-3xl mb-2">Aucun village trouvé</h3>
+                                            <p className={`${!isDarkMode ? "text-dark/60" : "text-[#fafafa]/60"} text-sm mb-6 max-w-sm`}>
                                                 Il n'y a actuellement aucun village correspondant à votre recherche. Pourquoi ne pas créer le vôtre ?
                                             </p>
                                             <button
@@ -1116,7 +1113,7 @@ export default function PlayPage() {
                                         </div>
                                     ) : (
                                         /* Real Village Cards from Firestore */
-                                        filteredVillages.map((village) => {
+                                        (filteredVillages.map((village) => {
                                             // Determine Badge Color and Text based on game state
                                             const isStarted = village.gameStarted;
                                             const isFinished = village.phase === 'GAME_OVER';
@@ -1189,7 +1186,7 @@ export default function PlayPage() {
                                                     </div>
                                                 </div>
                                             );
-                                        })
+                                        }))
                                     )}
                                 </>
                             );
@@ -1421,7 +1418,6 @@ export default function PlayPage() {
                     </div>
                 </div>
             </main>
-
             {/* Global CSS for Custom Scrollbar matching dark container */}
             <style jsx global>{`
                 .custom-scrollbar::-webkit-scrollbar {
@@ -1438,7 +1434,6 @@ export default function PlayPage() {
                     background-color: rgba(255, 255, 255, 0.4);
                 }
             `}</style>
-
             {/* Floating Private Chat */}
             {activeChatFriend && (
                 <PrivateChat
@@ -1448,7 +1443,6 @@ export default function PlayPage() {
                     onClose={() => setActiveChatFriend(null)}
                 />
             )}
-
             {/* Render Group Chat if active */}
             {showGroupChat && userData?.currentGroupId && (
                 <div className="fixed bottom-4 right-4 z-[9999] md:right-8 md:bottom-8">
@@ -1458,7 +1452,6 @@ export default function PlayPage() {
                     />
                 </div>
             )}
-
             {/* Private Village Join Modal */}
             {selectedPrivateVillage && (
                 <div className="fixed inset-0 z-[99999] p-4 bg-black/60 backdrop-blur-sm flex items-center justify-center font-montserrat">
@@ -1522,7 +1515,6 @@ export default function PlayPage() {
                     </div>
                 </div>
             )}
-
             {/* Modal de Reconnexion à un Village */}
             {pendingRejoinVillage && (
                 <div className="fixed inset-0 bg-black/80 z-50 flex flex-col items-center justify-center p-6 backdrop-blur-sm">
