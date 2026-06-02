@@ -313,7 +313,7 @@ export default function ActiveGame({
                                                                 onClick={() => canUse && handlePowerClick(power.id)}
                                                             >
                                                                 <div className={`md:w-10 md:h-10 w-8 h-8 rounded-full border-2 p-1 flex items-center justify-center transition-colors ${isActive ? 'border-[#D1A07A] bg-[#D1A07A]/20 shadow-[0_0_10px_#D1A07A]' : 'border-slate-600 bg-black/20'}`}>
-                                                                    <Image src={power.icon} alt={power.label} width={32} height={32} className="object-contain" />
+                                                                    <Image src={power.icon} alt={power.label} width={32} height={32} className="object-contain" unoptimized />
                                                                 </div>
                                                                 {/* Tooltip or Label */}
                                                                 <span className="absolute -bottom-6 w-max bg-black/80 text-white text-[8px] px-2 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity">

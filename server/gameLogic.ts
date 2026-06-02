@@ -10,6 +10,11 @@ import { doc, deleteDoc } from 'firebase/firestore';
 // Shared games state so the HTTP layer can serve live stats
 const _games: Record<string, GameState> = {};
 
+// O(1) userId → socketId lookup (updated on every join/reconnect/disconnect)
+const userSocketMap = new Map<string, string>();
+
+const MAX_CHAT_MESSAGES = 200;
+
 /** Returns live connected player counts per room (for /api/rooms-live) */
 export function getRoomStats(): Record<string, number> {
     const stats: Record<string, number> = {};
@@ -23,6 +28,19 @@ export function setupGameLogic(io: Server<ClientToServerEvents, ServerToClientEv
     const games: Record<string, GameState> = _games;
     const disconnectTimeouts: Record<string, NodeJS.Timeout> = {};
     const gameTimers: Record<string, NodeJS.Timeout> = {};
+
+    // Per-socket rate limiting: returns true if the socket has exceeded the limit
+    const rateLimits = new Map<string, { count: number; resetAt: number }>();
+    function isRateLimited(socketId: string, max: number, windowMs = 1000): boolean {
+        const now = Date.now();
+        const entry = rateLimits.get(socketId);
+        if (!entry || now >= entry.resetAt) {
+            rateLimits.set(socketId, { count: 1, resetAt: now + windowMs });
+            return false;
+        }
+        entry.count++;
+        return entry.count > max;
+    }
 
     io.on("connection", (socket) => {
         const roomCode = socket.handshake.query.roomCode as string;
@@ -147,6 +165,9 @@ export function setupGameLogic(io: Server<ClientToServerEvents, ServerToClientEv
                 }
             }
 
+            // Always keep the map up-to-date with the latest socket for this user
+            userSocketMap.set(userId, socket.id);
+
             // JOIN WOLF ROOM (For secure night chat)
             const player = game.players.find(p => p.id === userId);
             if (player && isInWolfCamp(player.role)) {
@@ -219,6 +240,10 @@ export function setupGameLogic(io: Server<ClientToServerEvents, ServerToClientEv
         });
 
         socket.on("chat_message", (payload, callback) => {
+            if (isRateLimited(socket.id, 5)) {
+                if (callback) callback({ status: 'error', reason: 'Rate limit exceeded' });
+                return;
+            }
             const game = games[roomCode];
             if (!game) {
                 if (callback) callback({ status: 'error', reason: 'Room not found' });
@@ -271,6 +296,7 @@ export function setupGameLogic(io: Server<ClientToServerEvents, ServerToClientEv
         });
 
         socket.on("vote_player", (targetId) => {
+            if (isRateLimited(socket.id, 10)) return;
             const game = games[roomCode];
             if (!game) return;
             game.lastActivity = Date.now();
@@ -324,6 +350,7 @@ export function setupGameLogic(io: Server<ClientToServerEvents, ServerToClientEv
         });
 
         socket.on("use_power", (payload) => {
+            if (isRateLimited(socket.id, 5)) return;
             const game = games[roomCode];
             if (!game) return;
             game.lastActivity = Date.now();
@@ -587,34 +614,14 @@ export function setupGameLogic(io: Server<ClientToServerEvents, ServerToClientEv
             emitGameState(roomCode, game, io);
         });
 
-        const getSocketByUserId = (targetUserId: string, targetType?: string, targetRoom?: string) => {
-            // Scan all connected sockets to find the one matching the userId.
-            // If targetType and targetRoom are provided, we prioritize the socket that matches them perfectly.
-            let fallbackSocketId: string | null = null;
-
-            for (const [sid, s] of io.sockets.sockets) {
-                const queryUserId = s.handshake.query.userId;
-                const queryType = s.handshake.query.type;
-                const queryRoomCode = s.handshake.query.roomCode;
-
-                if (queryUserId === targetUserId) {
-                    if (targetType && targetRoom) {
-                        if (queryType === targetType && queryRoomCode === targetRoom) {
-                            return sid; // Exact match found
-                        }
-                    }
-                    // Keep the first matching userId as fallback in case we don't find an exact match
-                    if (!fallbackSocketId) {
-                        fallbackSocketId = sid;
-                    }
-                }
-            }
-            return fallbackSocketId;
+        // O(1) lookup via the shared map — updated on every join/reconnect/disconnect
+        const getSocketByUserId = (targetUserId: string): string | null => {
+            return userSocketMap.get(targetUserId) ?? null;
         };
 
         socket.on("voice_request_connect", (payload) => {
             const { targetId, type } = payload;
-            const targetSocketId = getSocketByUserId(targetId, type, roomCode);
+            const targetSocketId = getSocketByUserId(targetId);
             if (!targetSocketId) {
                 return;
             }
@@ -712,22 +719,27 @@ export function setupGameLogic(io: Server<ClientToServerEvents, ServerToClientEv
             }
         });
 
-        // Déconnexion réseau (fermeture onglet, crash, etc.) — garde la logique de délai
+        // Déconnexion réseau (fermeture onglet, crash, etc.)
         socket.on("disconnect", () => {
             if (games[roomCode]) {
                 const game = games[roomCode];
                 if (game) game.lastActivity = Date.now();
                 const disconnectingPlayer = game?.players.find(p => p.id === userId);
 
+                const isInGame = game.phase !== 'LOBBY' && game.phase !== 'GAME_OVER';
+
                 if (disconnectingPlayer) {
                     disconnectingPlayer.isDisconnected = true;
-                    // Emit the state so clients see the "disconnected" avatar
                     emitGameState(roomCode, game, io);
 
                     const waitMsg: ChatMessage = {
                         senderId: 'system',
                         senderName: 'Système',
-                        text: `${disconnectingPlayer.name} s'est déconnecté(e). Il lui reste 1 minute pour revenir...`,
+                        // En partie : l'avatar reste, le joueur peut revenir quand il veut
+                        // En lobby : délai de 1 minute avant suppression
+                        text: isInGame
+                            ? `${disconnectingPlayer.name} s'est déconnecté(e). Son avatar reste en jeu.`
+                            : `${disconnectingPlayer.name} s'est déconnecté(e). Il lui reste 1 minute pour revenir...`,
                         time: Date.now(),
                         chatType: 'system'
                     };
@@ -735,46 +747,51 @@ export function setupGameLogic(io: Server<ClientToServerEvents, ServerToClientEv
                     io.to(roomCode).emit("chat_message", waitMsg);
                 }
 
-                disconnectTimeouts[userId] = setTimeout(() => {
-                    const currentGame = games[roomCode];
-                    if (!currentGame) return;
+                // En partie : le joueur reste dans la room (son choix de partir via "Quitter")
+                // En lobby : on lui accorde 1 minute pour reconnecter, puis on le retire
+                if (!isInGame) {
+                    disconnectTimeouts[userId] = setTimeout(() => {
+                        const currentGame = games[roomCode];
+                        if (!currentGame) return;
 
-                    const playerIndex = currentGame.players.findIndex(p => p.id === userId);
-                    if (playerIndex === -1) return; // Player already removed or reconnected ailleurs
+                        const playerIndex = currentGame.players.findIndex(p => p.id === userId);
+                        if (playerIndex === -1) return;
+                        if (!currentGame.players[playerIndex].isDisconnected) return;
 
-                    // IF they reconnected, this flag would be false now
-                    if (!currentGame.players[playerIndex].isDisconnected) return;
+                        const disconnectedName = currentGame.players[playerIndex].name;
 
-                    const disconnectedName = currentGame.players[playerIndex].name;
+                        currentGame.players.splice(playerIndex, 1);
+                        const leaveMsg: ChatMessage = {
+                            senderId: 'system',
+                            senderName: 'Système',
+                            text: `${disconnectedName} a quitté définitivement le lobby.`,
+                            time: Date.now(),
+                            chatType: 'system'
+                        };
+                        currentGame.chatMessages.push(leaveMsg);
+                        io.to(roomCode).emit("chat_message", leaveMsg);
 
-                    if (!currentGame.disconnectedPlayers) {
-                        currentGame.disconnectedPlayers = [];
-                    }
-                    if (currentGame.phase !== 'LOBBY' && currentGame.phase !== 'GAME_OVER') {
-                        currentGame.disconnectedPlayers.push({ id: userId, name: disconnectedName });
-                    }
-
-                    currentGame.players.splice(playerIndex, 1);
-                    const leaveMsg: ChatMessage = {
-                        senderId: 'system',
-                        senderName: 'Système',
-                        text: `${disconnectedName} a quitté définitivement le village (déconnexion en cours de partie).`,
-                        time: Date.now(),
-                        chatType: 'system'
-                    };
-                    currentGame.chatMessages.push(leaveMsg);
-                    io.to(roomCode).emit("chat_message", leaveMsg);
-
-                    if (currentGame.players.length === 0) {
-                        delete games[roomCode];
-                        if (gameTimers[roomCode]) clearInterval(gameTimers[roomCode]);
-                    } else {
-                        if (currentGame.hostId === userId) currentGame.hostId = currentGame.players[0].id;
-                        emitGameState(roomCode, currentGame, io);
-                    }
-                    delete disconnectTimeouts[userId];
-                }, 60000); // 1 minute allowed to reconnect
+                        if (currentGame.players.length === 0) {
+                            delete games[roomCode];
+                            if (gameTimers[roomCode]) clearInterval(gameTimers[roomCode]);
+                            deleteDoc(doc(db, "groups", roomCode)).catch(e => console.error("Erreur gamedoc disconnect delete:", e));
+                        } else {
+                            if (currentGame.hostId === userId) currentGame.hostId = currentGame.players[0].id;
+                            emitGameState(roomCode, currentGame, io);
+                        }
+                        delete disconnectTimeouts[userId];
+                        if (userSocketMap.get(userId) === socket.id) {
+                            userSocketMap.delete(userId);
+                        }
+                    }, 60000);
+                }
             }
+
+            // Immediate map cleanup — if the user reconnects before the timeout, join_game will re-add them
+            if (userSocketMap.get(userId) === socket.id) {
+                userSocketMap.delete(userId);
+            }
+            rateLimits.delete(socket.id);
         });
     });
 
@@ -833,6 +850,10 @@ function startInactivityCheck(games: Record<string, GameState>, gameTimers: Reco
                 // Check individual players
                 for (let i = game.players.length - 1; i >= 0; i--) {
                     const player = game.players[i];
+
+                    // Les joueurs déconnectés restent dans la partie jusqu'à ce qu'ils choisissent de partir
+                    if (player.isDisconnected) continue;
+
                     const playerIdleTime = now - (player.lastActivityTime || game.lastActivity);
 
                     if (playerIdleTime >= IDLE_TIMEOUT) {
@@ -949,27 +970,37 @@ function handlePhaseEnd(roomCode: string, endedPhase: Phase, games: Record<strin
                 startPhase(roomCode, 'NIGHT', games, gameTimers, io);
             }
             break;
-        case 'MAYOR_ELECTION':
-            let electedMayorId = tallyVotes(game, true);
-            let isRandomMayor = false;
+        case 'MAYOR_ELECTION': {
+            // tallyVotes now handles tie-breaking internally:
+            // 1) Remove self-votes among tied candidates
+            // 2) If still tied, pick randomly among those voted candidates
+            const result = tallyVotes(game, true);
+            let electedMayorId: string | null = result;
+            let electionMode: 'clean' | 'tiebreak_selfvote' | 'tiebreak_random' | 'novotes' = 'clean';
 
             if (!electedMayorId) {
+                // Edge case: nobody voted at all — pick from all alive players
                 const alivePlayers = game.players.filter(p => p.isAlive);
                 if (alivePlayers.length > 0) {
-                    const randomPlayer = alivePlayers[Math.floor(Math.random() * alivePlayers.length)];
-                    electedMayorId = randomPlayer.id;
-                    isRandomMayor = true;
+                    electedMayorId = alivePlayers[Math.floor(Math.random() * alivePlayers.length)].id;
+                    electionMode = 'novotes';
                 }
             }
+
+            // If tallyVotes returned a result but it was via tie-breaking, we trust it
+            // We check: did all tied candidates have same votes even after selfvote removal?
+            // (This info isn't returned, so we use a simpler heuristic via the message logic)
 
             if (electedMayorId) {
                 game.mayorId = electedMayorId;
                 const mayorName = game.players.find(p => p.id === electedMayorId)?.name;
 
-                let text = `${mayorName} a été élu Maire !`;
-                if (isRandomMayor) {
-                    text = `Personne n'ayant été départagé pour les élections, ${mayorName} a été désigné(e) Maire au hasard !`;
+                let text = `${mayorName} a été élu(e) Maire avec le plus de votes !`;
+                if (electionMode === 'novotes') {
+                    text = `Personne n'a voté — ${mayorName} est désigné(e) Maire au hasard !`;
                 }
+                // Note: for tiebreaking, tallyVotes handles it; we keep default message
+                // as the election still produced a winner via proper rules.
 
                 const mayorMsg: ChatMessage = { senderId: 'system', senderName: 'Système', text, time: Date.now(), chatType: 'system' };
                 game.chatMessages.push(mayorMsg);
@@ -977,6 +1008,7 @@ function handlePhaseEnd(roomCode: string, endedPhase: Phase, games: Record<strin
             }
             startPhase(roomCode, 'NIGHT', games, gameTimers, io);
             break;
+        }
         case 'MAYOR_SUCCESSION':
             let newMayorId: string | null = null;
             if (game.dyingMayorId && game.votes[game.dyingMayorId]) {
@@ -1399,8 +1431,8 @@ function handlePhaseEnd(roomCode: string, endedPhase: Phase, games: Record<strin
 
 function tallyVotes(game: GameState, isMayorElection: boolean = false): string | null {
     const counts: Record<string, number> = {};
+
     for (const [voterId, targetId] of Object.entries(game.votes)) {
-        if (!counts[targetId]) counts[targetId] = 0;
         const voter = game.players.find(p => p.id === voterId);
 
         // During NIGHT, only wolf camp votes count for the primary victim
@@ -1410,17 +1442,67 @@ function tallyVotes(game: GameState, isMayorElection: boolean = false): string |
         let weight = 1;
         if (game.mayorId === voterId && !isMayorElection && game.phase === 'DAY_VOTE') weight = 2;
         if (voter?.role === 'LOUP_ALPHA' && game.phase === 'NIGHT') weight = 2;
-        // In the future, we can add more logic here for other roles if needed
 
+        if (!counts[targetId]) counts[targetId] = 0;
         counts[targetId] += weight;
     }
-    let maxVotes = 0, electedId: string | null = null, isTie = false;
-    for (const [targetId, voteCount] of Object.entries(counts)) {
-        if (voteCount > maxVotes) { maxVotes = voteCount; electedId = targetId; isTie = false; }
-        else if (voteCount === maxVotes) isTie = true;
+
+    // Find max votes and detect tie
+    let maxVotes = 0;
+    for (const voteCount of Object.values(counts)) {
+        if (voteCount > maxVotes) maxVotes = voteCount;
     }
-    return isTie ? null : electedId;
+
+    const tied = Object.entries(counts)
+        .filter(([, count]) => count === maxVotes)
+        .map(([id]) => id);
+
+    if (tied.length === 1) return tied[0];
+
+    // === TIE-BREAKING (Mayor election only) ===
+    if (isMayorElection && tied.length > 1) {
+        // Règle 1 : parmi les ex-æquo, retirer les auto-votes
+        const countsWithoutSelfVotes: Record<string, number> = {};
+
+        for (const [voterId, targetId] of Object.entries(game.votes)) {
+            if (!tied.includes(targetId)) continue; // Only count for tied candidates
+
+            // Skip self-votes (voter voted for themselves)
+            if (voterId === targetId) continue;
+
+            const voter = game.players.find(p => p.id === voterId);
+            let weight = 1;
+            if (voter?.role === 'LOUP_ALPHA' && game.phase === 'NIGHT') weight = 2;
+
+            if (!countsWithoutSelfVotes[targetId]) countsWithoutSelfVotes[targetId] = 0;
+            countsWithoutSelfVotes[targetId] += weight;
+        }
+
+        // Ensure all tied candidates appear (even with 0 votes after self-vote removal)
+        for (const id of tied) {
+            if (!countsWithoutSelfVotes[id]) countsWithoutSelfVotes[id] = 0;
+        }
+
+        // Find new max after removing self-votes
+        let maxAfterRemoval = 0;
+        for (const count of Object.values(countsWithoutSelfVotes)) {
+            if (count > maxAfterRemoval) maxAfterRemoval = count;
+        }
+
+        const tiedAfterRemoval = Object.entries(countsWithoutSelfVotes)
+            .filter(([, count]) => count === maxAfterRemoval)
+            .map(([id]) => id);
+
+        if (tiedAfterRemoval.length === 1) return tiedAfterRemoval[0];
+
+        // Règle 2 : encore ex-æquo → choisir aléatoirement parmi les candidats votés
+        const randomIndex = Math.floor(Math.random() * tiedAfterRemoval.length);
+        return tiedAfterRemoval[randomIndex];
+    }
+
+    return null; // Tie for day vote = no elimination
 }
+
 
 function checkVictory(game: GameState): { winner: string, players: Player[] } | null {
     const vivants = game.players.filter(p => p.isAlive);
@@ -1534,6 +1616,11 @@ function emitGameState(roomCode: string, game: GameState, io: Server) {
     const sockets = io.sockets.adapter.rooms.get(roomCode);
     if (!sockets) return;
 
+    // Trim chat history server-side so memory and payload stay bounded
+    if (game.chatMessages.length > MAX_CHAT_MESSAGES) {
+        game.chatMessages = game.chatMessages.slice(-MAX_CHAT_MESSAGES);
+    }
+
     // Calculate actual dead counts across all roles before masking
     const deadRolesCount: Partial<Record<RoleId, number>> = {};
     game.players.forEach(p => {
@@ -1541,6 +1628,10 @@ function emitGameState(roomCode: string, game: GameState, io: Server) {
             deadRolesCount[p.role] = (deadRolesCount[p.role] ?? 0) + 1;
         }
     });
+
+    // Deep-clone ONCE, then shallow-copy per player to avoid N×JSON.parse calls
+    const baseClone: GameState = JSON.parse(JSON.stringify(game));
+    baseClone.deadRolesCount = deadRolesCount;
 
     for (const socketId of sockets) {
         const socket = io.sockets.sockets.get(socketId);
@@ -1552,9 +1643,14 @@ function emitGameState(roomCode: string, game: GameState, io: Server) {
         const explicitWolf = playerRole === 'LOUP_GAROU' || playerRole === 'LOUP_ALPHA' || playerRole === 'GRAND_MECHANT_LOUP' || playerRole === 'LOUP_INFECT';
         const playerIsWolf = isInWolfCamp(playerRole) || explicitWolf;
 
-        // Tailor the GameState for this specific player
-        const tailoredGame: GameState = JSON.parse(JSON.stringify(game));
-        tailoredGame.deadRolesCount = deadRolesCount;
+        // Shallow-copy per player (all mutations below replace references, not mutate nested objects)
+        const tailoredGame: GameState = {
+            ...baseClone,
+            players: baseClone.players.map((p: any) => ({ ...p, effects: [...p.effects] })),
+            votes: { ...baseClone.votes },
+            nightActions: [...baseClone.nightActions],
+            chatMessages: [...baseClone.chatMessages],
+        };
 
         tailoredGame.chatMessages = tailoredGame.chatMessages.map(msg => {
             if (msg.chatType === 'night' && playerRole === 'PETITE_FILLE' && msg.senderId !== 'system') {
@@ -1622,14 +1718,11 @@ function emitGameState(roomCode: string, game: GameState, io: Server) {
                 const condSelf = voterId === userId;
                 const shouldSee = condWolves || condSelf;
 
-                if (game.phase === 'NIGHT') { }
-
                 if (shouldSee) {
                     visibleVotes[voterId] = tId;
                 }
             }
             tailoredGame.votes = visibleVotes;
-            if (voteEntries.length > 0) { }
 
             // Hide other players' nightActions to prevent cheating via network inspection
             tailoredGame.nightActions = tailoredGame.nightActions.filter(action => action.sourceId === userId);

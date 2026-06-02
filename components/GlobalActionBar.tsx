@@ -3,17 +3,17 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Image from 'next/image';
-import { auth, db } from '../lib/firebase';
-import { onAuthStateChanged } from 'firebase/auth';
+import { db } from '../lib/firebase';
 import { collection, query, where, onSnapshot, orderBy, doc, getDoc, updateDoc, setDoc, deleteDoc, addDoc, arrayUnion, arrayRemove } from 'firebase/firestore';
 import PrivateChat from './PrivateChat';
 import { useThemeStore } from '../store/themeStore';
+import { useAuth } from '../contexts/AuthContext';
 
 export default function GlobalActionBar() {
     const router = useRouter();
     const pathname = usePathname();
-    const [user, setUser] = useState<any>(null);
-    const [userData, setUserData] = useState<any>(null);
+    // user et userData viennent du context global — pas de listener Firebase ici
+    const { user, userData } = useAuth();
 
     const [notifications, setNotifications] = useState<any[]>([]);
     const [unreadMessages, setUnreadMessages] = useState(0);
@@ -45,102 +45,57 @@ export default function GlobalActionBar() {
         return () => document.removeEventListener("mousedown", handleClickOutside);
     }, []);
 
+    // Listeners Firestore spécifiques à la barre (notifications, chats, amis)
+    // Déclenchés uniquement quand user change — pas de onAuthStateChanged ici
     useEffect(() => {
-        let unsubNotifs = () => { };
-        let unsubChats = () => { };
-        let unsubUser = () => { };
-        let unsubFriends = () => { };
+        if (!user) {
+            setNotifications([]);
+            setUnreadMessages(0);
+            setUnreadChatsList([]);
+            setFriends({});
+            return;
+        }
 
-        const unsubscribeAuth = onAuthStateChanged(auth, (currentUser) => {
-            setUser(currentUser);
+        const uid = user.uid;
 
-            if (currentUser) {
-                // Listen to User Data
-                unsubUser = onSnapshot(doc(db, "users", currentUser.uid), (docSnap) => {
-                    if (docSnap.exists()) {
-                        setUserData(docSnap.data());
+        const unsubFriends = onSnapshot(
+            query(collection(db, 'users', uid, 'friends')),
+            (snapshot) => {
+                const map: Record<string, any> = {};
+                snapshot.forEach(d => { map[d.id] = d.data(); });
+                setFriends(map);
+            }
+        );
+
+        const unsubNotifs = onSnapshot(
+            query(collection(db, 'users', uid, 'notifications'), orderBy('createdAt', 'desc')),
+            (snapshot) => {
+                setNotifications(snapshot.docs.map(d => ({ id: d.id, ...d.data() } as any)));
+            }
+        );
+
+        const unsubChats = onSnapshot(
+            query(collection(db, 'chats'), where('participants', 'array-contains', uid)),
+            (snapshot) => {
+                let totalUnread = 0;
+                const unreadList: any[] = [];
+                snapshot.forEach(d => {
+                    const data = d.data();
+                    const count = data.unreadCount?.[uid] || 0;
+                    if (count > 0) {
+                        totalUnread += count;
+                        const otherUserId = data.participants.find((p: string) => p !== uid);
+                        if (otherUserId) unreadList.push({ chatId: d.id, friendId: otherUserId, count, lastUpdated: data.lastUpdated });
                     }
                 });
-
-                // Listen to friends to get pseudo/photoURL for chats
-                const qFriends = query(collection(db, "users", currentUser.uid, "friends"));
-                unsubFriends = onSnapshot(qFriends, (snapshot) => {
-                    const friendsMap: Record<string, any> = {};
-                    snapshot.forEach(doc => {
-                        friendsMap[doc.id] = doc.data();
-                    });
-                    setFriends(friendsMap);
-                });
-
-                // Listen to Notifications
-                const qNotifs = query(
-                    collection(db, "users", currentUser.uid, "notifications"),
-                    orderBy("createdAt", "desc")
-                );
-                unsubNotifs = onSnapshot(qNotifs, (snapshot) => {
-                    const notifsData = snapshot.docs.map(doc => ({
-                        id: doc.id,
-                        ...doc.data()
-                    } as any));
-                    setNotifications(notifsData);
-                });
-
-                // Listen to unread chats
-                const qChats = query(
-                    collection(db, "chats"),
-                    where("participants", "array-contains", currentUser.uid)
-                );
-                unsubChats = onSnapshot(qChats, (snapshot) => {
-                    let totalUnread = 0;
-                    const unreadList: any[] = [];
-
-                    snapshot.forEach(doc => {
-                        const data = doc.data();
-                        const count = data.unreadCount?.[currentUser.uid] || 0;
-                        if (count > 0) {
-                            totalUnread += count;
-                            const otherUserId = data.participants.find((p: string) => p !== currentUser.uid);
-                            if (otherUserId) {
-                                unreadList.push({
-                                    chatId: doc.id,
-                                    friendId: otherUserId,
-                                    count,
-                                    lastUpdated: data.lastUpdated
-                                });
-                            }
-                        }
-                    });
-
-                    // Sort unread list by most recent
-                    unreadList.sort((a, b) => {
-                        const timeA = a.lastUpdated?.toMillis() || 0;
-                        const timeB = b.lastUpdated?.toMillis() || 0;
-                        return timeB - timeA;
-                    });
-
-                    setUnreadChatsList(unreadList);
-                    setUnreadMessages(totalUnread);
-                });
-            } else {
-                setNotifications([]);
-                setUnreadMessages(0);
-                setUnreadChatsList([]);
-                setFriends({});
-                unsubNotifs();
-                unsubChats();
-                unsubUser();
-                unsubFriends();
+                unreadList.sort((a, b) => (b.lastUpdated?.toMillis() || 0) - (a.lastUpdated?.toMillis() || 0));
+                setUnreadChatsList(unreadList);
+                setUnreadMessages(totalUnread);
             }
-        });
+        );
 
-        return () => {
-            unsubscribeAuth();
-            unsubNotifs();
-            unsubChats();
-            unsubUser();
-            unsubFriends();
-        };
-    }, []);
+        return () => { unsubFriends(); unsubNotifs(); unsubChats(); };
+    }, [user?.uid]);
 
     const handleDeleteNotif = async (notifId: string) => {
         if (!user) return;

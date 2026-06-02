@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { AuthProvider } from "../contexts/AuthContext";
 import PresenceManager from "../components/PresenceManager";
 import GlobalActionBar from "../components/GlobalActionBar";
 import MicrophoneDebug from "../components/MicrophoneDebug";
@@ -21,10 +22,12 @@ export default function RootLayout({
   return (
     <html lang="fr" className="scroll-smooth" suppressHydrationWarning>
       <body className="antialiased bg-background text-dark font-montserrat min-h-screen flex flex-col" suppressHydrationWarning>
-        <PresenceManager />
-        <GlobalActionBar />
-        <MicrophoneDebug />
-        {children}
+        <AuthProvider>
+          <PresenceManager />
+          <GlobalActionBar />
+          <MicrophoneDebug />
+          {children}
+        </AuthProvider>
       </body>
     </html>
   );

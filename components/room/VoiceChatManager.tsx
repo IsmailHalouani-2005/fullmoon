@@ -251,36 +251,24 @@ export default function VoiceChatManager({
         if (!socket || !localStream || !currentUser?.uid) return;
 
         const effectivePlayers: Player[] = players || game?.players || [];
-        console.log(`VoiceChat[${type}]: Monitoring ${targets.length} targets. Socket: ${socket?.connected ? 'OK' : 'Disconnected'}`);
 
         if (targets.length === 0 && effectivePlayers.length > 1) {
-            console.warn(`VoiceChat[${type}]: Discovery found participants but 0 targets. Game Phase: ${game?.phase}`);
+            console.warn(`VoiceChat[${type}]: Discovery found ${effectivePlayers.length} players but 0 targets. Phase: ${game?.phase}`);
         }
 
         const targetIds = new Set(targets.map(p => p.id));
-        console.log(`VoiceChat[${type}]: Target count: ${targets.length}. IDs:`, Array.from(targetIds));
-
-        if (targets.length === 0 && effectivePlayers.length > 1) {
-            console.warn(`VoiceChat[${type}]: Discovery found ${effectivePlayers.length} players but 0 targets. Current User: ${currentUser?.uid}. Game Phase: ${game?.phase}`);
-        }
 
         // Close connections to players no longer in targets
         Object.keys(peerConnections.current).forEach(peerId => {
-            if (!targetIds.has(peerId)) {
-                console.log(`VoiceChat[${type}]: Closing stale connection to ${peerId}`);
-                closeConnection(peerId);
-            }
+            if (!targetIds.has(peerId)) closeConnection(peerId);
         });
 
         // Request connections to new targets (staggered initiation by UID)
         targets.forEach((target: Player) => {
             if (!peerConnections.current[target.id]) {
                 if (currentUser?.uid && currentUser.uid > target.id) {
-                    console.log(`VoiceChat[${type}]: Initiating connection to ${target.name} (${target.id})`);
                     setStats(s => ({ ...s, sentReq: s.sentReq + 1 }));
                     socket.emit('voice_request_connect', { targetId: target.id, type });
-                } else {
-                    console.log(`VoiceChat[${type}]: Waiting for ${target.name} to initiate...`);
                 }
             }
         });
@@ -294,7 +282,6 @@ export default function VoiceChatManager({
 
             targets.forEach(target => {
                 if (currentUser?.uid && currentUser.uid > target.id) {
-                    console.log("VoiceChat: Poking target", target.id);
                     setStats(s => ({ ...s, sentReq: s.sentReq + 1 }));
                     socket.emit('voice_request_connect', { targetId: target.id, type });
                 }
@@ -304,7 +291,6 @@ export default function VoiceChatManager({
     }, [socket, targets, iceStates, type, currentUser?.uid]);
 
     const handleInteraction = useCallback(() => {
-        console.log("VoiceChat: User interaction detected - Resuming all audio.");
         Object.values(audioElementsRef.current).forEach(audio => {
             if (audio && isHeadphonesOn) {
                 audio.muted = false;
@@ -314,17 +300,11 @@ export default function VoiceChatManager({
             }
         });
 
+        // Réutiliser le contexte partagé existant plutôt que d'en créer un nouveau à chaque clic
         if (sharedAcRef.current) {
-            sharedAcRef.current.resume().then(() => setAcState(sharedAcRef.current?.state || 'running'));
-        }
-
-        if (typeof window !== 'undefined' && (window.AudioContext || (window as any).webkitAudioContext)) {
-            const AC = (window.AudioContext || (window as any).webkitAudioContext);
-            const ctx = new AC();
-            ctx.resume().then(() => {
-                setAcState(ctx.state);
-                ctx.close();
-            });
+            sharedAcRef.current.resume()
+                .then(() => setAcState(sharedAcRef.current?.state || 'running'))
+                .catch(() => {});
         }
     }, [isHeadphonesOn]);
 
@@ -349,7 +329,6 @@ export default function VoiceChatManager({
         if (!socket) return;
 
         const handleRequest = ({ senderId }: { senderId: string }) => {
-            console.log(`VoiceChat[${type}]: Received connection request from ${senderId}`);
             setStats(s => ({ ...s, recvReq: s.recvReq + 1 }));
             if (!peerConnections.current[senderId]) {
                 createPeerConnection(senderId, true);
@@ -357,7 +336,6 @@ export default function VoiceChatManager({
         };
 
         const handleSignal = async ({ senderId, signal }: { senderId: string, signal: any }) => {
-            console.log(`VoiceChat[${type}]: Received signal (${signal.type || 'candidate'}) from ${senderId}`);
             setStats(s => ({ ...s, recvSig: s.recvSig + 1 }));
             let pc = peerConnections.current[senderId];
             if (!pc) {
@@ -371,31 +349,25 @@ export default function VoiceChatManager({
                     isIgnoringOffer.current[senderId] = !isPolite && isCollision;
 
                     if (isIgnoringOffer.current[senderId]) {
-                        console.warn(`VoiceChat: Ignoring offer collision from ${senderId} (I am impolite)`);
+                        console.warn(`VoiceChat: Ignoring offer collision from ${senderId} (impolite peer)`);
                         return;
                     }
 
-                    console.log(`VoiceChat: Processing offer from ${senderId}`);
                     await pc.setRemoteDescription(new RTCSessionDescription(signal));
                     const answer = await pc.createAnswer();
                     await pc.setLocalDescription(answer);
                     socket.emit('voice_signal', { targetId: senderId, signal: answer, type });
 
-                    // Process queued candidates
                     if (pendingCandidates.current[senderId]) {
-                        console.log(`VoiceChat: Processing ${pendingCandidates.current[senderId].length} queued candidates for ${senderId}`);
                         for (const cand of pendingCandidates.current[senderId]) {
                             await pc.addIceCandidate(new RTCIceCandidate(cand)).catch(e => console.warn("Queued candidate error", e));
                         }
                         delete pendingCandidates.current[senderId];
                     }
                 } else if (signal.type === 'answer') {
-                    console.log(`VoiceChat: Processing answer from ${senderId}`);
                     await pc.setRemoteDescription(new RTCSessionDescription(signal));
 
-                    // Process queued candidates
                     if (pendingCandidates.current[senderId]) {
-                        console.log(`VoiceChat: Processing ${pendingCandidates.current[senderId].length} queued candidates for ${senderId}`);
                         for (const cand of pendingCandidates.current[senderId]) {
                             await pc.addIceCandidate(new RTCIceCandidate(cand)).catch(e => console.warn("Queued candidate error", e));
                         }
@@ -413,7 +385,6 @@ export default function VoiceChatManager({
                         }
                     } else {
                         if (!isIgnoringOffer.current[senderId]) {
-                            console.log(`VoiceChat: Queuing candidate from ${senderId} (Remote description not set)`);
                             if (!pendingCandidates.current[senderId]) pendingCandidates.current[senderId] = [];
                             pendingCandidates.current[senderId].push(signal);
                         }
@@ -439,7 +410,6 @@ export default function VoiceChatManager({
     // --- Helper Functions ---
 
     function createPeerConnection(peerId: string, isInitiator: boolean) {
-        console.log(`VoiceChat: Creating connection to ${peerId} (initiator: ${isInitiator})`);
         const pc = new RTCPeerConnection({
             iceServers: [
                 { urls: 'stun:stun.l.google.com:19302' },
@@ -466,7 +436,6 @@ export default function VoiceChatManager({
         peerConnections.current[peerId] = pc;
 
         pc.oniceconnectionstatechange = () => {
-            console.log(`VoiceChat: ICE state with ${peerId}: ${pc.iceConnectionState}`);
             setIceStates(prev => ({ ...prev, [peerId]: pc.iceConnectionState }));
             if (pc.iceConnectionState === 'failed') {
                 console.warn(`VoiceChat: Connection failed with ${peerId}`);
@@ -475,13 +444,11 @@ export default function VoiceChatManager({
         };
 
         pc.onicegatheringstatechange = () => {
-            console.log(`VoiceChat: Gathering state with ${peerId}: ${pc.iceGatheringState}`);
             setGatheringStates(prev => ({ ...prev, [peerId]: pc.iceGatheringState }));
         };
 
         pc.onicecandidate = (event) => {
             if (event.candidate) {
-                console.log(`VoiceChat: Generated candidate for ${peerId}`);
                 setStats(s => ({ ...s, sentSig: s.sentSig + 1 }));
                 socket?.emit('voice_signal', { targetId: peerId, signal: event.candidate, type });
             }
@@ -489,7 +456,6 @@ export default function VoiceChatManager({
 
         pc.onnegotiationneeded = async () => {
             try {
-                console.log(`VoiceChat: Negotiation needed for ${peerId}`);
                 isMakingOffer.current[peerId] = true;
                 const senders = pc.getSenders();
                 const hasAudio = senders.some(s => s.track && s.track.kind === 'audio');
@@ -512,7 +478,6 @@ export default function VoiceChatManager({
         };
 
         pc.ontrack = (event) => {
-            console.log(`VoiceChat: Received remote track (${event.track.kind}) from ${peerId}`);
 
             setRemoteStreams(prev => {
                 const next = { ...prev };
@@ -558,7 +523,6 @@ export default function VoiceChatManager({
             const hasAudio = senders.some(s => s.track?.kind === 'audio' && s.track?.id);
 
             if (!hasAudio) {
-                console.log(`VoiceChat: Force-adding tracks to connection ${id}`);
                 localStream.getTracks().forEach(track => {
                     const senders = pc.getSenders();
                     if (!senders.find(s => s.track === track)) {
@@ -586,16 +550,11 @@ export default function VoiceChatManager({
                     setGatheringStates(prev => ({ ...prev, [id]: pc.iceGatheringState }));
                 }
 
-                // RECOVERY: If connected but no tracks, re-negotiation needed
-                if (pc.iceConnectionState === 'connected' && pc.getReceivers().length === 0 && pc.signalingState === 'stable') {
-                    console.warn(`VoiceChat: Connection to ${id} is silent (0R). Forcing exploration...`);
-                    pc.createOffer({ iceRestart: false })
-                        .then(offer => pc.setLocalDescription(offer))
-                        .then(() => {
-                            socket?.emit('voice_signal', { targetId: id, signal: pc.localDescription, type });
-                        })
-                        .catch(e => console.warn("Recovery offer failed", e));
-                }
+                // [REMOVED RECOVERY SPAM]: La boucle précédente spamait une "offer" toutes les 500ms
+                // si aucune piste n'était reçue (getReceivers().length === 0). 
+                // En production (latence > 50ms), les pistes mettent du temps à s'échanger,
+                // ce qui provoquait une cascade `InvalidStateError` et tuait la connexion WebRTC.
+                // La négociation `onnegotiationneeded` normale suffit.
             });
 
             Object.entries(remoteAnalyzersRef.current).forEach(([id, analyzer]) => {
@@ -629,7 +588,6 @@ export default function VoiceChatManager({
                     const source = sharedAcRef.current.createMediaStreamSource(stream);
                     source.connect(analyzer);
                     remoteAnalyzersRef.current[id] = analyzer;
-                    console.log(`VoiceChat: Analyzer created for ${id}`);
                 } catch (e) { console.warn("Analyzer error", e); }
             }
         });

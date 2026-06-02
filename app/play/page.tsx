@@ -6,9 +6,9 @@ import Image from 'next/image';
 import Header from '../../components/Header';
 import PrivateChat from '../../components/PrivateChat';
 import GroupChat from '../../components/GroupChat'; // Added GroupChat import
-import { auth, db, rtdb } from '../../lib/firebase';
-import { onAuthStateChanged } from 'firebase/auth';
+import { db, rtdb } from '../../lib/firebase';
 import { doc, getDoc, collection, query, orderBy, onSnapshot, where, getDocs, addDoc, setDoc, updateDoc, arrayUnion, arrayRemove, deleteDoc } from 'firebase/firestore';
+import { useAuth } from '@/contexts/AuthContext';
 import { ref, onValue } from 'firebase/database';
 import { useThemeStore } from '@/store/themeStore';
 
@@ -41,9 +41,8 @@ export default function PlayPage() {
         if (!url || url.startsWith('data:')) return '';
         return url;
     };
-    const [loading, setLoading] = useState(true);
-    const [user, setUser] = useState<any>(null);
-    const [userData, setUserData] = useState<any>(null);
+    // Auth et userData partagés — un seul listener pour toute l'app
+    const { user, userData, loading } = useAuth();
     const [activeTab, setActiveTab] = useState('Toutes');
     const [searchVillage, setSearchVillage] = useState('');
     const [searchPlayer, setSearchPlayer] = useState('');
@@ -83,112 +82,70 @@ export default function PlayPage() {
     const { isDarkMode } = useThemeStore();
     const [loadingAction, setLoadingAction] = useState<string | null>(null);
 
+    // Redirection si non authentifié (vient du context, pas de listener Firebase ici)
     useEffect(() => {
-        let unsubscribeVillages = () => { };
-        let unsubscribeFriends = () => { };
-        let unsubscribeChats = () => { };
+        if (!loading && !user) router.replace('/auth');
+    }, [user, loading, router]);
 
-        let unsubscribeUser = () => { };
-
-        const unsubscribeAuth = onAuthStateChanged(auth, (currentUser) => {
-            if (!currentUser) {
-                router.replace('/auth');
-            } else {
-                setUser(currentUser);
-                unsubscribeUser = onSnapshot(doc(db, "users", currentUser.uid), async (docSnap) => {
-                    if (docSnap.exists()) {
-                        setUserData(docSnap.data());
-                    } else {
-                        const newUserData = {
-                            pseudo: currentUser.displayName || "Joueur",
-                            points: 0,
-                            photoURL: currentUser.photoURL || "/assets/images/icones/Photo_Profil-transparent.png"
-                        };
-                        setUserData(newUserData);
-
-                        try {
-                            const { setDoc } = await import('firebase/firestore');
-                            await setDoc(doc(db, "users", currentUser.uid), newUserData, { merge: true });
-                        } catch (error) {
-                            console.error("Erreur création profil utilsateur :", error);
-                        }
-                    }
-                    setLoading(false);
-                });
-
-                // Notifications listening deleted, moved to GlobalActionBar.
-                // Keeping sentRequests state separate.
-
-                // Real-time listener for friends for this user
-                const qFriends = query(collection(db, "users", currentUser.uid, "friends"));
-                unsubscribeFriends = onSnapshot(qFriends, (snapshot) => {
-                    const friendsData = snapshot.docs.map(doc => ({
-                        id: doc.id,
-                        ...doc.data()
-                    }));
-                    setFriends(friendsData);
-                });
-
-                // Real-time listener for unread chats
-                const qChats = query(collection(db, "chats"), where("participants", "array-contains", currentUser.uid));
-                unsubscribeChats = onSnapshot(qChats, (snapshot) => {
-                    const unreads: { [friendId: string]: number } = {};
-                    snapshot.forEach(doc => {
-                        const data = doc.data();
-                        const count = data.unreadCount?.[currentUser.uid] || 0;
-                        if (count > 0) {
-                            const otherUserId = data.participants.find((p: string) => p !== currentUser.uid);
-                            if (otherUserId) unreads[otherUserId] = count;
-                        }
-                    });
-                    setUnreadChats(unreads);
-                });
-            }
-        });
-
-        // Real-time listener for villages (Global) - Sorted locally to avoid missing Firebase indexes
-        const qVillages = query(
-            collection(db, "groups"),
-            where("isVillage", "==", true)
+    // Listener amis (dépend de l'uid, se lance en parallèle avec les villages)
+    useEffect(() => {
+        if (!user) return;
+        const unsub = onSnapshot(
+            query(collection(db, 'users', user.uid, 'friends')),
+            (snapshot) => setFriends(snapshot.docs.map(d => ({ id: d.id, ...d.data() })))
         );
-        unsubscribeVillages = onSnapshot(qVillages, (snapshot) => {
-            const villagesData = snapshot.docs.map(doc => ({
-                id: doc.id,
-                ...doc.data()
-            }));
+        return () => unsub();
+    }, [user?.uid]);
 
-            // Auto-cleanup des salons vides
-            // Pour éviter un épuisement des quotas (Quota Exceeded),
-            // on demande uniquement à l'hôte initial de nettoyer le salon s'il est vide.
-            villagesData.forEach(async (v: any) => {
-                if ((!v.players || v.players.length === 0) && v.hostId === user?.uid) {
-                    await deleteGroupCompletely(v.id);
-                }
-            });
+    // Listener chats non lus
+    useEffect(() => {
+        if (!user) return;
+        const unsub = onSnapshot(
+            query(collection(db, 'chats'), where('participants', 'array-contains', user.uid)),
+            (snapshot) => {
+                const unreads: { [friendId: string]: number } = {};
+                snapshot.forEach(d => {
+                    const data = d.data();
+                    const count = data.unreadCount?.[user.uid] || 0;
+                    if (count > 0) {
+                        const otherId = data.participants.find((p: string) => p !== user.uid);
+                        if (otherId) unreads[otherId] = count;
+                    }
+                });
+                setUnreadChats(unreads);
+            }
+        );
+        return () => unsub();
+    }, [user?.uid]);
 
-            // Ne garder que les salons avec au moins un joueur connecté ET qui sont entièrement configurés
-            const activeVillages = villagesData.filter((v: any) => v.players && v.players.length > 0 && v.isConfigured === true);
+    // Listener villages global (indépendant de l'auth — se lance immédiatement)
+    useEffect(() => {
+        const unsub = onSnapshot(
+            query(collection(db, 'groups'), where('isVillage', '==', true)),
+            (snapshot) => {
+                const villagesData = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
 
-            // Sort locally by createdAt desc
-            activeVillages.sort((a: any, b: any) => {
-                if (!a.createdAt) return 1;
-                if (!b.createdAt) return -1;
-                return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-            });
+                // Nettoyage des salons vides par l'hôte uniquement
+                villagesData.forEach(async (v: any) => {
+                    if ((!v.players || v.players.length === 0) && v.hostId === user?.uid) {
+                        await deleteGroupCompletely(v.id);
+                    }
+                });
 
-            setVillages(activeVillages);
-        }, (error) => {
-            console.error("Error fetching villages:", error);
-        });
+                const activeVillages = villagesData
+                    .filter((v: any) => v.players?.length > 0 && v.isConfigured === true)
+                    .sort((a: any, b: any) => {
+                        if (!a.createdAt) return 1;
+                        if (!b.createdAt) return -1;
+                        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+                    });
 
-        return () => {
-            unsubscribeAuth();
-            unsubscribeUser();
-            unsubscribeVillages();
-            unsubscribeFriends();
-            unsubscribeChats();
-        };
-    }, [router]);
+                setVillages(activeVillages);
+            },
+            (error) => console.error('Error fetching villages:', error)
+        );
+        return () => unsub();
+    }, []);
 
     // Charge les photos des hôtes de villages depuis Firestore si hostPhoto est vide ou par défaut
     useEffect(() => {
@@ -506,8 +463,8 @@ export default function PlayPage() {
             // 2. Add me to their friends list
             await setDoc(doc(db, "users", notif.fromUserId, "friends", user.uid), {
                 friendId: user.uid,
-                pseudo: userData.pseudo,
-                photoURL: userData.photoURL || "/assets/images/icones/Photo_Profil-transparent.png",
+                pseudo: userData?.pseudo,
+                photoURL: userData?.photoURL || "/assets/images/icones/Photo_Profil-transparent.png",
                 status: "accepted",
                 addedAt: new Date().toISOString()
             });
@@ -520,8 +477,8 @@ export default function PlayPage() {
             await addDoc(notifRef, {
                 type: "friend_request_accepted",
                 fromUserId: user.uid,
-                fromPseudo: userData.pseudo,
-                fromPhotoURL: userData.photoURL || "/assets/images/icones/Photo_Profil-transparent.png",
+                fromPseudo: userData?.pseudo,
+                fromPhotoURL: userData?.photoURL || "/assets/images/icones/Photo_Profil-transparent.png",
                 createdAt: new Date().toISOString(),
                 read: false
             });
@@ -541,8 +498,8 @@ export default function PlayPage() {
             await addDoc(notifRef, {
                 type: "friend_request_rejected",
                 fromUserId: user.uid,
-                fromPseudo: userData.pseudo,
-                fromPhotoURL: userData.photoURL || "/assets/images/icones/Photo_Profil-transparent.png",
+                fromPseudo: userData?.pseudo,
+                fromPhotoURL: userData?.photoURL || "/assets/images/icones/Photo_Profil-transparent.png",
                 createdAt: new Date().toISOString(),
                 read: false
             });
@@ -1059,7 +1016,7 @@ export default function PlayPage() {
                             className="lg:hidden flex-shrink-0 bg-dark w-10 h-10 md:w-11 md:h-11 rounded-md flex items-center justify-center shadow-lg relative cursor-pointer active:scale-95 transition-transform"
                         >
                             <Image src="/assets/images/icones/friends-icon_white.png" alt="Social" width={20} height={20} />
-                            {(group?.unreadCount?.[user?.uid] || 0) > 0 && (
+                            {(user && (group?.unreadCount?.[user.uid] || 0) > 0) && (
                                 <span className="absolute -top-1.5 -right-1.5 bg-red-500 w-3 h-3 rounded-full border border-dark z-10 animate-pulse">
                                 </span>
                             )}
@@ -1219,7 +1176,7 @@ export default function PlayPage() {
                                             >
                                                 <Image src="/assets/images/icones/chat-icon.png" alt="Chat" width={12} height={12} className="inline-block mr-1" /> Chat
                                             </button>
-                                            {(group?.unreadCount?.[user?.uid] || 0) > 0 && (
+                                            {(user && (group?.unreadCount?.[user.uid] || 0) > 0) && (
                                                 <span className="absolute -top-2 -right-2 bg-red-500 text-white text-[9px] font-bold min-w-[16px] h-4 flex items-center justify-center rounded-full pointer-events-none drop-shadow-md border border-[#2A2F32] px-1 z-10 animate-pulse">
                                                     {(group?.unreadCount?.[user?.uid] || 0) > 9 ? "9+" : group?.unreadCount[user.uid]}
                                                 </span>

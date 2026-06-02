@@ -89,7 +89,7 @@ describe('Wolf Chat Logic', () => {
                 text: 'Hello Alpha!',
                 time: Date.now(),
                 chatType: 'night'
-            }, (res: any) => );
+            }, (_res: any) => {});
 
             // Fail if not received in state within 5s
             setTimeout(() => {

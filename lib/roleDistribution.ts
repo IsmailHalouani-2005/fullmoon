@@ -52,16 +52,15 @@ export function distributeRoles(J: number): Partial<Record<RoleId, number>> {
 
     // --- Fill WOLVES ---
     let wolfSlotsLeft = B;
-    // Special wolves first
-    const specials = WOLF_PRIORITY.filter(r => r !== 'LOUP_GAROU');
-    for (const roleId of specials) {
+    // Parcourt la priorité (Loup Garou d'abord, puis Alpha, etc.)
+    for (const roleId of WOLF_PRIORITY) {
         if (wolfSlotsLeft <= 0) break;
         result[roleId] = 1;
         wolfSlotsLeft--;
     }
-    // Then generic
+    // S'il reste de la place pour des loups génériques, on donne tout au Loup-Garou
     if (wolfSlotsLeft > 0) {
-        result['LOUP_GAROU'] = wolfSlotsLeft;
+        result['LOUP_GAROU'] = (result['LOUP_GAROU'] || 0) + wolfSlotsLeft;
     }
 
     // --- Fill VILLAGE ---
@@ -127,24 +126,9 @@ export function distributeCustomRoles(J: number, rolesCount: Partial<Record<Role
     const pickedRoles: RoleId[] = [];
 
     for (let x = 0; x < J; x++) {
-        // Probability factor based on user formula: (J - x) / J
-        // This factor is 1 at x=0 and 1/J at x=J-1.
-        // We can use it to decide if we pick from the pool or use a fallback (Villager).
-        const prob = (J - x) / J;
-
-        if (Math.random() < prob && shuffledPool.length > 0) {
-            pickedRoles.push(shuffledPool.shift()!);
-        } else if (shuffledPool.length > 0) {
-            // Even if prob check fails, if we have roles in pool, we might want to pick them 
-            // but the formula suggests a specific decay.
-            // Let's stick to picking from pool first if available, 
-            // but the formula f(x) = (1/Jt) * ((J-x)/J) is very small.
-            // Sum of (1/Jt) * (J-x)/J from x=0 to J-1 is approx 0.5 if J=Jt.
-
-            // To respect the "custom" aspect, we primarily want roles from the pool.
+        if (shuffledPool.length > 0) {
             pickedRoles.push(shuffledPool.shift()!);
         } else {
-            // Pool empty, fill with default villageois
             pickedRoles.push('VILLAGEOIS');
         }
     }

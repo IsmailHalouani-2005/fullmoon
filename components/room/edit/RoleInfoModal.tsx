@@ -26,7 +26,7 @@ const POWER_DESCRIPTIONS = [
 
 export default function RoleInfoModal({ role, onClose }: RoleInfoModalProps) {
     return (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 py-4 px-2" onClick={onClose}>
+        <div className="fixed z-[10000] inset-0 bg-black/60 flex items-center justify-center z-50 py-4 px-2" onClick={onClose}>
             <div
                 className="bg-[#2C3338] text-white max-w-md w-full rounded-2xl py-4 px-2 border-2 border-slate-900 shadow-2xl relative"
                 onClick={e => e.stopPropagation()}

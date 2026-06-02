@@ -1,94 +1,32 @@
 'use client';
 
 import { useEffect } from 'react';
-import { auth, rtdb, db } from '../lib/firebase';
-import { ref, onValue, onDisconnect, set, serverTimestamp } from 'firebase/database';
-import { doc, updateDoc } from 'firebase/firestore';
-import { onAuthStateChanged } from 'firebase/auth';
+import { rtdb } from '../lib/firebase';
+import { ref, onDisconnect, set, serverTimestamp, onValue } from 'firebase/database';
+import { useAuth } from '../contexts/AuthContext';
 
 export default function PresenceManager() {
+    const { user } = useAuth();
+
     useEffect(() => {
-        const unsubscribe = onAuthStateChanged(auth, (user) => {
-            if (user) {
-                const uid = user.uid;
+        if (!user) return;
+        const uid = user.uid;
 
-                // ALWAYS set Firestore to true on login, regardless of RTDB
-                // But first check if the document exists to avoid FirebaseError
-                import('firebase/firestore').then(({ getDoc, doc, updateDoc }) => {
-                    const userRef = doc(db, 'users', uid);
-                    getDoc(userRef).then((snap) => {
-                        if (snap.exists()) {
-                            updateDoc(userRef, { isOnline: true }).catch(err => console.error("Could not update Firestore online status", err));
-                        }
-                    }).catch(err => console.error("Could not check if user doc exists", err));
-                });
+        const userStatusRef = ref(rtdb, `/status/${uid}`);
+        const connectedRef  = ref(rtdb, '.info/connected');
 
-                let hasConnected = false;
+        // Fire-and-forget — aucune lecture Firestore bloquante
+        const unsub = onValue(connectedRef, (snap) => {
+            if (snap.val() !== true) return;
 
-                try {
-                    // Realtime Database references
-                    const userStatusDatabaseRef = ref(rtdb, '/status/' + uid);
-                    const connectedRef = ref(rtdb, '.info/connected');
-
-                    onValue(connectedRef, (snap) => {
-                        if (snap.val() === true) {
-                            hasConnected = true;
-
-                            // Set up the disconnect hook.
-                            onDisconnect(userStatusDatabaseRef).set({
-                                state: 'offline',
-                                last_changed: serverTimestamp(),
-                            }).then(() => {
-                                set(userStatusDatabaseRef, {
-                                    state: 'online',
-                                    last_changed: serverTimestamp(),
-                                }).then(() => {}).catch((err) => {
-                                    console.error("Presence: Could not set status 'online' in RTDB.", err);
-                                });
-                            }).catch((err) => {
-                                console.error("Presence: Could not setup onDisconnect in RTDB.", err);
-                            });
-                        } else {
-                            // We ONLY update Firestore directly here to false IF we actually connected first.
-                            // This prevents falsely setting offline if the RTDB just fails to connect on boot.
-                            if (hasConnected) {
-                                import('firebase/firestore').then(({ getDoc, doc, updateDoc }) => {
-                                    const userRef = doc(db, 'users', uid);
-                                    getDoc(userRef).then((userSnap) => {
-                                        if (userSnap.exists()) {
-                                            updateDoc(userRef, { isOnline: false }).catch(err => console.error("Could not update Firestore offline status", err));
-                                        }
-                                    }).catch(() => { });
-                                });
-                            }
-                        }
-                    });
-                } catch (e) {
-                    console.error("RTDB presence failed to start", e);
-                }
-
-                // Add a backup listener for when the user closes the tab (graceful exit)
-                const handleUnload = () => {
-                    import('firebase/firestore').then(({ getDoc, doc, updateDoc }) => {
-                        const userRef = doc(db, 'users', uid);
-                        getDoc(userRef).then((userSnap) => {
-                            if (userSnap.exists()) {
-                                updateDoc(userRef, { isOnline: false }).catch(() => { });
-                            }
-                        }).catch(() => { });
-                    });
-                };
-                window.addEventListener('beforeunload', handleUnload);
-
-                // We return a function to do cleanup on component unmount
-                return () => {
-                    window.removeEventListener('beforeunload', handleUnload);
-                };
-            }
+            onDisconnect(userStatusRef)
+                .set({ state: 'offline', last_changed: serverTimestamp() })
+                .then(() => set(userStatusRef, { state: 'online', last_changed: serverTimestamp() }))
+                .catch(() => {});
         });
 
-        return () => unsubscribe();
-    }, []);
+        return () => unsub();
+    }, [user?.uid]);
 
-    return null; // This component doesn't render anything
+    return null;
 }

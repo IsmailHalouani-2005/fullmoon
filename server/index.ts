@@ -7,10 +7,15 @@ import { setupGameLogic, getRoomStats } from "./gameLogic";
 // Load the Next.js environment variables
 dotenv.config({ path: path.resolve(__dirname, '../.env.local') });
 
+const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || 'http://localhost:3000,http://localhost:3001').split(',').map(o => o.trim());
+
 // 1. Create native HTTP server to handle API + CORS
 const server = http.createServer((req, res) => {
-    // Enable CORS for all requests
-    res.setHeader('Access-Control-Allow-Origin', '*');
+    const origin = req.headers.origin || '';
+    const allowedOrigin = ALLOWED_ORIGINS.includes(origin) ? origin : '';
+
+    if (allowedOrigin) res.setHeader('Access-Control-Allow-Origin', allowedOrigin);
+    res.setHeader('Vary', 'Origin');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
@@ -36,7 +41,7 @@ const server = http.createServer((req, res) => {
 // 2. Attach Socket.io to the HTTP server
 export const io = new Server(server, {
     cors: {
-        origin: "*", // Keep it simple on standalone, headers are also on http server
+        origin: ALLOWED_ORIGINS,
         methods: ["GET", "POST"]
     }
 });

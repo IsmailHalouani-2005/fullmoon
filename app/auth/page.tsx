@@ -9,37 +9,33 @@ import {
     updateProfile,
     signInWithPopup,
     GoogleAuthProvider,
-    onAuthStateChanged
 } from 'firebase/auth';
 import { auth, db } from '../../lib/firebase';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
+import { useAuth } from '../../contexts/AuthContext';
 
 export default function AuthPage() {
     const router = useRouter();
+    const { user, loading: authLoading } = useAuth();
     const [isLogin, setIsLogin] = useState(true);
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [pseudo, setPseudo] = useState('');
     const [error, setError] = useState('');
-    const [loading, setLoading] = useState(true);
+    const [submitting, setSubmitting] = useState(false);
     const isAuthenticatingRef = useRef(false);
 
-    // Redirect to /play if already connected
+    // Redirect to /play if already authenticated
     useEffect(() => {
-        const unsubscribe = onAuthStateChanged(auth, (user) => {
-            if (user && !isAuthenticatingRef.current) {
-                router.push('/play');
-            } else {
-                setLoading(false);
-            }
-        });
-        return () => unsubscribe();
-    }, [router]);
+        if (!authLoading && user && !isAuthenticatingRef.current) {
+            router.push('/play');
+        }
+    }, [user, authLoading, router]);
 
     const handleEmailAuth = async (e: React.FormEvent) => {
         e.preventDefault();
         setError('');
-        setLoading(true);
+        setSubmitting(true);
 
         try {
             if (isLogin) {
@@ -82,30 +78,30 @@ export default function AuthPage() {
             } else {
                 setError(err.message || "Une erreur est survenue.");
             }
-            setLoading(false);
+            setSubmitting(false);
         }
     };
 
     const handleGoogleAuth = async () => {
         setError('');
-        setLoading(true);
+        setSubmitting(true);
         const provider = new GoogleAuthProvider();
 
         try {
             isAuthenticatingRef.current = true;
             const result = await signInWithPopup(auth, provider);
-            const user = result.user;
+            const googleUser = result.user;
 
             // Check if user document exists, if not, create it
-            const userDocRef = doc(db, "users", user.uid);
+            const userDocRef = doc(db, "users", googleUser.uid);
             const userDocSnap = await getDoc(userDocRef);
 
             if (!userDocSnap.exists()) {
                 await setDoc(userDocRef, {
-                    pseudo: user.displayName || "Joueur Inconnu",
-                    email: user.email,
+                    pseudo: googleUser.displayName || "Joueur Inconnu",
+                    email: googleUser.email,
                     points: 0,
-                    photoURL: user.photoURL || "/assets/images/icones/Photo_Profil-transparent.png",
+                    photoURL: googleUser.photoURL || "/assets/images/icones/Photo_Profil-transparent.png",
                     createdAt: new Date().toISOString()
                 });
             }
@@ -114,11 +110,13 @@ export default function AuthPage() {
         } catch (err: any) {
             console.error(err);
             setError("Erreur avec l'authentification Google.");
-            setLoading(false);
+            setSubmitting(false);
         }
     };
 
-    if (loading) {
+    // Bref écran de chargement uniquement si Firebase Auth est encore en train de résoudre
+    // (ex: premier chargement sans cache) — s'affiche <500ms en pratique
+    if (authLoading) {
         return (
             <div className="min-h-screen bg-dark w-full flex items-center justify-center">
                 <p className="text-secondary font-enchanted text-4xl animate-pulse">Chargement en cours...</p>
@@ -203,7 +201,7 @@ export default function AuthPage() {
 
                     <button
                         type="submit"
-                        disabled={loading}
+                        disabled={submitting}
                         className="w-full flex justify-center py-3 px-4 border-3 border-dark rounded-md shadow-sm text-xl font-bold text-white bg-dark hover:bg-dark/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-dark transition-colors cursor-pointer disabled:opacity-50"
                     >
                         {isLogin ? "Se connecter" : "S'inscrire"}
@@ -224,7 +222,7 @@ export default function AuthPage() {
                         <button
                             onClick={handleGoogleAuth}
                             type="button"
-                            disabled={loading}
+                            disabled={submitting}
                             className="w-full flex items-center justify-center p-3 border-2 border-dark/30 rounded-md shadow-sm bg-white hover:bg-gray-50 font-bold text-dark transition-all cursor-pointer disabled:opacity-50"
                         >
                             <svg className="h-5 w-5 mr-3" viewBox="0 0 48 48">

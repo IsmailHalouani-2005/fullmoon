@@ -1,8 +1,79 @@
 import Image from 'next/image';
 import { Player, Phase, GameState } from '@/types/game';
 import { ROLES, RoleId, isInWolfCamp } from "@/types/roles";
+import { useState } from 'react';
 
+// ─── Tooltip générique ────────────────────────────────────────────────────────
+type TooltipDir = 'top' | 'bottom' | 'left' | 'right';
 
+function Tooltip({ label, description, color = 'text-[#D1A07A]', children, dir = 'top', isOpen, onToggle }: {
+    label: string;
+    description: string;
+    color?: string;
+    children: React.ReactNode;
+    dir?: TooltipDir;
+    isOpen: boolean;
+    onToggle: () => void;
+}) {
+    const posClass = {
+        top: 'bottom-full left-1/2 -translate-x-1/2 mb-2',
+        bottom: 'top-full left-1/2 -translate-x-1/2 mt-2',
+        left: 'right-full top-1/2 -translate-y-1/2 mr-2',
+        right: 'left-full top-1/2 -translate-y-1/2 ml-2',
+    }[dir];
+
+    const arrowClass = {
+        top: 'absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-3 h-3 border-r border-b border-white/10 rotate-45',
+        bottom: 'absolute -top-1.5 left-1/2 -translate-x-1/2 w-3 h-3 border-l border-t border-white/10 rotate-45',
+        left: 'absolute -right-1.5 top-1/2 -translate-y-1/2 w-3 h-3 border-t border-r border-white/10 rotate-45',
+        right: 'absolute -left-1.5 top-1/2 -translate-y-1/2 w-3 h-3 border-b border-l border-white/10 rotate-45',
+    }[dir];
+
+    return (
+        <div
+            className="relative"
+            onClick={(e) => { e.stopPropagation(); onToggle(); }}
+        >
+            {children}
+            {isOpen && (
+                <div
+                    className={`absolute z-[3000] w-44 bg-[#1a1d20]/95 border border-white/10 rounded-xl shadow-2xl p-3 pointer-events-none ${posClass}`}
+                    style={{ backdropFilter: 'blur(8px)' }}
+                >
+                    <p className={`font-bold text-xs mb-1 ${color}`}>{label}</p>
+                    <p className="text-white/70 text-[10px] leading-tight">{description}</p>
+                    <div className={`bg-[#1a1d20] ${arrowClass}`} />
+                </div>
+            )}
+        </div>
+    );
+}
+
+// ─── Données des effets ───────────────────────────────────────────────────────
+const EFFECT_INFO: Record<string, { label: string; description: string; color: string }> = {
+    infected: {
+        label: 'Infecté',
+        description: "Le joueur a été mordu par le Loup Infect. Il fait partie des loups-garous.",
+        color: 'text-green-400',
+    },
+    poisoned: {
+        label: 'Empoisonné',
+        description: "Le joueur est empoisonné. Il ne pourra utiliser ses pouvoirs ni voter pendant tout un cycle.",
+        color: 'text-purple-400',
+    },
+    gasoline: {
+        label: "Aspersé d'essence",
+        description: "Le joueur a été aspergé par le Pyromane. Il brûlera quand le Pyromane déclenchera l'incendie.",
+        color: 'text-yellow-400',
+    },
+    lover: {
+        label: 'Amoureux',
+        description: "Le joueur est lié par l'amour. Si son partenaire meurt, il mourra de chagrin.",
+        color: 'text-pink-400',
+    },
+};
+
+// ─── Types ────────────────────────────────────────────────────────────────────
 interface PlayerCircleNodeProps {
     player: Player;
     index: number;
@@ -72,6 +143,14 @@ export default function PlayerCircleNode({
 
     const isDead = !player.isAlive;
     const roleDef = mockRoleDef || (player.role ? ROLES[player.role as RoleId] : null);
+
+    // ── Gestion du tooltip actif (un seul à la fois) ──
+    const [activeTooltip, setActiveTooltip] = useState<string | null>(null);
+    const toggleTip = (id: string) => setActiveTooltip(prev => prev === id ? null : id);
+    // Direction du tooltip selon la position de l'avatar dans l'octogone
+    const tooltipDir: TooltipDir = Math.abs(x) >= Math.abs(y)
+        ? (x < 0 ? 'right' : 'left')
+        : (y < 0 ? 'bottom' : 'top');
 
     // Use game.votes for better synchronicity
     const votersForThisPlayer = game.players.filter(p => (game.votes || {})[p.id] === player.id);
@@ -198,15 +277,37 @@ export default function PlayerCircleNode({
 
                 {/* Couronne du maire */}
                 {game.mayorId === player.id && (
-                    <div className="absolute -top-4 -left-2 w-8 h-8 drop-shadow-md z-30 transform -rotate-15" title="Maire actuel">
-                        <Image src="/assets/images/icones/couronne-icon.png" alt="Maire" width={32} height={32} />
+                    <div className="absolute -top-4 -left-2 z-30">
+                        <Tooltip
+                            label="Maire"
+                            description="Ce joueur est le Maire élu. Son vote compte double lors de l'élimination du jour."
+                            color="text-[#D1A07A]"
+                            dir={tooltipDir}
+                            isOpen={activeTooltip === 'mayor'}
+                            onToggle={() => toggleTip('mayor')}
+                        >
+                            <div className="w-8 h-8 drop-shadow-md transform -rotate-15 cursor-pointer">
+                                <Image src="/assets/images/icones/couronne-icon.png" alt="Maire" width={32} height={32} unoptimized />
+                            </div>
+                        </Tooltip>
                     </div>
                 )}
 
                 {/* Badge Loup (Reconnaissance entre loups) */}
                 {isInWolfCamp(me?.role as RoleId) && isInWolfCamp(player.role as RoleId) && (
-                    <div className="absolute -top-3 -right-5 w-12 h-12 drop-shadow-lg z-30" title="Membre de la meute">
-                        <Image src="/assets/images/icones/Icone_Loup.png" alt="Loup" width={32} height={32} className="object-contain" />
+                    <div className="absolute -top-3 -right-5 z-30">
+                        <Tooltip
+                            label="Membre de la meute"
+                            description="Ce joueur fait partie de votre camp. Vous votez ensemble la nuit pour éliminer un villageois."
+                            color="text-red-400"
+                            dir={tooltipDir}
+                            isOpen={activeTooltip === 'wolf'}
+                            onToggle={() => toggleTip('wolf')}
+                        >
+                            <div className="w-12 h-12 drop-shadow-lg cursor-pointer">
+                                <Image src="/assets/images/icones/Icone_Loup.png" alt="Loup" width={32} height={32} className="object-contain" unoptimized />
+                            </div>
+                        </Tooltip>
                     </div>
                 )}
 
@@ -217,29 +318,39 @@ export default function PlayerCircleNode({
                     </div>
                 )}
 
-                {/* Effect Icons Section */}
-                {/* Badge Infecté en haut à droite */}
+                {/* Badge Infecté */}
                 {showInfected && (
-                    <div className="absolute -top-4 -right-20 w-25 h-25 drop-shadow-md z-40" title="Infecté">
-                        <Image src="/assets/images/icones/powers/Effect_infecte.png" alt="Infecté" width={50} height={50} />
+                    <div className="absolute -top-5 -right-5 z-40">
+                        <Tooltip {...EFFECT_INFO.infected} dir={tooltipDir} isOpen={activeTooltip === 'infected'} onToggle={() => toggleTip('infected')}>
+                            <div className="cursor-pointer">
+                                <Image src="/assets/images/icones/powers/Effect_infecte.png" alt="Infecté" width={48} height={48} unoptimized className="scale-150" />
+                            </div>
+                        </Tooltip>
                     </div>
                 )}
 
                 {/* Autres effets en bas à gauche */}
                 <div className="absolute -left-2 -bottom-2 flex flex-col gap-1 z-40">
                     {showPoisoned && (
-                        <div className="w-15 h-15 drop-shadow-md" title="Empoisonné (Muet)">
-                            <Image src="/assets/images/icones/powers/Poison_Toxique.png" alt="Muet" width={50} height={50} />
-                        </div>
+                        <Tooltip {...EFFECT_INFO.poisoned} dir={tooltipDir} isOpen={activeTooltip === 'poisoned'} onToggle={() => toggleTip('poisoned')}>
+                            <div className="cursor-pointer">
+                                <Image src="/assets/images/icones/powers/Poison_Toxique.png" alt="Empoisonné" width={50} height={50} unoptimized />
+                            </div>
+                        </Tooltip>
                     )}
                     {showGasoline && (
-                        <div className="w-10 h-10 drop-shadow-md" title="Recouvert d'essence">
-                            <Image src="/assets/images/icones/powers/essance_bidon.png" alt="Essence" width={50} height={50} />
-                        </div>
+                        <Tooltip {...EFFECT_INFO.gasoline} dir={tooltipDir} isOpen={activeTooltip === 'gasoline'} onToggle={() => toggleTip('gasoline')}>
+                            <div className="cursor-pointer">
+                                <Image src="/assets/images/icones/powers/essance_bidon.png" alt="Essence" width={50} height={50} unoptimized />
+                            </div>
+                        </Tooltip>
                     )}
-                    {showLover && (<div className="w-10 h-10 drop-shadow-md" title="Amoureux">
-                        <Image src="/assets/images/icones/powers/coup_coeur.png" alt="Amour" width={50} height={50} />
-                    </div>
+                    {showLover && (
+                        <Tooltip {...EFFECT_INFO.lover} dir={tooltipDir} isOpen={activeTooltip === 'lover'} onToggle={() => toggleTip('lover')}>
+                            <div className="cursor-pointer">
+                                <Image src="/assets/images/icones/powers/coup_coeur.png" alt="Amoureux" width={50} height={50} unoptimized />
+                            </div>
+                        </Tooltip>
                     )}
                 </div>
             </div>

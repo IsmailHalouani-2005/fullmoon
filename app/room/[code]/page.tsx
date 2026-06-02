@@ -5,8 +5,9 @@ import Image from 'next/image';
 import { useEffect, useState, useMemo, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { io, Socket } from 'socket.io-client';
-import { onAuthStateChanged, User } from 'firebase/auth';
-import { auth, db } from '@/lib/firebase';
+import { User } from 'firebase/auth';
+import { db } from '@/lib/firebase';
+import { useAuth } from '@/contexts/AuthContext';
 import { GameState, ServerToClientEvents, ClientToServerEvents, Player, Phase } from '@/types/game';
 import { ROLES, RoleId, PowerId, isInWolfCamp } from "@/types/roles";
 import { distributeRoles, distributeCustomRoles } from '@/lib/roleDistribution';
@@ -22,11 +23,14 @@ import LoversModal from '@/components/game/LoversModal';
 import InfectedModal from '@/components/game/InfectedModal';
 import VoiceChatManager from '@/components/room/VoiceChatManager';
 
+import { useGameAudio } from '@/hooks/useGameAudio';
+
 export default function RoomPage() {
     const params = useParams();
     const roomCode = params.code as string;
     const router = useRouter();
 
+    const { user: authUser, userData: authUserData, loading: authLoading } = useAuth();
     const [user, setUser] = useState<User | null>(null);
     const [game, setGame] = useState<GameState | null>(null);
     const [socket, setSocket] = useState<Socket<ServerToClientEvents, ClientToServerEvents> | null>(null);
@@ -36,11 +40,14 @@ export default function RoomPage() {
     const [isCardFlipped, setIsCardFlipped] = useState(false);
     const [activeChatTab, setActiveChatTab] = useState<'day' | 'night'>('day');
     const [activePower, setActivePower] = useState<string | null>(null);
+    const [ambianceVolume, setAmbianceVolume] = useState<number>(50);
     const [powerTargets, setPowerTargets] = useState<string[]>([]);
 
     const chatEndRef = useRef<HTMLDivElement>(null);
     const chatScrollContainerRef = useRef<HTMLDivElement>(null);
     const [isChatAutoScrollEnabled, setIsChatAutoScrollEnabled] = useState(true);
+    // Ref pour lire la longueur du chat sans closure stale dans les handlers socket
+    const chatMessagesCountRef = useRef(0);
 
     const handleChatScroll = () => {
         if (!chatScrollContainerRef.current) return;
@@ -75,6 +82,11 @@ export default function RoomPage() {
         const p = game.players.find(p => p.id === user.uid) || null;
         return p;
     }, [user, game?.players]);
+
+    // Garder le ref de longueur à jour pour les handlers socket
+    useEffect(() => {
+        chatMessagesCountRef.current = chatMessages.length;
+    }, [chatMessages]);
 
     // Auto-scroll effect
     useEffect(() => {
@@ -113,6 +125,9 @@ export default function RoomPage() {
     const [showLobbyWarning, setShowLobbyWarning] = useState(false);
     const [showPlayerIdleWarning, setShowPlayerIdleWarning] = useState(false);
 
+    // Audio System
+    const { isMuted, setIsMuted } = useGameAudio(game, user?.uid, socket, activePower, ambianceVolume);
+
     // --- SORCIÈRE MODALS ---
     const [witchHealTarget, setWitchHealTarget] = useState<string | null>(null);
     const [witchPoisonTarget, setWitchPoisonTarget] = useState<string | null>(null);
@@ -122,35 +137,20 @@ export default function RoomPage() {
     const [firestorePhotoURL, setFirestorePhotoURL] = useState<string | null | undefined>(undefined);
     // Photos des joueurs lues depuis Firestore users/{uid} (pour les comptes email/password avec Base64)
     const [playerAvatars, setPlayerAvatars] = useState<Record<string, string>>({});
+    // Ref pour éviter les doublons de fetch sans closure stale (ne dépend pas du cycle React)
+    const fetchedAvatarIdsRef = useRef<Set<string>>(new Set());
 
-    // 1. Attendre que Firebase nous dise QUI est connecté + lire le photoURL Firestore
+    // 1. Synchroniser l'utilisateur depuis le context (pas de listener Firebase séparé)
     useEffect(() => {
-        const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-            if (!currentUser) {
-                router.push('/');
-            } else {
-                setUser(currentUser);
-                // Lire le photoURL depuis Firestore (utile pour les comptes email/password)
-                if (!currentUser.photoURL) {
-                    try {
-                        const userSnap = await getDoc(doc(db, "users", currentUser.uid));
-                        if (userSnap.exists()) {
-                            setFirestorePhotoURL(userSnap.data().photoURL || null);
-                        } else {
-                            setFirestorePhotoURL(null); // doc introuvable → débloquer
-                        }
-                    } catch (e) {
-                        console.warn("Impossible de récupérer le photoURL Firestore", e);
-                        setFirestorePhotoURL(null); // erreur → débloquer quand même
-                    }
-                } else {
-                    // Compte Google : pas besoin de fetch, débloquer immédiatement
-                    setFirestorePhotoURL(null);
-                }
-            }
-        });
-        return () => unsubscribe();
-    }, [router]);
+        if (authLoading) return;
+        if (!authUser) {
+            router.push('/');
+            return;
+        }
+        setUser(authUser);
+        // photoURL vient directement du userData du context — plus de getDoc bloquant
+        setFirestorePhotoURL(authUserData?.photoURL ?? null);
+    }, [authUser, authUserData, authLoading, router]);
 
     /** Ne jamais envoyer une photo Base64 via socket — trop lourde. On passe undefined à la place. */
     const getSafeAvatarUrl = (url: string | null | undefined) => {
@@ -158,32 +158,36 @@ export default function RoomPage() {
         return url;
     };
 
-    // Charge les photos depuis Firestore pour les joueurs dont l'avatarUrl est absent (Base64 stripé)
+    // Charge les avatars uniquement quand la liste des joueurs change (nouveaux IDs)
+    // On utilise une clé stable (IDs triés) pour éviter que la référence game.players
+    // (nouvelle à chaque update_game) déclenche un re-fetch toutes les secondes.
+    const playerIdsKey = useMemo(
+        () => game?.players?.map(p => p.id).sort().join(',') ?? '',
+        [game?.players]
+    );
+
     useEffect(() => {
         if (!game?.players) return;
-        // On récupère uniquement ceux qui ne sont pas encore chargés ou qui ont une valeur vide/invalide
-        const toFetch = game.players.filter(p => !playerAvatars[p.id]);
-
+        const toFetch = game.players.filter(p => !fetchedAvatarIdsRef.current.has(p.id));
         if (toFetch.length === 0) return;
 
         toFetch.forEach(async (p) => {
+            // Marquer immédiatement pour éviter les appels concurrents sur le même ID
+            fetchedAvatarIdsRef.current.add(p.id);
             try {
-                // Éviter de fetcher plusieurs fois le même joueur en même temps
-                if (playerAvatars[p.id]) return;
-
                 const snap = await getDoc(doc(db, "users", p.id));
                 if (snap.exists()) {
-                    const photo = snap.data().photoURL || '';
-                    setPlayerAvatars(prev => ({ ...prev, [p.id]: photo }));
+                    setPlayerAvatars(prev => ({ ...prev, [p.id]: snap.data().photoURL || '' }));
                 } else {
-                    // Marquer comme traité même si vide pour éviter le re-fetch
-                    setPlayerAvatars(prev => ({ ...prev, [p.id]: "" }));
+                    setPlayerAvatars(prev => ({ ...prev, [p.id]: '' }));
                 }
             } catch (e) {
+                // Permettre un retry en cas d'erreur réseau
+                fetchedAvatarIdsRef.current.delete(p.id);
                 console.error("Erreur avatar fetch", e);
             }
         });
-    }, [game?.players]);
+    }, [playerIdsKey]); // Ne se déclenche que quand des joueurs rejoignent/quittent
 
     /** Retourne la meilleure photo disponible pour un uid donné */
     const getPlayerAvatar = (playerId: string, fallbackUrl?: string) =>
@@ -249,7 +253,10 @@ export default function RoomPage() {
         // Écouter les mises à jour du jeu
         newSocket.on('update_game', (gameState) => {
             setGame(gameState);
-            if (gameState.chatMessages) {
+            // Synchroniser le chat UNIQUEMENT si le serveur a plus de messages que le client
+            // (cas de première connexion ou reconnexion). Les mises à jour incrémentales
+            // arrivent via 'chat_message' — écraser à chaque seconde causerait des re-renders massifs.
+            if (gameState.chatMessages && gameState.chatMessages.length > chatMessagesCountRef.current) {
                 setChatMessages(gameState.chatMessages);
             }
         });
@@ -1418,6 +1425,24 @@ export default function RoomPage() {
                                     onChange={(e) => setOutputVolume(parseInt(e.target.value))}
                                     className="w-full h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
                                 />
+                            </div>
+
+
+                            {/* Ambiance Volume Slider */}
+                            <div className="space-y-2 px-1">
+                                <div className="flex justify-between text-xs font-bold text-slate-400">
+                                    <span>Volume Ambiance</span>
+                                    <span className="text-[#D1A07A]">{ambianceVolume}%</span>
+                                </div>
+                                <input
+                                    type="range"
+                                    min="0"
+                                    max="100"
+                                    value={ambianceVolume}
+                                    onChange={(e) => setAmbianceVolume(parseInt(e.target.value))}
+                                    className="w-full h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-[#D1A07A]"
+                                />
+                                <p className="text-[9px] text-slate-500 italic">Musique de fond du jeu.</p>
                             </div>
                         </div>
 
