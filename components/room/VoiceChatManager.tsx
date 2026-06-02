@@ -410,16 +410,34 @@ export default function VoiceChatManager({
     // --- Helper Functions ---
 
     function createPeerConnection(peerId: string, isInitiator: boolean) {
+        // Construction de la liste ICE : STUN + TURN si configuré
+        const iceServers: RTCIceServer[] = [
+            { urls: 'stun:stun.l.google.com:19302' },
+            { urls: 'stun:stun1.l.google.com:19302' },
+        ];
+
+        const turnUrl = process.env.NEXT_PUBLIC_TURN_URL;
+        if (turnUrl) {
+            // TURN dédié configuré via .env.local
+            iceServers.push({
+                urls: [turnUrl, `${turnUrl}?transport=tcp`],
+                username: process.env.NEXT_PUBLIC_TURN_USERNAME || '',
+                credential: process.env.NEXT_PUBLIC_TURN_CREDENTIAL || '',
+            });
+        } else {
+            // Fallback gratuit openrelay — couvre les NAT symétrique sans configuration
+            iceServers.push({
+                urls: [
+                    'turn:openrelay.metered.ca:80',
+                    'turn:openrelay.metered.ca:443?transport=tcp',
+                ],
+                username: 'openrelayproject',
+                credential: 'openrelayproject',
+            });
+        }
+
         const pc = new RTCPeerConnection({
-            iceServers: [
-                { urls: 'stun:stun.l.google.com:19302' },
-                { urls: 'stun:stun1.l.google.com:19302' },
-                { urls: 'stun:stun2.l.google.com:19302' },
-                { urls: 'stun:stun.voiparound.com:3478' },
-                { urls: 'stun:stun.stunprotocol.org:3478' },
-                { urls: 'stun:stun.ekiga.net:3478' },
-                { urls: 'stun:stun.ideasip.com:3478' },
-            ],
+            iceServers,
             iceCandidatePoolSize: 10
         });
 

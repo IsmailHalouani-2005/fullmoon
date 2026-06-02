@@ -912,7 +912,7 @@ function startPhase(roomCode: string, newPhase: Phase, games: Record<string, Gam
         case 'ROLE_REVEAL': duration = 15; break;
         case 'MAYOR_ELECTION': duration = 45; break;
         case 'MAYOR_SUCCESSION': duration = 15; break;
-        case 'NIGHT': duration = 60; break;
+        case 'NIGHT': duration = 45; break;
         case 'DAY_DISCUSSION': duration = 60; break;
         case 'DAY_VOTE': duration = 30; break;
         case 'HUNTER_SHOT': duration = 10; break;
@@ -1573,11 +1573,21 @@ function triggerGameOver(roomCode: string, victoryDetails: { winner: string, pla
     // Update the victoryDetails with the newly calculated points for winners
     victoryDetails.players = victoryDetails.players.map(vp => game.players.find(p => p.id === vp.id) || vp);
 
-    // Prepare payload including disconnected players for the host to handle penalty
+    // Joueurs encore déconnectés à la fin (jamais revenus) → pénalité de fuite aussi
+    const stillDisconnected = game.players
+        .filter(p => p.isDisconnected)
+        .map(p => ({ id: p.id, name: p.name }));
+
+    // Prépare le payload : ceux qui ont quitté volontairement + ceux jamais revenus
+    const allFled = [
+        ...(game.disconnectedPlayers || []),
+        ...stillDisconnected
+    ];
+
     const gameOverPayload = {
         winner: victoryDetails.winner,
-        players: game.players, // Send all players with their stats so we can show them in UI
-        disconnectedPlayers: game.disconnectedPlayers || []
+        players: game.players,
+        disconnectedPlayers: allFled
     };
 
     setTimeout(() => {

@@ -58,6 +58,7 @@ export default function PlayPage() {
     const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
     // Photos des hôtes de villages lues depuis Firestore (pour les comptes Base64)
     const [hostAvatars, setHostAvatars] = useState<Record<string, string>>({});
+    const fetchedHostIdsRef = useRef<Set<string>>(new Set());
     // Nombre de joueurs connectés en temps réel (Socket.io) par code de room
     const [livePlayerCounts, setLivePlayerCounts] = useState<Record<string, number>>({});
 
@@ -147,25 +148,33 @@ export default function PlayPage() {
         return () => unsub();
     }, []);
 
-    // Charge les photos des hôtes de villages depuis Firestore si hostPhoto est vide ou par défaut
+    // Clé stable basée sur les hostIds uniques — ne change que quand un nouvel hôte apparaît
+    const hostIdsKey = useMemo(
+        () => [...new Set(villages.map((v: any) => v.hostId).filter(Boolean))].sort().join(','),
+        [villages]
+    );
+
+    // Charge les photos des hôtes une seule fois par hostId (ref évite la closure stale)
     useEffect(() => {
         if (!villages.length) return;
         villages.forEach(async (v: any) => {
-            if (!v.hostId || hostAvatars[v.hostId]) return; // déjà chargé
+            if (!v.hostId || fetchedHostIdsRef.current.has(v.hostId)) return;
 
-            // Si on a déjà une vraie URL (Google ou autre stockage externe), on ne fetch pas
             const hasRealPhoto = v.hostPhoto && !v.hostPhoto.startsWith('data:') && v.hostPhoto !== "/assets/images/icones/Photo_Profil-transparent.png";
-            if (hasRealPhoto) return;
+            if (hasRealPhoto) {
+                fetchedHostIdsRef.current.add(v.hostId);
+                return;
+            }
 
+            fetchedHostIdsRef.current.add(v.hostId);
             try {
                 const snap = await getDoc(doc(db, "users", v.hostId));
                 if (snap.exists()) {
-                    const photo = snap.data().photoURL || '';
-                    setHostAvatars(prev => ({ ...prev, [v.hostId]: photo }));
+                    setHostAvatars(prev => ({ ...prev, [v.hostId]: snap.data().photoURL || '' }));
                 }
             } catch (e) { /* ignore */ }
         });
-    }, [villages]);
+    }, [hostIdsKey]); // Se déclenche uniquement quand de nouveaux hôtes apparaissent
 
     // Polling du nombre de joueurs connectés en direct (Socket.io) via /api/rooms-live
     useEffect(() => {

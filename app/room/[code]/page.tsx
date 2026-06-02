@@ -11,7 +11,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { GameState, ServerToClientEvents, ClientToServerEvents, Player, Phase } from '@/types/game';
 import { ROLES, RoleId, PowerId, isInWolfCamp } from "@/types/roles";
 import { distributeRoles, distributeCustomRoles } from '@/lib/roleDistribution';
-import { doc, getDoc, collection, query, onSnapshot, addDoc, updateDoc } from 'firebase/firestore';
+import { doc, getDoc, deleteDoc, collection, query, onSnapshot, addDoc, updateDoc, increment } from 'firebase/firestore';
 import { getDatabase, ref, onValue } from 'firebase/database';
 import RoleInfoModal from '@/components/room/edit/RoleInfoModal';
 import RoleCard from '../../../components/game/RoleCard';
@@ -323,20 +323,16 @@ export default function RoomPage() {
                     await updateDoc(userRef, updates);
                 }
 
-                // If I am the host, also penalize disconnected players
+                // Si je suis l'hôte, pénaliser les joueurs qui ont fui
                 const isHost = groupConfig?.hostId === user.uid;
                 if (isHost && payload.disconnectedPlayers && payload.disconnectedPlayers.length > 0) {
                     for (const dPlayer of payload.disconnectedPlayers) {
                         const dUserRef = doc(db, "users", dPlayer.id);
-                        const dSnap = await getDoc(dUserRef);
-                        if (dSnap.exists()) {
-                            const dStats = dSnap.data().stats || {};
-                            // Penalty for fleeing is -2 points
-                            await updateDoc(dUserRef, {
-                                "stats.fled": (dStats.fled || 0) + 1,
-                                "stats.points": (dStats.points || 0) - 2
-                            });
-                        }
+                        // increment() est atomique côté Firestore — pas de getDoc, pas de race condition
+                        await updateDoc(dUserRef, {
+                            "stats.fled":   increment(1),
+                            "stats.points": increment(-2)
+                        }).catch(e => console.warn(`Impossible d'appliquer la pénalité à ${dPlayer.name}`, e));
                     }
                 }
             } catch (err) {
@@ -353,12 +349,8 @@ export default function RoomPage() {
             // Fallback : Si on est l'hôte et qu'on reçoit cet événement (ex: inactivité), 
             // on s'assure que la room est bien supprimée de la base de données
             if (groupConfig?.hostId === user.uid) {
-                try {
-                    const { deleteDoc } = await import('firebase/firestore');
-                    await deleteDoc(doc(db, "groups", roomCode as string));
-                } catch (e) {
-                    console.error("Client fallback delete failed", e);
-                }
+                deleteDoc(doc(db, "groups", roomCode as string))
+                    .catch(e => console.error("Client fallback delete failed", e));
             }
             router.push('/play');
         });
@@ -515,17 +507,13 @@ export default function RoomPage() {
                 if (groupSnap.exists()) {
                     const groupData = groupSnap.data();
                     if (groupData.players && groupData.players.length <= 1) {
-                        const { deleteDoc } = await import('firebase/firestore');
                         await deleteDoc(groupRef);
                     } else {
                         const updatedPlayers = groupData.players.filter((p: any) => p.uid !== user.uid);
-                        const { updateDoc } = await import('firebase/firestore');
                         await updateDoc(groupRef, { players: updatedPlayers });
                     }
                 }
 
-                // Clear user's currentGroupId
-                const { updateDoc } = await import('firebase/firestore');
                 await updateDoc(doc(db, "users", user.uid), {
                     currentGroupId: null
                 });
