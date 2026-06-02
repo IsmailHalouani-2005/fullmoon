@@ -107,9 +107,9 @@ export function setupGameLogic(io: Server<ClientToServerEvents, ServerToClientEv
                 };
             }
             games[roomCode].lastActivity = Date.now();
-            if (disconnectTimeouts[userId]) {
-                clearTimeout(disconnectTimeouts[userId]);
-                delete disconnectTimeouts[userId];
+            if (disconnectTimeouts[`${userId}_${roomCode}`]) {
+                clearTimeout(disconnectTimeouts[`${userId}_${roomCode}`]);
+                delete disconnectTimeouts[`${userId}_${roomCode}`];
             }
 
             const game = games[roomCode];
@@ -750,7 +750,7 @@ export function setupGameLogic(io: Server<ClientToServerEvents, ServerToClientEv
                 // En partie : le joueur reste dans la room (son choix de partir via "Quitter")
                 // En lobby : on lui accorde 1 minute pour reconnecter, puis on le retire
                 if (!isInGame) {
-                    disconnectTimeouts[userId] = setTimeout(() => {
+                    disconnectTimeouts[`${userId}_${roomCode}`] = setTimeout(() => {
                         const currentGame = games[roomCode];
                         if (!currentGame) return;
 
@@ -779,7 +779,7 @@ export function setupGameLogic(io: Server<ClientToServerEvents, ServerToClientEv
                             if (currentGame.hostId === userId) currentGame.hostId = currentGame.players[0].id;
                             emitGameState(roomCode, currentGame, io);
                         }
-                        delete disconnectTimeouts[userId];
+                        delete disconnectTimeouts[`${userId}_${roomCode}`];
                         if (userSocketMap.get(userId) === socket.id) {
                             userSocketMap.delete(userId);
                         }
@@ -800,6 +800,7 @@ export function setupGameLogic(io: Server<ClientToServerEvents, ServerToClientEv
 
 function startInactivityCheck(games: Record<string, GameState>, gameTimers: Record<string, NodeJS.Timeout>, io: Server) {
     setInterval(() => {
+        // .unref() est appelé après pour éviter que ce timer empêche Node de s'arrêter dans les tests
         const now = Date.now();
         const IDLE_TIMEOUT = 10 * 60 * 1000; // 10 minutes
         const WARNING_TIMEOUT = 9 * 60 * 1000; // 9 minutes
@@ -891,7 +892,7 @@ function startInactivityCheck(games: Record<string, GameState>, gameTimers: Reco
                 }
             }
         }
-    }, 10000); // Check every 10 seconds for better precision on 9m vs 10m
+    }, 10000).unref(); // .unref() = ne bloque pas l'arrêt du process (utile en tests)
 }
 
 function startPhase(roomCode: string, newPhase: Phase, games: Record<string, GameState>, gameTimers: Record<string, NodeJS.Timeout>, io: Server) {
@@ -1429,7 +1430,7 @@ function handlePhaseEnd(roomCode: string, endedPhase: Phase, games: Record<strin
     }
 }
 
-function tallyVotes(game: GameState, isMayorElection: boolean = false): string | null {
+export function tallyVotes(game: GameState, isMayorElection: boolean = false): string | null {
     const counts: Record<string, number> = {};
 
     for (const [voterId, targetId] of Object.entries(game.votes)) {
@@ -1504,7 +1505,7 @@ function tallyVotes(game: GameState, isMayorElection: boolean = false): string |
 }
 
 
-function checkVictory(game: GameState): { winner: string, players: Player[] } | null {
+export function checkVictory(game: GameState): { winner: string, players: Player[] } | null {
     const vivants = game.players.filter(p => p.isAlive);
     const loupsVivants = vivants.filter(p => p.role && (ROLES[p.role as RoleId]?.camp === 'LOUPS' || p.effects?.includes('infected')));
 
