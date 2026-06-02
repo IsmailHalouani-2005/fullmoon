@@ -7,7 +7,9 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "socket": "npx ts-node server/index.ts"
+    "socket": "npx ts-node server/index.ts",
+    "clean": "node -e \"require('fs').rmSync('.next', {recursive:true, force:true})\" && echo Cache .next supprime",
+    "fresh": "npm run clean && npm run dev"
   },
   "dependencies": {
     "dotenv": "^17.3.1",
