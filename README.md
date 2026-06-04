@@ -1,92 +1,290 @@
-# 🌕 FullMoon - Expérience Multijoueur "Les Loups-Garous de Thiercelieux"
+# 🌕 FullMoon — Loup-Garou en ligne
 
-**FullMoon** est une adaptation web complète, interactive et en temps réel du célèbre jeu de société "Les Loups-Garous de Thiercelieux". Destinée à être jouée entre amis à distance, la plateforme intègre un tchat vocal automatisé, une synchronisation de l'état du jeu à la milliseconde près, et une interface utilisateur immersive développée avec les technologies web modernes.
-
----
-
-## 📖 Qu'est-ce que FullMoon ?
-
-C'est une plateforme web (PWA-ready) permettant de créer des salons (Lobbies) personnalisés, d'inviter des joueurs via des codes uniques ou une liste d'amis, de distribuer les rôles, et de jouer des parties automatisées de Loup-Garou sans recourir à un Maître du Jeu (Master) humain.
-
-Le serveur centralise l'intelligence artificielle du Maître du Jeu, orchestre les phases (Jour / Nuit / Votes / Actions spéciales), dicte les temps de parole, et mute/demute automatiquement les joueurs selon le contexte de la partie.
+**FullMoon** est une adaptation web complète et en temps réel du jeu de société "Les Loups-Garous de Thiercelieux". La plateforme remplace le maître du jeu humain par un serveur qui orchestre automatiquement les phases, gère les rôles, le chat vocal, les votes et les pouvoirs — le tout jouable à distance entre amis.
 
 ---
 
-## 🎮 Comment ça fonctionne ? (Déroulement d'une partie)
+## 🎮 Déroulement d'une partie
 
-1. **Inscription / Connexion** : Les joueurs se connectent via email ou compte Google.
-2. **Création d'un Salon (Lobby)** : Un hôte (Host) crée un groupe, définissant le nombre final de joueurs et la composition des rôles (soit Générée, soit Personnalisée).
-3. **Invitation** : L'hôte invite des amis en ligne (via le système social temps réel) ou en partageant un code à 6 chiffres.
-4. **Début de Partie** : Lorsque le groupe est complet, la partie est lancée.
-5. **Phase de Nuit** : Les microphones de tout le monde (sauf les loups entre eux) sont coupés. Les joueurs ayant des pouvoirs (Loups, Voyantes, Sorcières, etc.) effectuent leurs actions silencieusement via l'interface du jeu.
-6. **Phase de Jour** : Le serveur annonce les victimes, ouvre les microphones de tous les survivants pour le grand débat, et lance un timer de vote.
-7. **Élimination** : Le serveur compile les votes, élimine un joueur et referme les canaux vocaux pour la boucle de nuit suivante.
-8. **Statistiques** : En fin de partie (Victoire Village / Loups / Solitaire), les points sont calculés et les statistiques globales de chaque profil sont mises à jour.
-
----
-
-## 🛠️ Architecture Technique & Ingénierie (Du plus au moins complexe)
-
-La complexité du hub applicatif réside dans la parfaite synchronisation entre les événements de jeu (ce qu'il se passe sur le plateau) et les flux multimédias (qui entend qui).
-
-### 1. Tchat Vocal Temps Réel (WebRTC & Signaling via Socket.io) [⭐️⭐️⭐️⭐️⭐️]
-C'est le module le plus complexe de l'application. Pour éviter un coût de serveur vocal coûteux, l'application utilise une topologie **Mesh (Peer-to-Peer)** via l'API navigateur **WebRTC**.
-- **Serveurs STUN** : Les clients utilisent des serveurs STUN publics (Google) pour découvrir leurs IP publiques et traverser les pare-feux/NAT.
-- **Processus de Signaling (La Négociation Polite Peer)** : Lorsque les joueurs entrent dans le jeu, ils établissent un canal P2P direct entre chaque paire de joueurs. Le serveur Node.js (Socket.io) sert uniquement de facteur pour échanger les "Offres", "Réponses" (SDP) et candidats ICE.
-- **Gestion des Collisions (Glare)** : Si deux joueurs tentent d'établir une connexion simultanément, l'application implémente parfaitement l'algorithme "Polite Peer". Un joueur est désigné "Polite" et l'autre "Impolite". L'Impolite ignore l'offre entrante s'il est déjà en train de créer la sienne, tandis que le Polite détruit son offre locale pour accepter celle de l'Impolite. Cela évite les connexions `0S/0R` (silencieuses).
-- **Mute / Unmute Dynamique** : Plutôt que de détruire les canaux vocaux chaque nuit, l'application manipule la propriété `enabled` des `MediaStreamTrack` audio en fonction de la phase du jeu et du rôle. Pendant la nuit, si vous êtes un loup, les canaux entrants/sortants vers d'autres loups s'activent, et se désactivent pour les villageois.
-
-### 2. Moteur de Jeu Synchrone et Autoritaire (Socket.io) [⭐️⭐️⭐️⭐️]
-La triche est impossible car le client n'a aucun pouvoir décisionnel. Le serveur Node (Socket.io) détient la source absolue de vérité.
-- **Automate Fini (State Machine)** : Le jeu évolue selon un automate d'états stricts (Phase LOBBY -> PRE_GAME -> NIGHT -> DAY -> VOTING -> GAMEOVER).
-- **Tick / Timer Global** : Le serveur gère les compteurs de temps et diffuse aux clients l'avancement du timer (évitant la désynchronisation des différentes horloges système locales).
-- **Reconciliation des actions** : Quand la Voyante inspecte une carte, une demande est envoyée au serveur. Le serveur vérifie silencieusement (Est-ce que c'est bien la nuit ? La voyante est-elle en vie ? A-t-elle déjà joué ?). Si oui, il renvoie l'information de rôle de manière asynchrone uniquement au client de la voyante.
-- **Récupération de Connexion (Rejoin System)** : Le serveur mémorise les IDs de sessions (Sockets). Si un joueur perd sa connexion Wi-Fi et revient 30 secondes plus tard, le serveur reconstruit son interface à l'identique (au sein de son State) et relance les connexions WebRTC avec les autres.
-
-### 3. Persistance et Base de Données Hybride (Firebase Ecosystem) [⭐️⭐️⭐️]
-Pour pallier aux problématiques techniques, l'application utilise simultanément Firestore et Firebase Realtime Database.
-- **Firebase Firestore (NoSQL Documentaires)** : Stockage "froid" et persistant. Utilisé pour les Profils Utilisateurs, les Statistiques historiques, la validation d'Authentication, et les Paramètres globaux (Règles, configs admin). Il permet des requêtes complexes (ex: "Trouver tous les utilisateurs triés par le plus de points" pour un Leaderboard).
-- **Firebase Realtime Database (JSON Tree)** : Stockage ultra-rapide axé sur la "Présence". Utilisé pour l'interface Sociale (Qui de mes amis est en ligne / hors ligne) et la salle d'attente basique du salon, où chaque modification du profil (ping) est perçue en quelques millisecondes par le réseau.
-- **Firebase Storage** : Utilisé pour sauvegarder le profil (Avatars téléchargés par les utilisateurs).
-- **Firebase Authentication** : Gestion de session sécurisée (JWT, tokens côté client).
-
-### 4. Interface Dynamique et Responsive (React / Next.js) [⭐️⭐️]
-Le frontal de l'application gère de lourdes tâches d'interface sans ralentir ou perdre son état, et assure une expérience mobile similaire à une application native.
-- **Hooks Personnalisés** : La séparation claire de la logique métier (e.g., `useWebRTC`, `useGameSync`, `useAudio`) avec l'interface pure permet une complexité du jeu cachée sous le capot.
-- **Tailwind CSS & Animations** : Le jeu comporte de nombreuses animations CSS (le retournement des cartes de rôle via Transforms 3D `rotateY`, les transitions jour/nuit (filtres de couleurs, opacité absolue), le Slide du Sidebar Mobile).
-- **Gestion PWA / Mobile-First** : Optimisations pour smartphones, par exemple un Menu Hamburger pour la partie d'administration, ou la réorganisation dynamique des joueurs autour du bûcher, s'assurant que les cliques tactiles (pour cibler quelqu'un) sont ergonomiques.
-
-### 5. Administration et Sécurité (Tableaux de Bord) [⭐️]
-L'aspect gestion et observation (Mastering) du logiciel.
-- **Panel Admin** : Le projet abrite un dashboard sous `/admin` protégé par un vérificateur d'emails serveurs (`SUPER_ADMIN_EMAILS`).
-- **Simulateur de composants** : Des pages comme `/admin/components` ou `/admin/simulation` permettent de tester l'intégration des interfaces en modifiant de faux états globaux sans avoir besoin de 5 vrais joueurs pour le visualiser. Ce simulateur est particulièrement pertinent pour le débogage visuel rapide.
+1. **Connexion** — via email ou compte Google
+2. **Lobby** — un hôte crée un salon, choisit les rôles (auto ou personnalisé), invite ses amis
+3. **Révélation des rôles** — chaque joueur découvre son rôle en retournant sa carte
+4. **Élection du Maire** — vote pour désigner un maire (vote double au bûcher)
+5. **Boucle Nuit / Jour** :
+   - **Nuit** (45s) — les loups votent leur victime, les rôles spéciaux agissent
+   - **Jour** (60s) — le village débat de la nuit
+   - **Vote** (30s) — le village vote l'élimination d'un suspect
+6. **Fin de partie** — victoire du camp qui remplit sa condition. Les stats sont mises à jour.
+7. **Rejouer** — un nouveau salon identique est créé automatiquement
 
 ---
 
-## 🚀 Technologie Stack
+## 🎭 Rôles disponibles
 
-- **Frontend** : Next.js 14, React 18, Tailwind CSS, Heroicons
-- **Backend (Game Engine)** : Node.js, Express, Socket.io
-- **Base de données & Auth** : Firebase (Firestore, Realtime DB, Auth)
-- **Communications Audiovisuels** : WebRTC natif, Stun/Turn Google
-- **Hosting** : Infomaniak (Node Application) / Firebase Hosting
+### Camp Village
+| Rôle | Pouvoir |
+|------|---------|
+| Villageois | Aucun pouvoir spécial |
+| Sorcière | Potion de vie (sauvegarde aveugle) + Potion de mort |
+| Chasseur | Tire sur un joueur au moment de sa mort |
+| Voyante | Inspecte le rôle d'un joueur chaque nuit |
+| Cupidon | Unit deux amoureux lors de la première nuit |
+| Petite Fille | Entend le chat des loups (anonymisé) |
 
-## 📥 Lancement Local
+### Camp Loups-Garous
+| Rôle | Pouvoir |
+|------|---------|
+| Loup-Garou | Vote avec la meute pour éliminer un villageois |
+| Loup Alpha | Vote compte double la nuit |
+| Grand Méchant Loup | Peut tuer une seconde victime si aucun loup n'est mort |
+| Loup Infect | Transforme la victime des loups en loup au lieu de la tuer (auto-ciblé) |
 
-1. Installez les dépendances du frontend :
+### Camp Solitaires
+| Rôle | Condition de victoire |
+|------|----------------------|
+| Loup Blanc | Être le dernier survivant |
+| Fou | Être voté au bûcher (non infecté, non amoureux) |
+| Assassin | Être le dernier survivant |
+| Pyromane | Asperger des joueurs d'essence puis déclencher l'incendie — être le dernier survivant |
+| Empoisonneur | Empoisonner (mutisme) — être le dernier survivant |
+
+---
+
+## 🏆 Scénarios de fin de partie
+
+| # | Gagnant | Condition |
+|---|---------|-----------|
+| 1 | **VILLAGEOIS** | Tous les loups morts, tous les solos dangereux morts |
+| 2 | **LOUPS** | Loups vivants ≥ puissance de vote villageoise |
+| 3 | **AMOUR** | Les 2 amoureux de camps différents sont les 2 derniers survivants |
+| 4 | **FOU** | Le Fou est voté au bûcher (non infecté, non amoureux) |
+| 5 | **LOUP_BLANC** | Le Loup Blanc est le seul survivant |
+| 6 | **ASSASSIN** | L'Assassin est le seul survivant |
+| 7 | **PYROMANE** | Le Pyromane est le seul survivant |
+| 8 | **EMPOISONNEUR** | L'Empoisonneur est le seul survivant |
+| 9 | **NONE** | Tous les joueurs morts simultanément |
+
+> Le **Maire** bénéficie d'un vote double au bûcher. Si 1 villageois-maire affronte 1 loup en phase de jour, la partie continue (le maire peut voter le loup) — le serveur en tient compte dans le calcul de victoire.
+
+---
+
+## 🛠️ Architecture Technique
+
+### 1. Moteur de jeu serveur-autoritaire (Socket.io) ⭐⭐⭐⭐⭐
+
+Le serveur Node.js est la **source absolue de vérité** — le client ne peut pas tricher.
+
+- **Machine à états** : `LOBBY → ROLE_REVEAL → MAYOR_ELECTION → NIGHT → DAY_DISCUSSION → DAY_VOTE → GAME_OVER`
+- **Rate limiting** : 5 msg/s sur le chat, 10/s sur les votes, 5/s sur les pouvoirs
+- **Lookup O(1)** : `userSocketMap` (Map userId→socketId) pour le signaling WebRTC
+- **Payload personnalisé** : chaque joueur reçoit un état du jeu taillé sur mesure (rôles masqués, votes filtrés, messages nuit limités aux loups)
+- **Déconnexion intelligente** : en partie, l'avatar reste en jeu (`isDisconnected: true`) — le joueur peut revenir. En lobby, 60s de délai puis suppression
+- **Animations synchronisées** : délai de 2.5s côté serveur après chaque mort pour laisser l'animation côté client se jouer
+- **Sécurité** : CORS restreint aux origines configurées (`ALLOWED_ORIGINS`)
+
+### 2. Chat vocal P2P (WebRTC Mesh) ⭐⭐⭐⭐⭐
+
+Topologie Mesh (P2P direct), sans serveur média — coût serveur nul.
+
+- **Algorithme Polite Peer** : gestion des collisions de connexion simultanées
+- **Mute dynamique** : `MediaStreamTrack.enabled` selon la phase et le rôle (la nuit, seuls les loups s'entendent entre eux)
+- **STUN + TURN** : serveurs STUN Google + fallback TURN openrelay pour les réseaux NAT symétriques (4G, entreprise)
+- **Détection de parole** : analyse FFT en temps réel, indicateur visuel sur les avatars
+- **Deux types de salons** : avec ou sans microphone (configurable par l'hôte)
+
+### 3. Persistance Firebase Hybride ⭐⭐⭐
+
+| Service | Usage |
+|---------|-------|
+| **Firestore** | Profils, stats, salons, amis, notifications, chats privés |
+| **Realtime Database** | Présence en ligne (online/offline) |
+| **Firebase Auth** | Connexion email + Google OAuth |
+
+- **AuthContext** : un seul `onAuthStateChanged` pour toute l'application (partagé via React Context)
+- **PresenceManager** : mise à jour RTDB en fire-and-forget (aucune lecture Firestore bloquante)
+- **Pénalités de fuite** : via `increment()` Firestore (atomique, sans race condition)
+
+### 4. Interface React/Next.js ⭐⭐⭐
+
+- **Toasts** : système de notifications non-bloquantes (remplace tous les `alert()`)
+- **Transitions de phase** : overlay animé avec icône et titre à chaque changement de phase
+- **Timer visuel** : barre de progression + passage orange/rouge à l'approche de 0
+- **Animation de mort** : flash rouge sur l'avatar + `Mort.png` pendant 2.5s
+- **LoadingScreen** : messages animés cycliques + code salon copiable
+- **Error Boundary** : écran propre en cas d'erreur React inattendue
+
+### 5. Tests ⭐⭐
+
+**68 tests unitaires** couvrant la logique critique :
+
+| Suite | Tests |
+|-------|-------|
+| `checkVictory.test.ts` | Victoires village, loups, amour, solo, NONE |
+| `checkVictory.advanced.test.ts` | FOU infecté/amoureux, infectés, solos multiples |
+| `tallyVotes.test.ts` | Majorité, égalité, maire double, Loup Alpha double |
+| `distributeRoles.test.ts` | Formules A/B/C, total = J, village majoritaire |
+| `distributeCustomRoles.test.ts` | Pool vide, pool trop petit, Villageois en fallback |
+| `isInWolfCamp.test.ts` | Tous les rôles du jeu vérifiés |
+| `wolf_chat.test.ts` | Chat nuit Loup Alpha → Loup Garou |
+
+```bash
+npx jest
+```
+
+---
+
+## 📁 Structure du projet
+
+```
+werewolf/
+├── app/                        # Pages Next.js (App Router)
+│   ├── auth/                   # Connexion / Inscription
+│   ├── play/                   # Lobby — liste des salons
+│   ├── room/[code]/            # Salon de jeu
+│   │   └── edit/               # Configuration du salon
+│   ├── profil/                 # Profil joueur
+│   │   └── [id]/               # Profil d'un autre joueur
+│   └── admin/                  # Dashboard admin + simulateurs
+├── components/
+│   ├── game/
+│   │   ├── ActiveGame.tsx      # Interface de jeu (cercle de joueurs)
+│   │   ├── EndGame.tsx         # Écran de fin (stats + rejouer)
+│   │   ├── PlayerCircleNode.tsx# Avatar joueur + votes + effets
+│   │   ├── PhaseTransitionOverlay.tsx # Overlay animé entre phases
+│   │   └── RoleCard.tsx        # Carte de rôle (animation flip)
+│   ├── room/
+│   │   ├── VoiceChatManager.tsx# WebRTC P2P, mute dynamique
+│   │   └── LoadingScreen.tsx   # Écran de chargement animé
+│   ├── ErrorBoundary.tsx       # Filet de sécurité React
+│   ├── GlobalActionBar.tsx     # Notifications, messages, amis
+│   └── PresenceManager.tsx     # Statut en ligne (RTDB)
+├── contexts/
+│   ├── AuthContext.tsx          # Auth partagée (un seul listener)
+│   └── ToastContext.tsx         # Notifications toast globales
+├── hooks/
+│   └── useGameAudio.ts          # Ambiances et effets sonores
+├── server/
+│   ├── index.ts                 # HTTP + Socket.io (dev local)
+│   └── gameLogic.ts             # Moteur de jeu complet
+├── server.js                    # Point d'entrée production (Infomaniak)
+├── lib/
+│   ├── firebase.ts              # Init Firebase SDK
+│   └── roleDistribution.ts      # Algorithmes de distribution des rôles
+├── types/
+│   ├── game.ts                  # GameState, Player, Phase, Events
+│   └── roles.ts                 # Définitions des rôles et pouvoirs
+├── tests/                       # Tests unitaires Jest
+├── public/assets/
+│   ├── images/                  # Icônes, rôles, personnages
+│   └── soundeffects/            # Ambiances et effets sonores
+├── UX_TODO.md                   # Journal des améliorations UX
+├── start_dev.bat                # Lance l'environnement de dev complet
+└── .env.local                   # Variables d'environnement
+```
+
+---
+
+## 🚀 Lancement Local
+
+### Prérequis
+- Node.js ≥ 18
+- pnpm ou npm
+
+### Installation
+
+```bash
+# Dépendances frontend
+npm install
+
+# Dépendances backend
+cd server && npm install && cd ..
+```
+
+### Démarrage rapide (recommandé)
+
+```bat
+start_dev.bat
+```
+
+Le script :
+1. Tue les processus existants sur les ports 3000 et 3001
+2. Démarre le serveur Socket.io (port 3001)
+3. Lance ngrok (tunnel HTTPS pour tests externes)
+4. Vide le cache `.next`
+5. Démarre Next.js (port 3000)
+
+### Scripts npm disponibles
+
+| Commande | Description |
+|----------|-------------|
+| `npm run dev` | Frontend Next.js (port 3000) |
+| `npm run socket` | Serveur Socket.io (port 3001) |
+| `npm run build` | Build de production |
+| `npm run clean` | Supprime le cache `.next` |
+| `npm run fresh` | `clean` + `dev` |
+| `npx jest` | Lance les tests unitaires |
+
+---
+
+## ⚙️ Configuration (`.env.local`)
+
+```env
+# URL du serveur Socket.io
+NEXT_PUBLIC_SOCKET_URL=http://localhost:3001   # Dev local
+# NEXT_PUBLIC_SOCKET_URL=https://fullmoon.ismailhalouani.eu  # Production
+
+# Origines CORS autorisées (serveur Socket.io)
+ALLOWED_ORIGINS=https://fullmoon.ismailhalouani.eu,http://localhost:3000
+
+# Serveur TURN WebRTC (optionnel — openrelay en fallback si absent)
+# NEXT_PUBLIC_TURN_URL=turn:ton-serveur.com:3478
+# NEXT_PUBLIC_TURN_USERNAME=username
+# NEXT_PUBLIC_TURN_CREDENTIAL=password
+```
+
+---
+
+## 🌐 Déploiement (Production)
+
+| Composant | Hébergement | Notes |
+|-----------|-------------|-------|
+| Frontend + Backend | Infomaniak (Node.js) | Piloté par `server.js` |
+| Base de données | Firebase (Firestore + RTDB) | Cloud |
+
+### Fichiers à uploader après `npm run build`
+
+```
+.next/          ← build compilé
+server/         ← moteur de jeu
+lib/            ← firebase.ts, roleDistribution.ts
+types/          ← game.ts, roles.ts
+public/         ← assets, sons, images
+package.json
+next.config.ts
+server.js       ← point d'entrée production
+.npmrc
+```
+
+> ⚠️ Ne pas uploader : `node_modules/`, `.env.local` (valeurs de prod déjà sur le serveur), `tests/`
+
+Puis via SSH :
 ```bash
 npm install
-```
-2. Installez les dépendances du server Socket.io backend :
-```bash
-cd server
-npm install
-cd ..
-```
-3. Exécutez le frontend & le backend simultanément (nécessite deux terminaux) :
-```bash
-npm run dev # (Frontend Next.js au port 3000)
-node server/index.js # (Généralement au port 3001)
+pm2 restart all
 ```
 
-**Développé par [Ismail Halouani](mailto:ismail.halouani@gmail.com)**
+---
+
+## 🔒 Sécurité
+
+- **CORS restreint** : origines explicitement listées dans `ALLOWED_ORIGINS`
+- **Rate limiting** : protège les events Socket.io contre le spam
+- **Payload personnalisé** : chaque joueur ne reçoit que les informations auxquelles il a droit (rôles masqués, votes filtrés, chat nuit limité)
+- **Serveur autoritaire** : toute action est validée côté serveur avant d'être appliquée
+
+---
+
+## 👤 Auteur
+
+**Développé par [Ismail Halouani](mailto:ismail.halouani@gmail.com)**  
+SAE 601 — BUT MMI S6 Dev
