@@ -1,3 +1,8 @@
+    echo Arret des serveurs existants sur les ports 3000 et 3001...
+    for /f "tokens=5" %%a in ('netstat -ano ^| findstr ":3000 " ^| findstr "LISTENING"') do taskkill /PID %%a /F 2>nul
+    for /f "tokens=5" %%a in ('netstat -ano ^| findstr ":3001 " ^| findstr "LISTENING"') do taskkill /PID %%a /F 2>nul
+    timeout /t 1 /nobreak >nul
+
     echo 1. Starting Backend...
     start "1. Sockets" cmd /k "npm run socket"
 

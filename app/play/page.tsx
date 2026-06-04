@@ -9,6 +9,7 @@ import GroupChat from '../../components/GroupChat'; // Added GroupChat import
 import { db, rtdb } from '../../lib/firebase';
 import { doc, getDoc, collection, query, orderBy, onSnapshot, where, getDocs, addDoc, setDoc, updateDoc, arrayUnion, arrayRemove, deleteDoc } from 'firebase/firestore';
 import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from '@/contexts/ToastContext';
 import { ref, onValue } from 'firebase/database';
 import { useThemeStore } from '@/store/themeStore';
 
@@ -43,6 +44,7 @@ export default function PlayPage() {
     };
     // Auth et userData partagés — un seul listener pour toute l'app
     const { user, userData, loading } = useAuth();
+    const toast = useToast();
     const [activeTab, setActiveTab] = useState('Toutes');
     const [searchVillage, setSearchVillage] = useState('');
     const [searchPlayer, setSearchPlayer] = useState('');
@@ -437,7 +439,7 @@ export default function PlayPage() {
             // Check if the target user has blocked the current user
             const blockedMeSnap = await getDoc(doc(db, "users", targetUserId, "blocked", user.uid));
             if (blockedMeSnap.exists()) {
-                alert("Impossible d'envoyer une demande à ce joueur.");
+                toast.warning("Impossible d'envoyer une demande à ce joueur.");
                 return;
             }
 
@@ -453,7 +455,7 @@ export default function PlayPage() {
             setSentRequests(prev => [...prev, targetUserId]);
         } catch (err) {
             console.error("Error sending friend request", err);
-            alert("Erreur lors de l'envoi de la demande.");
+            toast.error("Erreur lors de l'envoi de la demande.");
         }
     };
 
@@ -530,7 +532,7 @@ export default function PlayPage() {
                 createdAt: new Date().toISOString(),
                 read: false
             });
-            alert(`Invitation au groupe envoyée à ${friendPseudo}.`);
+            toast.success(`Invitation envoyée à ${friendPseudo} !`);
         } catch (error) {
             console.error("Error sending group invite", error);
         }
@@ -552,13 +554,13 @@ export default function PlayPage() {
                 // Check if it's a village
                 if (groupData.isVillage) {
                     if (groupData.gameStarted) {
-                        alert("Ce village est déjà en partie !");
+                        toast.warning("Ce village est déjà en partie !");
                         await handleDeleteNotif(notif.id);
                         return;
                     }
                     const maxPlayers = groupData.maxPlayers || 16;
                     if (groupData.players && groupData.players.length >= maxPlayers) {
-                        alert("Ce village est complet !");
+                        toast.warning("Ce village est complet !");
                         await handleDeleteNotif(notif.id);
                         return;
                     }
@@ -566,13 +568,13 @@ export default function PlayPage() {
                 } else {
                     // It's a standard group lobby
                     if (groupData.players && groupData.players.length >= 18) {
-                        alert("Ce groupe est complet !");
+                        toast.warning("Ce groupe est complet !");
                         await handleDeleteNotif(notif.id);
                         return;
                     }
                 }
             } else {
-                alert("Ce groupe n'existe plus.");
+                toast.error("Ce groupe n'existe plus.");
                 await handleDeleteNotif(notif.id);
                 return;
             }
@@ -628,7 +630,7 @@ export default function PlayPage() {
             setGroup(null);
         } catch (error) {
             console.error("Error leaving group:", error);
-            alert("Erreur en quittant le groupe.");
+            toast.error("Erreur en quittant le groupe.");
         }
     };
 
@@ -645,7 +647,7 @@ export default function PlayPage() {
             if (isParty) {
                 // Check if user is the host
                 if (group.hostId !== user.uid) {
-                    alert("Seul le maître du groupe peut faire rejoindre le groupe dans un village.");
+                    toast.warning("Seul le maître du groupe peut faire rejoindre le groupe dans un village.");
                     return;
                 }
 
@@ -653,7 +655,7 @@ export default function PlayPage() {
                 // Check if village has enough space
                 const currentVillagePlayers = villageToJoin.players ? villageToJoin.players.length : 0;
                 if (currentVillagePlayers + group.players.length > (villageToJoin.maxPlayers || 16)) {
-                    alert("Il n'y a pas assez de place dans ce village pour tout votre groupe !");
+                    toast.warning("Il n'y a pas assez de place dans ce village pour tout votre groupe !");
                     return;
                 }
 
@@ -690,7 +692,7 @@ export default function PlayPage() {
 
                 // Check if village is full BEFORE joining
                 if (villageToJoin.players && villageToJoin.players.length >= (villageToJoin.maxPlayers || 16)) {
-                    alert("Ce village est déjà complet !");
+                    toast.warning("Ce village est déjà complet !");
                     return;
                 }
 
@@ -712,13 +714,13 @@ export default function PlayPage() {
             router.push(`/room/${villageToJoin.id}`);
         } catch (error) {
             console.error("Erreur lors de la connexion au village:", error);
-            alert("Erreur en rejoignant le village.");
+            toast.error("Erreur en rejoignant le village.");
         }
     };
 
     const handleCreateGroup = async () => {
         if (!user || !userData) {
-            alert("Vous devez être connecté pour créer un village.");
+            toast.error("Vous devez être connecté pour créer un village.");
             return;
         }
         isNavigatingRef.current = true;
@@ -730,12 +732,12 @@ export default function PlayPage() {
 
         if (isParty) {
             if (group.hostId !== user.uid) {
-                alert("Seul le maître du groupe peut créer un village pour le groupe.");
+                toast.warning("Seul le maître du groupe peut créer un village pour le groupe.");
                 return;
             }
         } else if (userData.currentGroupId && userData.currentGroupId !== user.uid) {
             // Already in a real village (or some other unknown state)
-            alert("Vous êtes déjà dans un village !");
+            toast.warning("Vous êtes déjà dans un village !");
             return;
         }
 
@@ -794,7 +796,7 @@ export default function PlayPage() {
 
         } catch (error) {
             console.error("Erreur lors de la création du village:", error);
-            alert("Une erreur est survenue lors de la création du village.");
+            toast.error("Une erreur est survenue lors de la création du village.");
         }
     };
 
@@ -806,7 +808,7 @@ export default function PlayPage() {
         const partySize: number = isParty ? group.players.length : 1;
 
         if (isParty && group.hostId !== user.uid) {
-            alert("Seul le maître du groupe peut lancer la recherche rapide.");
+            toast.warning("Seul le maître du groupe peut lancer la recherche rapide.");
             return;
         }
 
@@ -885,7 +887,7 @@ export default function PlayPage() {
             }
         } catch (error) {
             console.error("Erreur Quick Join:", error);
-            alert("Une erreur est survenue lors de la recherche rapide.");
+            toast.error("Une erreur est survenue lors de la recherche rapide.");
         }
     };
 
@@ -1103,7 +1105,7 @@ export default function PlayPage() {
 
                                                         // If it's already started and user is NOT inside, block join
                                                         if (isStarted && !isUserInGroup) {
-                                                            alert("Ce village est déjà en partie !");
+                                                            toast.warning("Ce village est déjà en partie !");
                                                             return;
                                                         }
 
@@ -1352,7 +1354,7 @@ export default function PlayPage() {
                                                         <button className="text-white hover:text-white md:text-transparent cursor-pointer mr-2" title="Inviter au groupe" onClick={() => handleInviteToGroup(friend.friendId, friend.pseudo)}><Image src="/assets/images/icones/plus-icon.png" alt="Inviter" width={14} height={14} /></button>
                                                     ) : <span className="opacity-0 px-2 py-1 mr-2"><Image src="/assets/images/icones/plus-icon.png" alt="" width={14} height={14} /></span>}
                                                     {isInGame && (
-                                                        <button className="hover:text-white cursor-pointer" title="Voir partie" onClick={() => alert("Fonctionnalité Spectateur à venir.")}><Image src="/assets/images/icones/eye-icon.png" alt="Voir partie" width={16} height={16} /></button>
+                                                        <button className="hover:text-white cursor-pointer" title="Voir partie" onClick={() => toast.info("Fonctionnalité Spectateur à venir.")}><Image src="/assets/images/icones/eye-icon.png" alt="Voir partie" width={16} height={16} /></button>
                                                     )}
                                                     {isOnline && (
                                                         <div className="relative flex items-center justify-center">

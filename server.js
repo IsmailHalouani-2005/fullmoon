@@ -20,16 +20,23 @@ const handle = app.getRequestHandler();
 
 const { setupGameLogic, getRoomStats } = require("./server/gameLogic");
 
+const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || 'http://localhost:3000').split(',').map(o => o.trim());
+
 app.prepare().then(() => {
     const server = createServer((req, res) => {
         const parsedUrl = parse(req.url, true);
+
+        // CORS
+        const origin = req.headers.origin || '';
+        const allowedOrigin = ALLOWED_ORIGINS.includes(origin) ? origin : '';
+        if (allowedOrigin) res.setHeader('Access-Control-Allow-Origin', allowedOrigin);
+        res.setHeader('Vary', 'Origin');
 
         // Live room stats endpoint – returns socket-connected player count per room
         if (parsedUrl.pathname === '/api/rooms-live' && req.method === 'GET') {
             const stats = getRoomStats();
             res.writeHead(200, {
                 'Content-Type': 'application/json',
-                'Access-Control-Allow-Origin': '*',
                 'Cache-Control': 'no-store'
             });
             res.end(JSON.stringify(stats));
@@ -41,7 +48,7 @@ app.prepare().then(() => {
 
     const io = new Server(server, {
         cors: {
-            origin: "*",
+            origin: ALLOWED_ORIGINS,
             methods: ["GET", "POST"]
         }
     });

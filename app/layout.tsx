@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { AuthProvider } from "../contexts/AuthContext";
+import { ToastProvider } from "../contexts/ToastContext";
 import PresenceManager from "../components/PresenceManager";
 import GlobalActionBar from "../components/GlobalActionBar";
 import MicrophoneDebug from "../components/MicrophoneDebug";
@@ -24,12 +25,14 @@ export default function RootLayout({
     <html lang="fr" className="scroll-smooth" suppressHydrationWarning>
       <body className="antialiased bg-background text-dark font-montserrat min-h-screen flex flex-col" suppressHydrationWarning>
         <AuthProvider>
-          <ErrorBoundary>
-            <PresenceManager />
-            <GlobalActionBar />
-            <MicrophoneDebug />
-            {children}
-          </ErrorBoundary>
+          <ToastProvider>
+            <ErrorBoundary>
+              <PresenceManager />
+              <GlobalActionBar />
+              <MicrophoneDebug />
+              {children}
+            </ErrorBoundary>
+          </ToastProvider>
         </AuthProvider>
       </body>
     </html>

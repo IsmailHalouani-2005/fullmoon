@@ -10,9 +10,11 @@ import { onAuthStateChanged, signOut, updateProfile, updateEmail, updatePassword
 import { doc, getDoc, updateDoc, deleteDoc, collection, query, where, getCountFromServer } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import ProfileStats from '../../components/profile/ProfileStats';
+import { useToast } from '../../contexts/ToastContext';
 
 export default function ProfilePage() {
     const router = useRouter();
+    const toast = useToast();
     const [loading, setLoading] = useState(true);
     const [user, setUser] = useState<any>(null);
     const [userData, setUserData] = useState<any>(null);
@@ -66,7 +68,7 @@ export default function ProfilePage() {
         if (e.target.files && e.target.files[0]) {
             const file = e.target.files[0];
             if (file.size > 1024 * 1024) {
-                alert("La taille de l'image ne doit pas dépasser 1 Mo.");
+                toast.warning("La taille de l'image ne doit pas dépasser 1 Mo.");
                 return;
             }
             setAvatarFile(file);
@@ -161,13 +163,13 @@ export default function ProfilePage() {
 
             // Update local state
             setUserData((prev: any) => ({ ...prev, pseudo, photoURL: currentPhotoUrl }));
-            alert("Modifications enregistrées avec succès !");
+            toast.success("Modifications enregistrées !");
         } catch (error: any) {
             console.error("Erreur lors de la sauvegarde :", error);
             if (error.code === 'auth/requires-recent-login') {
-                alert("Pour modifier l'email ou le mot de passe, veuillez vous déconnecter et vous reconnecter.");
+                toast.info("Pour modifier l'email ou le mot de passe, veuillez vous déconnecter et vous reconnecter.");
             } else {
-                alert("Erreur : la sauvegarde a échoué (l'image est-elle trop lourde pour Firestore ?). " + error.message);
+                toast.error("Erreur : la sauvegarde a échoué. " + error.message);
             }
         } finally {
             setIsSaving(false);
@@ -179,13 +181,13 @@ export default function ProfilePage() {
         try {
             const provider = new GoogleAuthProvider();
             await linkWithPopup(user, provider);
-            alert("Votre compte a bien été lié à Google !");
+            toast.success("Compte lié à Google !");
         } catch (error: any) {
             console.error("Erreur de liaison Google", error);
             if (error.code === 'auth/credential-already-in-use') {
-                alert("Ce compte Google est déjà lié à un autre profil.");
+                toast.error("Ce compte Google est déjà lié à un autre profil.");
             } else {
-                alert("Erreur lors de la liaison : " + error.message);
+                toast.error("Erreur lors de la liaison : " + error.message);
             }
         }
     };
@@ -207,11 +209,11 @@ export default function ProfilePage() {
         } catch (error: any) {
             console.error("Erreur de suppression de compte", error);
             if (error.code === 'auth/requires-recent-login') {
-                alert("Pour des raisons de sécurité, veuillez vous déconnecter et vous reconnecter avant de supprimer votre compte.");
+                toast.warning("Pour des raisons de sécurité, veuillez vous déconnecter et vous reconnecter avant de supprimer votre compte.");
                 await signOut(auth);
                 window.location.href = '/';
             } else {
-                alert("Erreur lors de la suppression : " + error.message);
+                toast.error("Erreur lors de la suppression : " + error.message);
             }
         }
     };
@@ -355,7 +357,7 @@ export default function ProfilePage() {
                                             onClick={(e) => {
                                                 e.preventDefault();
                                                 navigator.clipboard.writeText(user?.uid || "");
-                                                alert("UID copié : " + user?.uid);
+                                                toast.success("UID copié !");
                                             }}
                                         >
                                             <Image src="/assets/images/icones/copy_paste-icon_white.png" alt="Copier l'UID" width={16} height={16} />

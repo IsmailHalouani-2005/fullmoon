@@ -1,7 +1,7 @@
 import Image from 'next/image';
 import { Player, Phase, GameState } from '@/types/game';
 import { ROLES, RoleId, isInWolfCamp } from "@/types/roles";
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 // ─── Tooltip générique ────────────────────────────────────────────────────────
 type TooltipDir = 'top' | 'bottom' | 'left' | 'right';
@@ -144,6 +144,18 @@ export default function PlayerCircleNode({
     const isDead = !player.isAlive;
     const roleDef = mockRoleDef || (player.role ? ROLES[player.role as RoleId] : null);
 
+    // ── Animation de mort ──
+    const wasAliveRef = useRef(player.isAlive);
+    const [dyingAnimation, setDyingAnimation] = useState(false);
+    useEffect(() => {
+        if (wasAliveRef.current && !player.isAlive) {
+            setDyingAnimation(true);
+            const t = setTimeout(() => setDyingAnimation(false), 2000);
+            return () => clearTimeout(t);
+        }
+        wasAliveRef.current = player.isAlive;
+    }, [player.isAlive]);
+
     // ── Gestion du tooltip actif (un seul à la fois) ──
     const [activeTooltip, setActiveTooltip] = useState<string | null>(null);
     const toggleTip = (id: string) => setActiveTooltip(prev => prev === id ? null : id);
@@ -254,8 +266,15 @@ export default function PlayerCircleNode({
                 ${isEssenceTarget ? '!border-dashed !border-[#fbbf24] shadow-[0_0_15px_#fbbf24] animate-pulse scale-105' : ''}
                 ${isPoisonTarget || isPoisonTargetSelection ? '!border-purple-600 shadow-[0_0_15px_#9333ea]' : ''}
                 ${isHealed ? '!border-green-500 shadow-[0_0_15px_#22c55e]' : ''}
+                ${dyingAnimation ? '!border-red-600 shadow-[0_0_30px_rgba(220,38,38,0.8)] scale-110' : ''}
             `} title={displayAsWolfVictim ? "Cible des Loups" : (isGmlVictim ? "Carnage (Votre 2e cible)" : (isAssassinVote ? "Lame Noire (Votre cible)" : (isLoupBlancVote ? "Trahison (Votre cible)" : (isInfectedTarget ? "Cible de l'infection" : (isPoisonTarget || isPoisonTargetSelection ? "Cible de votre poison" : (isHealed ? "Sauvé par votre potion" : (isEssenceTarget ? "Cible de l'arrosage" : "")))))))}>
                 {displaySpeaking && <div className="voice-aura-wave" />}
+                {/* Animation de mort — flash rouge puis croix */}
+                {dyingAnimation && (
+                    <div className="absolute inset-0 z-50 rounded-full flex items-center justify-center bg-red-900/60" style={{ animation: 'toast-in 0.2s ease-out' }}>
+                        <Image src="/assets/images/icones/Mort.png" alt="Mort" fill className="object-cover rounded-full opacity-80" />
+                    </div>
+                )}
                 {/* MOCK: L'image de fond lune pour tout le monde */}
                 <div className={`absolute inset-0 bg-[#e3d1ae] rounded-full z-0 overflow-hidden ${isDead ? 'grayscale' : ''}`}></div>
                 <div className={`absolute inset-0 flex items-center justify-center opacity-30 z-0 select-none overflow-hidden ${isDead ? 'grayscale' : ''}`}>
@@ -361,29 +380,32 @@ export default function PlayerCircleNode({
                 {isMe && <span className="ml-1 text-[8px] opacity-70">(Moi)</span>}
             </p>
 
-            {/* Piles de voteurs sous le nom */}
-            {
-                isTargeted && (
-                    (currentPhase === 'NIGHT') ? (
-                        (isInWolfCamp(me?.role as RoleId)) ? (
-                            <div className="flex flex-wrap justify-center gap-1 w-full max-w-[100px] absolute top-[110%]">
-                                {votersForThisPlayer.map((vp, vIdx) => (
-                                    <div key={vIdx} className="relative w-5 h-5 rounded-full border-1 border-slate-700 overflow-hidden drop-shadow-sm transition-transform hover:scale-150 z-40" title={vp.name}>
-                                        <Image src={getPlayerAvatar(vp.id, vp.avatarUrl)} alt={vp.name} fill className="object-cover" />
-                                    </div>
-                                ))}
-                            </div>) : ""
-                    ) : (
-                        <div className="flex flex-wrap justify-center gap-1 w-full max-w-[100px] absolute top-[110%]">
-                            {votersForThisPlayer.map((vp, vIdx) => (
-                                <div key={vIdx} className="relative w-5 h-5 rounded-full border-1 border-slate-700 overflow-hidden drop-shadow-sm transition-transform hover:scale-150 z-40" title={vp.name}>
-                                    <Image src={getPlayerAvatar(vp.id, vp.avatarUrl)} alt={vp.name} fill className="object-cover" />
-                                </div>
-                            ))}
-                        </div>
-                    )
-                )
-            }
+            {/* Rangée de voteurs — avatars chevauchés + overflow +X */}
+            {isTargeted && (currentPhase !== 'NIGHT' || isInWolfCamp(me?.role as RoleId)) && (
+                <div className="absolute top-[108%] group z-40">
+                    <div className="flex items-center">
+                        {votersForThisPlayer.slice(0, 8).map((vp, vIdx) => (
+                            <div
+                                key={vIdx}
+                                className="relative w-5 h-5 rounded-full border border-slate-700 overflow-hidden shadow-sm flex-shrink-0"
+                                style={{ marginLeft: vIdx === 0 ? 0 : '-6px', zIndex: 10 + vIdx }}
+                                title={vp.name}
+                            >
+                                <Image src={getPlayerAvatar(vp.id, vp.avatarUrl)} alt={vp.name} fill className="object-cover" />
+                            </div>
+                        ))}
+                        {votersForThisPlayer.length > 8 && (
+                            <div className="relative w-5 h-5 rounded-full bg-slate-700 border border-slate-500 flex items-center justify-center text-[7px] font-extrabold text-white flex-shrink-0" style={{ marginLeft: '-6px', zIndex: 20 }}>
+                                +{votersForThisPlayer.length - 8}
+                            </div>
+                        )}
+                    </div>
+                    {/* Tooltip noms au survol */}
+                    <div className="absolute top-full left-1/2 -translate-x-1/2 mt-1 bg-black/95 text-white text-[9px] px-2 py-1 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none border border-white/10 z-50">
+                        {votersForThisPlayer.map(vp => vp.name).join(', ')}
+                    </div>
+                </div>
+            )}
         </div >
     );
 }

@@ -10,9 +10,11 @@ import { onAuthStateChanged } from 'firebase/auth';
 import PrivateChat from '../../../components/PrivateChat';
 import ProfileAvatarHeader from '../../../components/profile/ProfileAvatarHeader';
 import ProfileStats from '../../../components/profile/ProfileStats';
+import { useToast } from '../../../contexts/ToastContext';
 
 export default function PlayerProfilePage() {
     const router = useRouter();
+    const toast = useToast();
     const params = useParams();
     const playerId = params.id as string;
 
@@ -130,11 +132,11 @@ export default function PlayerProfilePage() {
 
     const handleRemoveFriend = async () => {
         if (!currentUser) {
-            alert("Vous devez être connecté pour retirer un ami.");
+            toast.error("Vous devez être connecté pour retirer un ami.");
             return;
         }
         if (!playerId || !playerData) {
-            alert("Les données du joueur sont incomplètes.");
+            toast.error("Les données du joueur sont incomplètes.");
             return;
         }
 
@@ -145,20 +147,20 @@ export default function PlayerProfilePage() {
             await deleteDoc(doc(db, "users", currentUser.uid, "friends", playerId));
             await deleteDoc(doc(db, "users", playerId, "friends", currentUser.uid));
             setIsFriend(false);
-            alert(`${playerData.pseudo} a été retiré de vos amis.`);
+            toast.success(`${playerData.pseudo} a été retiré de vos amis.`);
         } catch (error) {
             console.error("Erreur lors de la suppression de l'ami :", error);
-            alert("Erreur lors de la suppression.");
+            toast.error("Erreur lors de la suppression.");
         }
     };
 
     const handleBlockPlayer = async () => {
         if (!currentUser) {
-            alert("Vous devez être connecté pour bloquer un joueur.");
+            toast.error("Vous devez être connecté pour bloquer un joueur.");
             return;
         }
         if (!playerId || !playerData) {
-            alert("Les données du joueur sont incomplètes.");
+            toast.error("Les données du joueur sont incomplètes.");
             return;
         }
 
@@ -166,7 +168,7 @@ export default function PlayerProfilePage() {
             if (isBlocked) {
                 await deleteDoc(doc(db, "users", currentUser.uid, "blocked", playerId));
                 setIsBlocked(false);
-                alert(`${playerData.pseudo} a été débloqué.`);
+                toast.success(`${playerData.pseudo} a été débloqué.`);
             } else {
                 const confirmBlock = window.confirm(`Voulez-vous vraiment bloquer ${playerData.pseudo} ? Il ne pourra plus vous envoyer de demandes d'amis ni de messages.`);
                 if (!confirmBlock) return;
@@ -182,25 +184,25 @@ export default function PlayerProfilePage() {
                 }
 
                 setIsBlocked(true);
-                alert(`${playerData.pseudo} a été bloqué.`);
+                toast.success(`${playerData.pseudo} a été bloqué.`);
             }
         } catch (error) {
             console.error("Erreur lors du blocage :", error);
-            alert("Erreur lors de l'opération.");
+            toast.error("Erreur lors de l'opération.");
         }
     };
 
     const handleSendFriendRequest = async () => {
         if (!currentUser || !currentUserData) {
-            alert("Vous devez être connecté pour envoyer une demande d'ami.");
+            toast.error("Vous devez être connecté pour envoyer une demande d'ami.");
             return;
         }
         if (!playerData) {
-            alert("Les données du joueur sont incomplètes.");
+            toast.error("Les données du joueur sont incomplètes.");
             return;
         }
         if (hasBlockedMe) {
-            alert("Impossible d'envoyer une demande à ce joueur.");
+            toast.warning("Impossible d'envoyer une demande à ce joueur.");
             return;
         }
 
@@ -215,10 +217,10 @@ export default function PlayerProfilePage() {
                 read: false
             });
             setHasPendingRequest(true);
-            alert("Demande d'ami envoyée !");
+            toast.success("Demande d'ami envoyée !");
         } catch (err) {
             console.error("Error sending friend request", err);
-            alert("Erreur lors de l'envoi de la demande.");
+            toast.error("Erreur lors de l'envoi de la demande.");
         }
     };
 
@@ -279,7 +281,7 @@ export default function PlayerProfilePage() {
                         hasPendingRequest={hasPendingRequest}
                         unreadCount={unreadCount}
                         onMessage={() => {
-                            if (hasBlockedMe) alert("Impossible d'envoyer un message à ce joueur.");
+                            if (hasBlockedMe) toast.warning("Impossible d'envoyer un message à ce joueur.");
                             else setShowChat(true);
                         }}
                         onRemoveFriend={handleRemoveFriend}

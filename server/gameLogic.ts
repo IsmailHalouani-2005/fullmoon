@@ -486,27 +486,22 @@ export function setupGameLogic(io: Server<ClientToServerEvents, ServerToClientEv
                     }
                     break;
                 case 'MORSURE_INFECTE':
-                    // Update real-time infection target for UI
-                    game.infectedVictimId = payload.targetId || null;
-
-                    // Support toggle selection
+                    // Le Loup Infecté auto-cible la victime des loups — toggle on/off
                     const existingInfectIdx = game.nightActions.findIndex(a => a.sourceId === userId && a.powerId === 'MORSURE_INFECTE');
-                    if (existingInfectIdx !== -1 && game.nightActions[existingInfectIdx].targetId === payload.targetId) {
+                    if (existingInfectIdx !== -1) {
+                        // Désactiver si déjà activé
                         game.nightActions.splice(existingInfectIdx, 1);
                         game.infectedVictimId = null;
                         emitGameState(roomCode, game, io);
                         return;
                     }
-
-                    game.nightActions = game.nightActions.filter(a => a.sourceId !== userId || a.powerId !== 'MORSURE_INFECTE');
-                    if (payload.targetId) {
-                        game.nightActions.push({
-                            type: 'power',
-                            powerId: 'MORSURE_INFECTE',
-                            sourceId: userId,
-                            targetId: payload.targetId
-                        });
-                    }
+                    // Activer — la cible réelle est déterminée à la résolution de nuit (wolfVictimId)
+                    game.infectedVictimId = game.wolfVictimId || null;
+                    game.nightActions.push({
+                        type: 'power',
+                        powerId: 'MORSURE_INFECTE',
+                        sourceId: userId,
+                    });
                     break;
                 case 'ESSENCE':
                     // Vérifier si ALLUMETTE est déjà utilisé
@@ -597,6 +592,11 @@ export function setupGameLogic(io: Server<ClientToServerEvents, ServerToClientEv
                             targetId: payload.targetId
                         });
                     }
+                    break;
+                case 'POTION_SOIN':
+                    // Sauvegarde aveugle — pas de targetId, la cible est résolue au lever du jour
+                    game.nightActions = game.nightActions.filter(a => a.sourceId !== userId || a.powerId !== 'POTION_SOIN');
+                    game.nightActions.push({ type: 'power', powerId: 'POTION_SOIN', sourceId: userId });
                     break;
                 default:
                     // Store other night actions for dawn resolution
@@ -1007,7 +1007,10 @@ function handlePhaseEnd(roomCode: string, endedPhase: Phase, games: Record<strin
                 game.chatMessages.push(mayorMsg);
                 io.to(roomCode).emit("chat_message", mayorMsg);
             }
-            startPhase(roomCode, 'NIGHT', games, gameTimers, io);
+            // Délai pour laisser le temps à l'overlay de couronnement de s'afficher
+            setTimeout(() => {
+                if (games[roomCode]) startPhase(roomCode, 'NIGHT', games, gameTimers, io);
+            }, 2500);
             break;
         }
         case 'MAYOR_SUCCESSION':
@@ -1069,11 +1072,10 @@ function handlePhaseEnd(roomCode: string, endedPhase: Phase, games: Record<strin
 
                 switch (action.powerId) {
                     case 'POTION_SOIN':
-                        if (!caster.usedPowers.includes('POTION_SOIN')) {
-                            if (action.targetId === wolfVictimId) {
-                                protectedId = action.targetId;
-                                caster.stats.saves += 1;
-                            }
+                        // La sorcière sauve à l'aveugle — la cible est automatiquement la victime des loups
+                        if (!caster.usedPowers.includes('POTION_SOIN') && wolfVictimId) {
+                            protectedId = wolfVictimId;
+                            caster.stats.saves += 1;
                             caster.usedPowers.push('POTION_SOIN');
                             caster.stats.powerUses += 1;
                         }
@@ -1087,8 +1089,9 @@ function handlePhaseEnd(roomCode: string, endedPhase: Phase, games: Record<strin
                         }
                         break;
                     case 'MORSURE_INFECTE':
-                        if (action.targetId === wolfVictimId) {
-                            infectedId = action.targetId;
+                        // Le Loup Infecté cible automatiquement la victime des loups
+                        if (wolfVictimId) {
+                            infectedId = wolfVictimId;
                             caster.usedPowers.push('MORSURE_INFECTE');
                             caster.stats.powerUses += 1;
                         }
@@ -1299,18 +1302,10 @@ function handlePhaseEnd(roomCode: string, endedPhase: Phase, games: Record<strin
                 game.mayorId = null;
             }
 
-            if (anyHunterDiedAtNight) {
-                game.nextPhase = 'DAY_DISCUSSION';
-                startPhase(roomCode, 'HUNTER_SHOT', games, gameTimers, io);
-            } else {
-                if (game.dyingMayorId) {
-                    game.queuedPhase = 'DAY_DISCUSSION';
-                    startPhase(roomCode, 'MAYOR_SUCCESSION', games, gameTimers, io);
-                } else {
-                    startPhase(roomCode, 'DAY_DISCUSSION', games, gameTimers, io);
-                }
-            }
+            // Émettre l'état avec les morts marqués pour que le client joue l'animation
+            emitGameState(roomCode, game, io);
 
+            // Annoncer les morts
             if (uniqueDeaths.length > 0) {
                 uniqueDeaths.forEach(dId => {
                     const p = game.players.find(player => player.id === dId);
@@ -1323,10 +1318,27 @@ function handlePhaseEnd(roomCode: string, endedPhase: Phase, games: Record<strin
                 io.to(roomCode).emit("chat_message", { senderId: 'system', senderName: 'Système', text: `Personne n'est mort cette nuit.`, time: Date.now(), chatType: 'system' });
             }
 
-            if (!anyHunterDiedAtNight) {
-                const vDetailsAtNight = checkVictory(game);
-                if (vDetailsAtNight) triggerGameOver(roomCode, vDetailsAtNight, games, gameTimers, io);
-            }
+            // Attendre la fin de l'animation de mort (2.5s) avant de passer à la phase suivante
+            const deathDelayNight = uniqueDeaths.length > 0 ? 2500 : 0;
+            setTimeout(() => {
+                const g = games[roomCode];
+                if (!g) return;
+                if (anyHunterDiedAtNight) {
+                    g.nextPhase = 'DAY_DISCUSSION';
+                    startPhase(roomCode, 'HUNTER_SHOT', games, gameTimers, io);
+                } else {
+                    if (g.dyingMayorId) {
+                        g.queuedPhase = 'DAY_DISCUSSION';
+                        startPhase(roomCode, 'MAYOR_SUCCESSION', games, gameTimers, io);
+                    } else {
+                        startPhase(roomCode, 'DAY_DISCUSSION', games, gameTimers, io);
+                    }
+                }
+                if (!anyHunterDiedAtNight) {
+                    const vDetailsAtNight = checkVictory(g);
+                    if (vDetailsAtNight) triggerGameOver(roomCode, vDetailsAtNight, games, gameTimers, io);
+                }
+            }, deathDelayNight);
             break;
         case 'DAY_DISCUSSION':
             // Clear silences at the end of day? No, user said "cycle of day and night".
@@ -1372,8 +1384,11 @@ function handlePhaseEnd(roomCode: string, endedPhase: Phase, games: Record<strin
                 }
             }
 
+            // Émettre l'état pour que le client joue l'animation de mort
+            if (deathsDay.length > 0) emitGameState(roomCode, game, io);
+
             if (fouWon && deadFouPlayer) {
-                triggerGameOver(roomCode, { winner: 'FOU', players: [deadFouPlayer] }, games, gameTimers, io);
+                setTimeout(() => triggerGameOver(roomCode, { winner: 'FOU', players: [deadFouPlayer] }, games, gameTimers, io), deathsDay.length > 0 ? 2500 : 0);
                 return;
             }
 
@@ -1388,22 +1403,27 @@ function handlePhaseEnd(roomCode: string, endedPhase: Phase, games: Record<strin
                 return p?.role === 'CHASSEUR' && !p?.effects.includes('poisoned');
             });
 
-            if (anyHunterDiedAtDay) {
-                game.nextPhase = 'NIGHT';
-                startPhase(roomCode, 'HUNTER_SHOT', games, gameTimers, io);
-                return;
-            }
-
-            const victoryDetails = checkVictory(game);
-            if (victoryDetails) triggerGameOver(roomCode, victoryDetails, games, gameTimers, io);
-            else {
-                if (game.dyingMayorId) {
-                    game.queuedPhase = 'NIGHT';
-                    startPhase(roomCode, 'MAYOR_SUCCESSION', games, gameTimers, io);
-                } else {
-                    startPhase(roomCode, 'NIGHT', games, gameTimers, io);
+            // Attendre l'animation de mort avant de passer à la phase suivante
+            const deathDelayDay = deathsDay.length > 0 ? 2500 : 0;
+            setTimeout(() => {
+                const g = games[roomCode];
+                if (!g) return;
+                if (anyHunterDiedAtDay) {
+                    g.nextPhase = 'NIGHT';
+                    startPhase(roomCode, 'HUNTER_SHOT', games, gameTimers, io);
+                    return;
                 }
-            }
+                const victoryDetails = checkVictory(g);
+                if (victoryDetails) triggerGameOver(roomCode, victoryDetails, games, gameTimers, io);
+                else {
+                    if (g.dyingMayorId) {
+                        g.queuedPhase = 'NIGHT';
+                        startPhase(roomCode, 'MAYOR_SUCCESSION', games, gameTimers, io);
+                    } else {
+                        startPhase(roomCode, 'NIGHT', games, gameTimers, io);
+                    }
+                }
+            }, deathDelayDay);
             break;
         case 'HUNTER_SHOT':
             if (game.timer <= 0) {
@@ -1542,7 +1562,22 @@ export function checkVictory(game: GameState): { winner: string, players: Player
     }
 
     // Wolf victory
-    if (loupsVivants.length >= villageoisVivantsPourRatio.length && solosDangereuxVivants.length === 0 && !hasMixedCoupleAlive) {
+    // Durant le jour, le vote double du maire côté village est pris en compte :
+    // si le maire est un villageois, il pèse 2 votes au bûcher — les loups ne peuvent
+    // pas être déclarés vainqueurs tant que la puissance de vote du village reste supérieure.
+    let effectiveVillagerPower = villageoisVivantsPourRatio.length;
+    if (game.isMayorEnabled !== false && game.mayorId &&
+        (game.phase === 'DAY_DISCUSSION' || game.phase === 'DAY_VOTE')) {
+        const mayor = game.players.find(p => p.id === game.mayorId && p.isAlive);
+        const mayorIsVillagerSide = mayor &&
+            !loupsVivants.find(lp => lp.id === mayor.id) &&
+            ROLES[mayor.role as RoleId]?.camp !== 'SOLO';
+        if (mayorIsVillagerSide) {
+            effectiveVillagerPower += 1; // Le maire compte double
+        }
+    }
+
+    if (loupsVivants.length >= effectiveVillagerPower && solosDangereuxVivants.length === 0 && !hasMixedCoupleAlive) {
         const allLoups = game.players.filter(p => (p.role && isInWolfCamp(p.role as RoleId)) || p.effects?.includes('infected'));
         return { winner: 'LOUPS', players: allLoups };
     }
@@ -1585,10 +1620,14 @@ function triggerGameOver(roomCode: string, victoryDetails: { winner: string, pla
         ...stillDisconnected
     ];
 
+    // Générer le code du prochain salon (mêmes paramètres, vide au départ)
+    const nextRoomCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+
     const gameOverPayload = {
         winner: victoryDetails.winner,
         players: game.players,
-        disconnectedPlayers: allFled
+        disconnectedPlayers: allFled,
+        nextRoomCode,
     };
 
     setTimeout(() => {

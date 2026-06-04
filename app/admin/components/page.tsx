@@ -616,6 +616,8 @@ export default function ComponentsTestPage() {
                                         confirmLeave={() => { alert('Mock: Quitter le village'); setIsGameOverOpen(false); }}
                                         getPlayerAvatar={(id) => '/assets/images/icones/Photo_Profil-transparent.png'}
                                         currentUserId="mock-end-0"
+                                        onReplay={() => alert('Mock: Rejouer')}
+                                        hasNextRoom={false}
                                     />
                                 </div>
                             </div>

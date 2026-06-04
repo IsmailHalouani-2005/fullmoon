@@ -8,10 +8,11 @@ import { io, Socket } from 'socket.io-client';
 import { User } from 'firebase/auth';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from '@/contexts/ToastContext';
 import { GameState, ServerToClientEvents, ClientToServerEvents, Player, Phase } from '@/types/game';
 import { ROLES, RoleId, PowerId, isInWolfCamp } from "@/types/roles";
 import { distributeRoles, distributeCustomRoles } from '@/lib/roleDistribution';
-import { doc, getDoc, deleteDoc, collection, query, onSnapshot, addDoc, updateDoc, increment } from 'firebase/firestore';
+import { doc, getDoc, setDoc, deleteDoc, collection, query, onSnapshot, addDoc, updateDoc, increment, arrayUnion } from 'firebase/firestore';
 import { getDatabase, ref, onValue } from 'firebase/database';
 import RoleInfoModal from '@/components/room/edit/RoleInfoModal';
 import RoleCard from '../../../components/game/RoleCard';
@@ -22,6 +23,7 @@ import LoadingScreen from '@/components/room/LoadingScreen';
 import LoversModal from '@/components/game/LoversModal';
 import InfectedModal from '@/components/game/InfectedModal';
 import VoiceChatManager from '@/components/room/VoiceChatManager';
+import PhaseTransitionOverlay from '@/components/game/PhaseTransitionOverlay';
 
 import { useGameAudio } from '@/hooks/useGameAudio';
 
@@ -31,6 +33,7 @@ export default function RoomPage() {
     const router = useRouter();
 
     const { user: authUser, userData: authUserData, loading: authLoading } = useAuth();
+    const toast = useToast();
     const [user, setUser] = useState<User | null>(null);
     const [game, setGame] = useState<GameState | null>(null);
     const [socket, setSocket] = useState<Socket<ServerToClientEvents, ClientToServerEvents> | null>(null);
@@ -104,11 +107,13 @@ export default function RoomPage() {
 
     // UI State
     const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
-    const [gameOverData, setGameOverData] = useState<{ winner: string; players: Player[] } | null>(null);
+    const [gameOverData, setGameOverData] = useState<{ winner: string; players: Player[]; nextRoomCode?: string } | null>(null);
+    const [nextRoomCode, setNextRoomCode] = useState<string | null>(null);
     const [hasSeenLoverModal, setHasSeenLoverModal] = useState(false);
     const [hasSeenInfectedModal, setHasSeenInfectedModal] = useState(false);
     const [showAllumetteConfirm, setShowAllumetteConfirm] = useState(false);
     const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+    const [socketConnected, setSocketConnected] = useState(false);
 
     // Voice Chat State
     const [isMicroOn, setIsMicroOn] = useState(true);
@@ -126,7 +131,7 @@ export default function RoomPage() {
     const [showPlayerIdleWarning, setShowPlayerIdleWarning] = useState(false);
 
     // Audio System
-    const { isMuted, setIsMuted } = useGameAudio(game, user?.uid, socket, activePower, ambianceVolume);
+    const { isMuted, setIsMuted, playOneShot } = useGameAudio(game, user?.uid, socket, activePower, ambianceVolume);
 
     // --- SORCIÈRE MODALS ---
     const [witchHealTarget, setWitchHealTarget] = useState<string | null>(null);
@@ -201,7 +206,7 @@ export default function RoomPage() {
             try {
                 const groupDoc = await getDoc(doc(db, "groups", roomCode as string));
                 if (!groupDoc.exists()) {
-                    alert("Ce salon n'existe plus ou a été fermé.");
+                    toast.error("Ce salon n'existe plus ou a été fermé.");
                     router.push('/play');
                     return;
                 }
@@ -210,7 +215,7 @@ export default function RoomPage() {
                 const isUserInGroup = data.players?.some((p: any) => p.uid === user.uid);
 
                 if (data.phase === 'GAME_OVER' && !isUserInGroup) {
-                    alert("Cette partie est terminée. Impossible de la rejoindre en cours.");
+                    toast.warning("Cette partie est terminée. Impossible de la rejoindre en cours.");
                     router.push('/play');
                     return;
                 }
@@ -263,7 +268,43 @@ export default function RoomPage() {
 
         newSocket.on('game_over', async (payload) => {
             setGameOverData(payload);
-            setIsMicroOn(true); // Re-enable mic for everyone at the end of the game
+            setIsMicroOn(true);
+
+            // Stocker le code du prochain salon pour le bouton "Rejouer"
+            if (payload.nextRoomCode) {
+                setNextRoomCode(payload.nextRoomCode);
+            }
+
+            // L'hôte crée le prochain salon en Firestore (mêmes paramètres, players: [])
+            if (groupConfig?.hostId === user?.uid && payload.nextRoomCode) {
+                try {
+                    const currentRoomDoc = await getDoc(doc(db, "groups", roomCode as string));
+                    if (currentRoomDoc.exists()) {
+                        const d = currentRoomDoc.data();
+                        await setDoc(doc(db, "groups", payload.nextRoomCode), {
+                            name: d.name || 'Village',
+                            mode: d.isCustom ? 'Personnalisé' : 'Classique',
+                            isPrivate: d.isPrivate || false,
+                            isMicro: d.isMicro || false,
+                            isMayorEnabled: d.isMayorEnabled !== false,
+                            maxPlayers: d.maxPlayers || 16,
+                            rolesCount: d.rolesCount || {},
+                            isCustom: d.isCustom || false,
+                            isVillage: true,
+                            hostId: user?.uid,
+                            hostPseudo: authUserData?.pseudo || user?.displayName || 'Joueur',
+                            hostPhoto: getSafeAvatarUrl(user?.photoURL || firestorePhotoURL) || '',
+                            isConfigured: true,
+                            players: [],  // Vide → invisible dans /play jusqu'au 1er joueur
+                            gameStarted: false,
+                            secretCode: Math.random().toString(36).substring(2, 8).toUpperCase(),
+                            createdAt: new Date().toISOString(),
+                        });
+                    }
+                } catch (e) {
+                    console.warn("Could not create next room", e);
+                }
+            }
 
             // --- FIREBASE STATS UPDATE ---
             if (!user) return;
@@ -345,7 +386,7 @@ export default function RoomPage() {
         });
 
         newSocket.on('room_shutdown', async (reason) => {
-            alert(reason);
+            toast.warning(reason);
             // Fallback : Si on est l'hôte et qu'on reçoit cet événement (ex: inactivité), 
             // on s'assure que la room est bien supprimée de la base de données
             if (groupConfig?.hostId === user.uid) {
@@ -373,8 +414,13 @@ export default function RoomPage() {
             });
         });
 
+        // Suivi de l'état de connexion pour l'indicateur visuel
+        newSocket.on('connect',    () => setSocketConnected(true));
+        newSocket.on('disconnect', () => setSocketConnected(false));
+
         // Gestion de la reconnexion automatique par Socket.io
         newSocket.on('reconnect', () => {
+            setSocketConnected(true);
             newSocket.emit('join_game', {
                 roomCode,
                 userId: user.uid,
@@ -570,7 +616,7 @@ export default function RoomPage() {
                             stream.getTracks().forEach(t => t.stop());
                             setMicPermissionGranted(true);
                         } catch (err) {
-                            alert("Le microphone est nécessaire pour ce salon.");
+                            toast.error("Le microphone est nécessaire pour ce salon.");
                             setMicPermissionGranted(true);
                         }
                     }}
@@ -620,13 +666,13 @@ export default function RoomPage() {
     const copyInviteLink = () => {
         const link = `${window.location.origin}/room/${roomCode}`;
         navigator.clipboard.writeText(link);
-        alert("Lien copié dans le presse-papiers !");
+        toast.success("Lien copié !");
     };
 
     const copySecretCode = () => {
         if (!game?.secretCode) return;
         navigator.clipboard.writeText(game.secretCode);
-        alert("Code secret copié dans le presse-papiers !");
+        toast.success("Code secret copié !");
     };
 
     const handleInviteFriend = async (friendId: string, friendPseudo: string) => {
@@ -643,11 +689,32 @@ export default function RoomPage() {
                 read: false
             });
             setInvitedFriends(prev => [...prev, friendId]);
-            alert(`Invitation envoyée à ${friendPseudo}.`);
+            toast.success(`Invitation envoyée à ${friendPseudo} !`);
         } catch (error) {
             console.error("Error sending invite", error);
-            alert("Erreur lors de l'envoi de l'invitation.");
+            toast.error("Erreur lors de l'envoi de l'invitation.");
         }
+    };
+
+    const handleReplay = async () => {
+        if (!nextRoomCode || !user) {
+            router.push('/play');
+            return;
+        }
+        try {
+            // Ajouter le joueur au doc Firestore du nouveau salon
+            // (rend le salon visible dans /play dès le 1er rejoueur)
+            await updateDoc(doc(db, "groups", nextRoomCode), {
+                players: arrayUnion({
+                    uid: user.uid,
+                    pseudo: authUserData?.pseudo || user.displayName || 'Joueur',
+                    photoURL: getSafeAvatarUrl(user.photoURL || firestorePhotoURL) || '',
+                })
+            });
+        } catch (e) {
+            console.warn("handleReplay Firestore error", e);
+        }
+        router.push(`/room/${nextRoomCode}`);
     };
 
     const confirmAllumette = () => {
@@ -658,6 +725,26 @@ export default function RoomPage() {
     const handlePowerClick = (powerId: string) => {
         if (powerId === 'ALLUMETTE') {
             setShowAllumetteConfirm(true);
+            return;
+        }
+
+        // POTION_SOIN : sauvegarde aveugle, déclenche directement la modal de confirmation
+        if (powerId === 'POTION_SOIN') {
+            if (!game?.wolfVictimId) {
+                toast.info("Personne n'est ciblé cette nuit.");
+                return;
+            }
+            setWitchHealTarget('blind');
+            return;
+        }
+
+        // MORSURE_INFECTE : auto-cible la victime des loups, toggle on/off
+        if (powerId === 'MORSURE_INFECTE') {
+            if (!game?.wolfVictimId) {
+                toast.info("Aucune victime à infecter cette nuit.");
+                return;
+            }
+            socket?.emit('use_power', { powerId: 'MORSURE_INFECTE' });
             return;
         }
 
@@ -697,16 +784,16 @@ export default function RoomPage() {
                 setPowerTargets([]);
             }
         } else if (activePower === 'POTION_SOIN') {
-            if (playerId !== game.wolfVictimId) {
-                // Not ideal to use alert here still, maybe a custom temporary error?
-                // Let's stick to the prompt replacement for now, as requested "small modal asking if he wants to save"
-                alert("Vous ne pouvez utiliser cette potion que sur la victime des loups.");
+            // La sorcière sauve à l'aveugle — pas besoin de cibler un joueur spécifique
+            // Le serveur applique la potion automatiquement sur la victime des loups
+            if (!game.wolfVictimId) {
+                toast.info("Personne n'est ciblé cette nuit.");
                 return;
             }
-            setWitchHealTarget(playerId);
+            setWitchHealTarget('blind'); // Signal "sauvegarde aveugle"
         } else if (activePower === 'POTION_POISON') {
             if (me && playerId === me.id) {
-                alert("Vous ne pouvez pas vous empoisonner vous-même.");
+                toast.warning("Vous ne pouvez pas vous empoisonner vous-même.");
                 return;
             }
             setWitchPoisonTarget(playerId);
@@ -714,11 +801,11 @@ export default function RoomPage() {
             const targetPlayer = game.players.find(p => p.id === playerId);
             if (me && playerId === me.id) {
                 // Not ideal but matches the current codebase style
-                alert("Vous ne pouvez pas vous arroser vous-même !");
+                toast.warning("Vous ne pouvez pas vous arroser vous-même !");
                 return;
             }
             if (targetPlayer && targetPlayer.effects.includes('gasoline')) {
-                alert("Ce joueur est déjà aspergé d'essence !");
+                toast.warning("Ce joueur est déjà aspergé d'essence !");
                 return;
             }
             socket?.emit('use_power', { powerId: activePower as PowerId, targetId: playerId });
@@ -726,11 +813,11 @@ export default function RoomPage() {
             setPowerTargets([]);
         } else if (activePower === 'POISON_TOXIQUE') {
             if (me && playerId === me.id) {
-                alert("Vous ne pouvez pas vous empoisonner vous-même !");
+                toast.warning("Vous ne pouvez pas vous empoisonner vous-même !");
                 return;
             }
             if (playerId === game.lastPoisonedId) {
-                alert("Vous ne pouvez pas empoisonner le même joueur deux nuits de suite !");
+                toast.warning("Vous ne pouvez pas empoisonner le même joueur deux nuits de suite !");
                 return;
             }
             socket?.emit('use_power', { powerId: activePower as PowerId, targetId: playerId });
@@ -738,6 +825,7 @@ export default function RoomPage() {
             setPowerTargets([]);
         } else {
             // Single target powers
+            if (activePower === 'FUSIL') playOneShot(); // Son du tir au moment du clic
             socket?.emit('use_power', { powerId: activePower as PowerId, targetId: playerId });
             setActivePower(null);
             setPowerTargets([]);
@@ -752,7 +840,7 @@ export default function RoomPage() {
             {/* Mobile Toggle Button (Visible only on small screens) */}
             <button
                 onClick={() => { setIsMobileSidebarOpen(!isMobileSidebarOpen); setIsPlayersListOpen(false); setIsInviteOpen(false); }}
-                className={`md:hidden fixed top-4 left-4 z-[110] p-2 rounded-md bg-dark text-white border-2 transition-colors shadow-lg border-secondary hover:bg-black`}
+                className={`md:hidden fixed top-4 left-4 z-[110] p-2 rounded-md bg-dark text-white border-2 transition-colors shadow-lg border-secondary hover:bg-black ${!isMobileSidebarOpen && game?.phase === 'LOBBY' ? 'animate-bounce' : ''}`}
                 title={isMobileSidebarOpen ? "Fermer le menu" : "Ouvrir le menu"}
             >
                 {isMobileSidebarOpen ? (
@@ -787,9 +875,16 @@ export default function RoomPage() {
             <aside className={`fixed md:relative inset-y-0 left-0 z-[100] w-80 md:w-100 flex flex-col p-4 transition-transform duration-300 transform md:translate-x-0 ${isMobileSidebarOpen ? 'translate-x-0' : '-translate-x-full'} ${currentPhase === 'NIGHT' ? 'bg-[#16161e] border-r border-[#2a2b3d]' : 'bg-[#fafafa] shadow-2xl md:shadow-none'}`}>
                 {/* Ligne du haut : Home, Params, Amis */}
                 <div className={`flex justify-between items-center bg-transparent border-3 rounded-lg px-3 py-1 ml-14 mb-6 md:ml-0 transition-colors duration-1000 ${currentPhase === 'NIGHT' ? 'bg-[#1f202e] border-slate-600 text-white' : 'bg-white border-dark text-slate-900'}`}>
-                    <button onClick={() => { handleSafeLeave(); setIsMobileSidebarOpen(false); setIsPlayersListOpen(false); setIsInviteOpen(false); }} className="hover:opacity-70 transition-opacity flex items-center justify-center p-1">
-                        <Image src={currentPhase === 'NIGHT' ? '/assets/images/icones/home-icon_white.png' : '/assets/images/icones/home-icon_black.png'} alt="Accueil" width={22} height={22} />
-                    </button>
+                    <div className="flex items-center gap-2">
+                        <button onClick={() => { handleSafeLeave(); setIsMobileSidebarOpen(false); setIsPlayersListOpen(false); setIsInviteOpen(false); }} className="hover:opacity-70 transition-opacity flex items-center justify-center p-1">
+                            <Image src={currentPhase === 'NIGHT' ? '/assets/images/icones/home-icon_white.png' : '/assets/images/icones/home-icon_black.png'} alt="Accueil" width={22} height={22} />
+                        </button>
+                        {/* Indicateur connexion socket */}
+                        <div
+                            title={socketConnected ? 'Connecté' : 'Reconnexion...'}
+                            className={`w-2 h-2 rounded-full transition-colors duration-500 ${socketConnected ? 'bg-green-400' : 'bg-red-500 animate-pulse'}`}
+                        />
+                    </div>
                     <div className="flex gap-4">
                         <button
                             onClick={() => setShowSettings(true)}
@@ -1023,6 +1118,8 @@ export default function RoomPage() {
                     confirmLeave={confirmLeave}
                     getPlayerAvatar={getPlayerAvatar}
                     currentUserId={user?.uid}
+                    onReplay={handleReplay}
+                    hasNextRoom={!!nextRoomCode}
                 />
             ) : (
                 <ActiveGame
@@ -1248,24 +1345,27 @@ export default function RoomPage() {
                     ))}
                 </div>
             </div>
-            {/* --- MODAL POTION DE VIE --- */}
+            {/* --- MODAL POTION DE VIE (sauvegarde aveugle) --- */}
             {witchHealTarget && (
                 <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[2000] p-4 font-montserrat" onClick={() => { setWitchHealTarget(null); setActivePower(null); }}>
                     <div className="bg-[#2C3338] text-white max-w-sm w-full rounded-2xl p-6 border-2 border-[#D1A07A] shadow-2xl relative text-center" onClick={e => e.stopPropagation()}>
                         <h3 className="text-2xl font-enchanted font-extrabold text-[#D1A07A] mb-4">Potion de Vie</h3>
                         <p className="text-sm text-slate-300 mb-6">
-                            Voulez-vous vraiment sauver <span className="font-bold text-white">{game?.players.find(p => p.id === witchHealTarget)?.name}</span> de la mort ciblée par les loups ?
+                            Vous sentez que quelqu'un est en danger cette nuit...<br />
+                            <span className="font-bold text-white">Voulez-vous utiliser votre potion pour sauver cette personne ?</span>
+                            <br /><span className="text-slate-500 text-xs mt-1 block italic">Vous ne savez pas qui est ciblé.</span>
                         </p>
                         <div className="flex justify-center gap-4">
                             <button
                                 onClick={() => { setWitchHealTarget(null); setActivePower(null); }}
                                 className="px-4 py-2 rounded-lg bg-slate-700 text-slate-200 hover:bg-slate-600 transition-colors text-sm font-bold"
                             >
-                                Annuler
+                                Non
                             </button>
                             <button
                                 onClick={() => {
-                                    socket?.emit('use_power', { powerId: 'POTION_SOIN', targetId: witchHealTarget });
+                                    // Pas de targetId — le serveur auto-cible la victime des loups
+                                    socket?.emit('use_power', { powerId: 'POTION_SOIN' });
                                     setWitchHealTarget(null);
                                     setActivePower(null);
                                     setPowerTargets([]);
@@ -1355,7 +1455,7 @@ export default function RoomPage() {
                                 <button
                                     onClick={() => {
                                         if (mePlayer?.isAlive === false && game?.phase !== 'LOBBY' && game?.phase !== 'GAME_OVER') {
-                                            alert("Les morts ne peuvent pas parler !");
+                                            toast.warning("Les morts ne peuvent pas parler !");
                                             return;
                                         }
                                         setIsMicroOn(!isMicroOn);
@@ -1443,6 +1543,12 @@ export default function RoomPage() {
                     </div>
                 </div>
             )}
+
+            {/* Overlay de transition de phase — affiché par-dessus tout */}
+            <PhaseTransitionOverlay
+                phase={game?.phase || 'LOBBY'}
+                dayCount={game?.dayCount || 1}
+            />
         </div>
     );
 }

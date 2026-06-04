@@ -6,6 +6,7 @@ import RoleCard from '@/components/game/RoleCard';
 import PlayerCircleNode from '@/components/game/PlayerCircleNode';
 import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { useToast } from '@/contexts/ToastContext';
 
 interface ActiveGameProps {
     currentPhase: Phase | string;
@@ -60,6 +61,7 @@ export default function ActiveGame({
     getPlayerAvatar,
     speakingPlayers
 }: ActiveGameProps) {
+    const toast = useToast();
     const getCampColor = (camp: string) => {
         if (camp === 'VILLAGE') return 'text-green-600';
         if (camp === 'LOUPS') return 'text-red-600';
@@ -107,7 +109,12 @@ export default function ActiveGame({
                 {currentPhase === 'LOBBY' ? (
                     <div className="bg-primary font-montserrat border-2 border-dark p-4 sm:p-10 text-center flex flex-col items-center shadow-md w-[80%] max-w-[400px] z-50 rounded-lg">
                         <h2 className="text-4xl sm:text-3xl font-extrabold tracking-widest mb-1 text-slate-900 font-enchanted">EN ATTENTE DES JOUEURS</h2>
-                        <p className=" text-sm text-slate-600 mb-5 font-bold">({game.players.length} / {dynamicRolesConfig ? (Object.values(dynamicRolesConfig).reduce((a: any, b: any) => a + (b || 0), 0) as number) : '?'} joueurs)</p>
+                        <p className=" text-sm text-slate-600 mb-5 font-bold">({game.players.length} / {(() => {
+                            const total = dynamicRolesConfig && Object.keys(dynamicRolesConfig).length > 0
+                                ? Object.values(dynamicRolesConfig).reduce((a: any, b: any) => a + (b || 0), 0) as number
+                                : null;
+                            return total && total > 0 ? total : (groupConfig?.maxPlayers || '?');
+                        })()} joueurs)</p>
 
                         <p className="text-sm text-slate-500 mb-2">Invitez d'autres joueurs pour remplir le village</p>
 
@@ -126,7 +133,7 @@ export default function ActiveGame({
                                         const code = game.secretCode || groupConfig?.secretCode;
                                         if (!code) return;
                                         navigator.clipboard.writeText(code);
-                                        alert("Code secret copié dans le presse-papiers !");
+                                        toast.success("Code secret copié !");
                                     }} className="text-slate-300 hover:text-white transition-colors" title="Copier le code"><Image src="/assets/images/icones/copy_paste-icon_white.png" alt="Copier" width={18} height={18} /></button>
                                 </div>
                             </div>
@@ -201,10 +208,32 @@ export default function ActiveGame({
                                                 (game.phase as string) === 'DAY_VOTE' ? "Votez pour le joueur à exécuter" :
                                                     (game.phase as string) === 'HUNTER_SHOT' ? "Le Chasseur prépare son arme..." : "Fin de Partie"}
                             </h5>
-                            <div className="text-lg font-extrabold text-[#D1A07A] drop-shadow-md">
-                                {game.timer}s
-                            </div>
-                            <p className={`text-sm font-bold uppercase tracking-widest ${currentPhase === 'NIGHT' ? 'text-slate-400' : 'text-slate-600'}`}>Temps Restant</p>
+                            {(() => {
+                                const DURATIONS: Record<string, number> = {
+                                    ROLE_REVEAL: 15, MAYOR_ELECTION: 45, MAYOR_SUCCESSION: 15,
+                                    NIGHT: 45, DAY_DISCUSSION: 60, DAY_VOTE: 30, HUNTER_SHOT: 10,
+                                };
+                                const max = DURATIONS[game.phase] || 60;
+                                const pct = Math.max(0, Math.min(100, (game.timer / max) * 100));
+                                const isCritical = game.timer <= 5;
+                                const isUrgent   = game.timer <= 10;
+                                const numColor   = isCritical ? 'text-red-400' : isUrgent ? 'text-orange-400' : 'text-[#D1A07A]';
+                                const barColor   = isCritical ? 'bg-red-500'   : isUrgent ? 'bg-orange-400'   : 'bg-[#D1A07A]';
+                                return (
+                                    <>
+                                        <div className={`text-lg font-extrabold drop-shadow-md transition-colors duration-300 ${numColor} ${isCritical ? 'animate-pulse' : ''}`}>
+                                            {game.timer}s
+                                        </div>
+                                        <p className={`text-sm font-bold uppercase tracking-widest ${currentPhase === 'NIGHT' ? 'text-slate-400' : 'text-slate-600'}`}>Temps Restant</p>
+                                        <div className="w-28 h-1.5 bg-white/10 rounded-full overflow-hidden mt-1">
+                                            <div
+                                                className={`h-full rounded-full transition-all duration-1000 ${barColor}`}
+                                                style={{ width: `${pct}%` }}
+                                            />
+                                        </div>
+                                    </>
+                                );
+                            })()}
                         </div>
 
                         {/* Zone Centrale (Timer + Rôle) */}
@@ -301,23 +330,33 @@ export default function ActiveGame({
                                                     const canUse = !isUsed && !isTemporarilyBlocked && !isPoisonedBlocked && isTimingCorrect && (power.id === 'FUSIL' ? true : mePlayer.isAlive) && canGMLKill && canPyromaneUse;
                                                     const isActive = activePower === power.id;
 
-                                                    // If the power isn't relevant to this moment at all, skip rendering it? 
-                                                    // User said "only visible during night", but Hunter shot is special.
+                                                    // Construire le message explicatif quand le pouvoir est désactivé
+                                                    let disableReason = '';
+                                                    if (!canUse) {
+                                                        if (isPoisonedBlocked) disableReason = 'Vous êtes empoisonné';
+                                                        else if (isUsed && power.type === 'one-time') disableReason = 'Pouvoir déjà utilisé';
+                                                        else if (isTemporarilyBlocked) disableReason = 'Une potion déjà utilisée ce soir';
+                                                        else if (!isTimingCorrect) disableReason = 'Pas disponible maintenant';
+                                                        else if (power.id === 'GRIFFURE_MORTELLE') disableReason = gmlDisableMessage;
+                                                        else if (mePlayer.role === 'PYROMANE' && pyromaneDisableMessage) disableReason = pyromaneDisableMessage;
+                                                        else disableReason = 'Non disponible';
+                                                    }
+
                                                     if (!isTimingCorrect && currentPhase !== 'NIGHT') return null;
 
                                                     return (
                                                         (power.icon != "") ? (
                                                             <div
                                                                 key={power.id}
-                                                                className={`relative z-[1000] group flex flex-col items-center cursor-pointer transition-all ${!canUse ? 'opacity-30 grayscale cursor-not-allowed' : 'hover:scale-110'}`}
+                                                                className={`relative z-[1000] group flex flex-col items-center cursor-pointer transition-all ${!canUse ? 'opacity-40 grayscale cursor-not-allowed' : 'hover:scale-110'}`}
                                                                 onClick={() => canUse && handlePowerClick(power.id)}
                                                             >
                                                                 <div className={`md:w-10 md:h-10 w-8 h-8 rounded-full border-2 p-1 flex items-center justify-center transition-colors ${isActive ? 'border-[#D1A07A] bg-[#D1A07A]/20 shadow-[0_0_10px_#D1A07A]' : 'border-slate-600 bg-black/20'}`}>
                                                                     <Image src={power.icon} alt={power.label} width={32} height={32} className="object-contain" unoptimized />
                                                                 </div>
-                                                                {/* Tooltip or Label */}
-                                                                <span className="absolute -bottom-6 w-max bg-black/80 text-white text-[8px] px-2 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity">
-                                                                    {power.id === 'GRIFFURE_MORTELLE' ? gmlDisableMessage : (mePlayer.role === 'PYROMANE' && pyromaneDisableMessage ? pyromaneDisableMessage : power.label)}
+                                                                {/* Tooltip — label si disponible, raison si désactivé */}
+                                                                <span className={`absolute -bottom-7 w-max max-w-[120px] text-center text-[8px] px-2 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity z-50 ${!canUse ? 'bg-red-950/90 text-red-300 border border-red-800' : 'bg-black/80 text-white'}`}>
+                                                                    {!canUse ? disableReason : power.label}
                                                                 </span>
                                                                 {isActive && (
                                                                     <div className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full animate-ping"></div>

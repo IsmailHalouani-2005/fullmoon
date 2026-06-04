@@ -5,6 +5,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useThemeStore } from '@/store/themeStore';
+import { useToast } from '@/contexts/ToastContext';
 
 interface SidebarProps {
     user: User;
@@ -28,10 +29,11 @@ export default function Sidebar({
 
     const [chatMessage, setChatMessage] = useState('');
     const { isDarkMode } = useThemeStore();
+    const toast = useToast();
 
     const copyCode = () => {
         navigator.clipboard.writeText(secretCode);
-        alert('Code copié !');
+        toast.success('Code copié !');
     };
 
     return (

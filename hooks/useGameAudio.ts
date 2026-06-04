@@ -149,11 +149,7 @@ export function useGameAudio(game: GameState | null, currentUserUid: string | un
                 playSFX('death_sound.mp3');
             }
 
-            // B. Coup de fusil du chasseur (Exit de la phase HUNTER_SHOT)
-            // Dès qu'on quitte HUNTER_SHOT on estime que le tir est parti
-            if (previousPhase === 'HUNTER_SHOT' && currentPhase !== 'HUNTER_SHOT') {
-                playSFX('one_shot.mp3');
-            }
+            // B. Son du tir déclenché manuellement via playOneShot() au moment du clic
 
             // C. Loup qui hurle en entrant dans la nuit
             if (currentPhase === 'NIGHT' && previousPhase !== 'NIGHT') {
@@ -246,8 +242,12 @@ export function useGameAudio(game: GameState | null, currentUserUid: string | un
         };
     }, [socket, currentUserUid]);
 
+    // Exposé pour jouer le son du tir au moment exact où le chasseur clique
+    const playOneShot = () => playSFX('one_shot.mp3');
+
     return {
         isMuted,
-        setIsMuted
+        setIsMuted,
+        playOneShot
     };
 }

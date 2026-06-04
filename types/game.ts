@@ -98,7 +98,7 @@ export interface ClientToServerEvents {
 export interface ServerToClientEvents {
     update_game: (gameState: GameState) => void;
     error: (msg: string) => void;
-    game_over: (payload: { winner: string; players: Player[] }) => void;
+    game_over: (payload: { winner: string; players: Player[]; disconnectedPlayers?: { id: string; name: string }[]; nextRoomCode?: string }) => void;
     chat_message: (payload: ChatMessage) => void;
     room_shutdown: (reason: string) => void;
     voice_signal: (payload: { senderId: string; signal: any; type: 'room' | 'group' }) => void;

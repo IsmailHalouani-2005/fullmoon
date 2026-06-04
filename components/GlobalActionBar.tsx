@@ -8,12 +8,14 @@ import { collection, query, where, onSnapshot, orderBy, doc, getDoc, updateDoc, 
 import PrivateChat from './PrivateChat';
 import { useThemeStore } from '../store/themeStore';
 import { useAuth } from '../contexts/AuthContext';
+import { useToast } from '../contexts/ToastContext';
 
 export default function GlobalActionBar() {
     const router = useRouter();
     const pathname = usePathname();
     // user et userData viennent du context global — pas de listener Firebase ici
     const { user, userData } = useAuth();
+    const toast = useToast();
 
     const [notifications, setNotifications] = useState<any[]>([]);
     const [unreadMessages, setUnreadMessages] = useState(0);
@@ -178,13 +180,13 @@ export default function GlobalActionBar() {
                 // Check if it's a village
                 if (groupData.isVillage) {
                     if (groupData.gameStarted) {
-                        alert("Ce village est déjà en partie !");
+                        toast.warning("Ce village est déjà en partie !");
                         await handleDeleteNotif(notif.id);
                         return;
                     }
                     const maxPlayers = groupData.maxPlayers || 16;
                     if (groupData.players && groupData.players.length >= maxPlayers) {
-                        alert("Ce village est complet !");
+                        toast.warning("Ce village est complet !");
                         await handleDeleteNotif(notif.id);
                         return;
                     }
@@ -192,13 +194,13 @@ export default function GlobalActionBar() {
                 } else {
                     // It's a standard group lobby
                     if (groupData.players && groupData.players.length >= 18) {
-                        alert("Ce groupe est complet !");
+                        toast.warning("Ce groupe est complet !");
                         await handleDeleteNotif(notif.id);
                         return;
                     }
                 }
             } else {
-                alert("Ce groupe n'existe plus.");
+                toast.error("Ce groupe n'existe plus.");
                 await handleDeleteNotif(notif.id);
                 return;
             }

@@ -10,6 +10,7 @@ import MainContent from '@/components/room/edit/MainContent';
 import { RoleId } from '@/types/roles';
 import { distributeRoles } from '@/lib/roleDistribution';
 import { useThemeStore } from '@/store/themeStore';
+import { useToast } from '@/contexts/ToastContext';
 
 // Re-exported so MainContent can import it
 export const getDefaultRolesForPlayerCount = (playerCount: number): Partial<Record<RoleId, number>> =>
@@ -36,6 +37,7 @@ export default function EditRoomPage() {
     const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(false);
 
     const { isDarkMode } = useThemeStore();
+    const toast = useToast();
     // Polling du nombre de joueurs connectés en direct (Socket.io) via /api/rooms-live
     useEffect(() => {
         const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL || '';
@@ -132,7 +134,7 @@ export default function EditRoomPage() {
             router.push(`/room/${roomCode}`);
         } catch (error) {
             console.error("Error saving village configuration:", error);
-            alert("Une erreur est survenue lors de la sauvegarde des paramètres du village.");
+            toast.error("Une erreur est survenue lors de la sauvegarde des paramètres du village.");
             setIsSaving(false);
         }
     };

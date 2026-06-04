@@ -8,13 +8,18 @@ interface EndGameProps {
     confirmLeave: () => void;
     getPlayerAvatar: (id: string, avatarUrl?: string) => string;
     currentUserId?: string;
+    onReplay: () => void;
+    hasNextRoom?: boolean;
 }
 
-export default function EndGame({ gameOverData, confirmLeave, getPlayerAvatar, currentUserId }: EndGameProps) {
+export default function EndGame({ gameOverData, confirmLeave, getPlayerAvatar, currentUserId, onReplay, hasNextRoom }: EndGameProps) {
     const [selectedRoleForModal, setSelectedRoleForModal] = useState<RoleDefinition | null>(null);
     const [isLeaving, setIsLeaving] = useState(false);
+    const [isReplaying, setIsReplaying] = useState(false);
 
     if (!gameOverData) return null;
+
+    const myPlayer = gameOverData.players.find((p: any) => p.id === currentUserId);
 
     // --- Group Players by Camp / Winning status ---
     const winners: any[] = [];
@@ -151,7 +156,36 @@ export default function EndGame({ gameOverData, confirmLeave, getPlayerAvatar, c
                     </div>
                 </div>
 
-                <div className="mt-6 flex gap-4 justify-center">
+                {/* Résumé stats de la partie */}
+                {myPlayer && (
+                    <div className="mx-2 mb-4 px-4 py-4 bg-dark/60 rounded-xl border border-slate-700 grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
+                        <div>
+                            <p className="text-2xl font-extrabold text-[#D1A07A]">+{myPlayer.stats?.points ?? 0}</p>
+                            <p className="text-[10px] uppercase tracking-widest text-slate-400 font-bold">Points</p>
+                        </div>
+                        <div>
+                            <p className="text-2xl font-extrabold text-red-400">{myPlayer.stats?.kills ?? 0}</p>
+                            <p className="text-[10px] uppercase tracking-widest text-slate-400 font-bold">Éliminations</p>
+                        </div>
+                        <div>
+                            <p className="text-2xl font-extrabold text-green-400">{myPlayer.stats?.saves ?? 0}</p>
+                            <p className="text-[10px] uppercase tracking-widest text-slate-400 font-bold">Sauvetages</p>
+                        </div>
+                        <div>
+                            <p className="text-2xl font-extrabold text-blue-400">{myPlayer.stats?.daysSurvived ?? 0}</p>
+                            <p className="text-[10px] uppercase tracking-widest text-slate-400 font-bold">Jours survécus</p>
+                        </div>
+                    </div>
+                )}
+
+                <div className="mt-4 flex gap-4 justify-center flex-wrap">
+                    <button
+                        disabled={isReplaying}
+                        onClick={() => { setIsReplaying(true); onReplay(); }}
+                        className={`border-2 text-lg font-extrabold px-8 py-3 rounded-lg transition-all uppercase tracking-wide ${isReplaying ? 'bg-slate-600 border-slate-500 text-slate-300 cursor-not-allowed' : 'bg-dark text-white border-slate-600 hover:border-[#D1A07A] hover:shadow-[0_0_15px_rgba(209,160,122,0.3)]'}`}
+                    >
+                        {isReplaying ? 'Connexion...' : 'Rejouer'}
+                    </button>
                     <button
                         onClick={() => {
                             setIsLeaving(true);
