@@ -230,11 +230,10 @@ Le script :
 
 ```env
 # URL du serveur Socket.io
-NEXT_PUBLIC_SOCKET_URL=http://localhost:3001   # Dev local
-# NEXT_PUBLIC_SOCKET_URL=https://fullmoon.ismailhalouani.eu  # Production
+NEXT_PUBLIC_SOCKET_URL=   # Dev local
 
 # Origines CORS autorisées (serveur Socket.io)
-ALLOWED_ORIGINS=https://fullmoon.ismailhalouani.eu,http://localhost:3000
+ALLOWED_ORIGINS= #Dev local
 
 # Serveur TURN WebRTC (optionnel — openrelay en fallback si absent)
 # NEXT_PUBLIC_TURN_URL=turn:ton-serveur.com:3478
