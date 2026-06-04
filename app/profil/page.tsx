@@ -11,6 +11,7 @@ import { doc, getDoc, updateDoc, deleteDoc, collection, query, where, getCountFr
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import ProfileStats from '../../components/profile/ProfileStats';
 import { useToast } from '../../contexts/ToastContext';
+import { Skeleton } from '../../components/ui/Skeleton';
 
 export default function ProfilePage() {
     const router = useRouter();
@@ -29,6 +30,7 @@ export default function ProfilePage() {
     // Avatar upload states
     const [avatarFile, setAvatarFile] = useState<File | null>(null);
     const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+    const [isDragging, setIsDragging] = useState(false);
 
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
@@ -229,9 +231,31 @@ export default function ProfilePage() {
 
     if (loading) {
         return (
-            <div className="h-screen w-screen bg-primary flex flex-col items-center justify-center">
-                <Image src="/assets/images/logo_fullmoon.png" alt="Loading" width={80} height={80} className="animate-pulse mb-4" />
-                <p className="text-secondary font-enchanted text-5xl">Chargement...</p>
+            <div className="min-h-screen bg-background font-montserrat flex flex-col">
+                <Header />
+                <main className="flex-1 flex flex-col items-center px-4 py-8">
+                    <div className="w-full max-w-2xl flex flex-col gap-6">
+                        {/* Skeleton carte compte */}
+                        <div className="bg-[#2A2F32] rounded-xl p-8 flex flex-col gap-6">
+                            <Skeleton className="h-10 w-32 mx-auto bg-white/10" />
+                            <div className="flex gap-8 items-center">
+                                <Skeleton className="w-40 h-40 rounded-full bg-white/10 flex-shrink-0" />
+                                <div className="flex-1 flex flex-col gap-3">
+                                    <Skeleton className="h-10 w-full bg-white/10" />
+                                    <Skeleton className="h-10 w-full bg-white/10" />
+                                    <Skeleton className="h-10 w-full bg-white/10" />
+                                </div>
+                            </div>
+                        </div>
+                        {/* Skeleton stats */}
+                        <div className="bg-[#2A2F32] rounded-xl p-8 flex flex-col gap-4">
+                            <Skeleton className="h-6 w-48 bg-white/10" />
+                            {Array.from({ length: 4 }).map((_, i) => (
+                                <Skeleton key={i} className="h-8 w-full bg-white/10" />
+                            ))}
+                        </div>
+                    </div>
+                </main>
             </div>
         );
     }
@@ -290,19 +314,31 @@ export default function ProfilePage() {
 
                         <div className="flex flex-col md:flex-row gap-12 items-start md:items-center">
 
-                            {/* Left: Avatar */}
-                            <div className="flex flex-col items-center gap-4">
+                            {/* Left: Avatar avec drag & drop */}
+                            <div className="flex flex-col items-center gap-3">
                                 <span className="text-white font-bold text-lg">Photo de profil :</span>
-                                <label className="relative w-40 h-40 rounded-full border-4 border-[#5E4730] bg-[#E3D1A5] shadow-xl overflow-hidden flex-shrink-0 cursor-pointer group">
-                                    <div className="absolute inset-0 bg-[url('/assets/images/icones/village_batiments.png')] bg-cover opacity-20 bg-center"></div>
+                                <label
+                                    className={`relative w-40 h-40 rounded-full border-4 shadow-xl overflow-hidden flex-shrink-0 cursor-pointer group transition-all duration-200 ${isDragging ? 'border-[#D1A07A] scale-105 shadow-[0_0_20px_rgba(209,160,122,0.5)]' : 'border-[#5E4730] bg-[#E3D1A5]'}`}
+                                    onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+                                    onDragEnter={() => setIsDragging(true)}
+                                    onDragLeave={() => setIsDragging(false)}
+                                    onDrop={(e) => {
+                                        e.preventDefault();
+                                        setIsDragging(false);
+                                        const file = e.dataTransfer.files?.[0];
+                                        if (file) handleImageChange({ target: { files: [file] } } as any);
+                                    }}
+                                >
+                                    <div className="absolute inset-0 bg-[url('/assets/images/icones/village_batiments.png')] bg-cover opacity-20 bg-center" />
                                     <Image
                                         src={avatarPreview || userData?.photoURL || "/assets/images/icones/Photo_Profil-transparent.png"}
                                         alt="Profil"
                                         fill
-                                        className="object-cover z-10 group-hover:opacity-70 transition-opacity"
+                                        className="object-cover z-10 group-hover:opacity-60 transition-opacity"
                                     />
-                                    <div className="absolute inset-0 z-20 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                                        <span className="text-white font-bold text-sm bg-black/50 px-3 py-1 rounded-full">Modifier</span>
+                                    <div className="absolute inset-0 z-20 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity gap-1">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                                        <span className="text-white font-bold text-xs bg-black/60 px-2 py-0.5 rounded-full">Modifier</span>
                                     </div>
                                     <input
                                         type="file"
@@ -311,6 +347,7 @@ export default function ProfilePage() {
                                         onChange={handleImageChange}
                                     />
                                 </label>
+                                <p className="text-white/30 text-[10px] text-center">Cliquer ou glisser une image<br/>JPG, PNG, WebP — max 1 Mo</p>
                             </div>
 
                             {/* Right: Form */}

@@ -10,6 +10,7 @@ import { db, rtdb } from '../../lib/firebase';
 import { doc, getDoc, collection, query, orderBy, onSnapshot, where, getDocs, addDoc, setDoc, updateDoc, arrayUnion, arrayRemove, deleteDoc } from 'firebase/firestore';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
+import { VillageCardSkeleton } from '@/components/ui/Skeleton';
 import { ref, onValue } from 'firebase/database';
 import { useThemeStore } from '@/store/themeStore';
 
@@ -58,6 +59,7 @@ export default function PlayPage() {
     const [sentRequests, setSentRequests] = useState<string[]>([]);
     const [group, setGroup] = useState<any>(null);
     const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+    const [villagesLoading, setVillagesLoading] = useState(true);
     // Photos des hôtes de villages lues depuis Firestore (pour les comptes Base64)
     const [hostAvatars, setHostAvatars] = useState<Record<string, string>>({});
     const fetchedHostIdsRef = useRef<Set<string>>(new Set());
@@ -144,8 +146,9 @@ export default function PlayPage() {
                     });
 
                 setVillages(activeVillages);
+                setVillagesLoading(false);
             },
-            (error) => console.error('Error fetching villages:', error)
+            (error) => { console.error('Error fetching villages:', error); setVillagesLoading(false); }
         );
         return () => unsub();
     }, []);
@@ -1064,8 +1067,14 @@ export default function PlayPage() {
                                     <p className={`text-xs ${!isDarkMode ? "text-dark/70" : "text-[#fafafa]/70"} -mb-2 font-semibold`}>
                                         Rejoindre un village : ({filteredVillages.length})
                                     </p>
-                                    {/* Empty State */}
-                                    {filteredVillages.length === 0 ? (
+                                    {/* Skeleton pendant le premier chargement */}
+                                    {villagesLoading ? (
+                                        <div className="flex flex-col gap-3 mt-2">
+                                            {Array.from({ length: 4 }).map((_, i) => (
+                                                <VillageCardSkeleton key={i} />
+                                            ))}
+                                        </div>
+                                    ) : filteredVillages.length === 0 ? (
                                         <div className="flex flex-col items-center justify-center p-8 mt-4 bg-white/5 border-2 border-dashed border-dark/20 rounded-lg text-center">
                                             <Image src="/assets/images/icones/house-icon_black.png" alt="Aucun village" width={64} height={64} className="mb-4 opacity-40" />
                                             <h3 className="font-enchanted text-3xl mb-2">Aucun village trouvé</h3>

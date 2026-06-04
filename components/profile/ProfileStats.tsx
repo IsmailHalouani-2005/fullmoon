@@ -40,26 +40,26 @@ export default function ProfileStats({ stats }: ProfileStatsProps) {
                 <div className="flex-1 flex flex-col">
                     <h3 className="text-white font-bold text-xl mb-6">Statistiques de jeu</h3>
 
-                    <div className="flex flex-col gap-3 text-sm text-white/80">
+                    <div className="flex flex-col gap-1 text-sm text-white/80">
                         <div className="flex justify-between items-center bg-[#111315] p-3 rounded-lg border border-white/5 mb-2">
                             <span className="font-enchanted text-2xl text-[#D1A07A] pt-1 tracking-wider">Points</span>
                             <span className="text-xl font-bold text-[#D1A07A]">{stats.points || 0}</span>
                         </div>
-                        <div className="flex justify-between items-center">
+                        <div className="flex justify-between items-center px-3 py-2 rounded-lg hover:bg-white/5 transition-colors">
                             <span className="flex-1">Total des parties</span>
                             <span className="w-8 text-right font-bold">{totalGames}</span>
                         </div>
-                        <div className="flex justify-between items-center text-green-400">
+                        <div className="flex justify-between items-center text-green-400 px-3 py-2 rounded-lg hover:bg-green-500/10 transition-colors">
                             <span className="flex-1">Total des victoires</span>
                             <span className="w-16 text-center font-bold">{winRate}%</span>
                             <span className="w-8 text-right font-bold">{totalWins}</span>
                         </div>
-                        <div className="flex justify-between items-center text-red-400">
+                        <div className="flex justify-between items-center text-red-400 px-3 py-2 rounded-lg hover:bg-red-500/10 transition-colors">
                             <span className="flex-1">Total des défaites</span>
                             <span className="w-16 text-center font-bold">{lossRate}%</span>
                             <span className="w-8 text-right font-bold">{totalLosses}</span>
                         </div>
-                        <div className="flex justify-between items-center text-orange-400">
+                        <div className="flex justify-between items-center text-orange-400 px-3 py-2 rounded-lg hover:bg-orange-500/10 transition-colors">
                             <span className="flex-1">Total des fuites</span>
                             <span className="w-16 text-center font-bold">{leaveRate}%</span>
                             <span className="w-8 text-right font-bold">{totalLeaves}</span>

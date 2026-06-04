@@ -1,15 +1,18 @@
 'use client';
 
 import Image from 'next/image';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { collection, query, orderBy, limit, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useThemeStore } from '../store/themeStore';
+import { LeaderboardRowSkeleton } from './ui/Skeleton';
 
 export default function Leaderboard() {
     const { isDarkMode } = useThemeStore();
     const [topPlayers, setTopPlayers] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
+    const tableRef = useRef<HTMLDivElement>(null);
+    const [visibleRows, setVisibleRows] = useState<Set<number>>(new Set());
 
     useEffect(() => {
         const fetchLeaderboard = async () => {
@@ -34,10 +37,39 @@ export default function Leaderboard() {
         fetchLeaderboard();
     }, []);
 
+    // Animation d'entrée décalée des lignes au scroll
+    useEffect(() => {
+        if (loading || topPlayers.length === 0) return;
+        const observer = new IntersectionObserver((entries) => {
+            if (entries[0].isIntersecting) {
+                topPlayers.forEach((_, idx) => {
+                    setTimeout(() => setVisibleRows(prev => new Set([...prev, idx])), idx * 60);
+                });
+                observer.disconnect();
+            }
+        }, { threshold: 0.1 });
+        if (tableRef.current) observer.observe(tableRef.current);
+        return () => observer.disconnect();
+    }, [loading, topPlayers]);
+
     if (loading) {
         return (
-            <section className="w-full py-24 flex justify-center">
-                <div className="text-dark font-enchanted text-3xl animate-pulse">Chargement du classement...</div>
+            <section className="w-full py-24">
+                <div className="max-w-6xl mx-auto px-4">
+                    <div className="animate-pulse bg-slate-200/60 h-12 w-96 mx-auto rounded-md mb-16" />
+                    <div className="flex flex-col lg:flex-row gap-12 items-center">
+                        <div className="w-full lg:w-1/2 flex justify-center">
+                            <div className="animate-pulse bg-slate-200/60 rounded-full w-80 h-64" />
+                        </div>
+                        <div className="w-full lg:w-1/2 bg-dark rounded-md p-8">
+                            <div className="flex flex-col gap-4">
+                                {Array.from({ length: 10 }).map((_, i) => (
+                                    <LeaderboardRowSkeleton key={i} />
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </section>
         );
     }
@@ -103,9 +135,17 @@ export default function Leaderboard() {
                                 <div className="text-center">Points</div>
                             </div>
 
-                            <div className="flex flex-col space-y-3">
+                            <div ref={tableRef} className="flex flex-col space-y-2">
                                 {topPlayers.map((player, index) => (
-                                    <div key={player.id} className="grid grid-cols-[1fr_3fr_1fr] items-center py-2 text-white/90 hover:bg-white/10 rounded-sm transition-colors cursor-default gap-2">
+                                    <div
+                                        key={player.id}
+                                        className="grid grid-cols-[1fr_3fr_1fr] items-center py-2 px-2 text-white/90 hover:bg-white/10 hover:scale-[1.01] rounded-lg transition-all cursor-default gap-2"
+                                        style={{
+                                            opacity: visibleRows.has(index) ? 1 : 0,
+                                            transform: visibleRows.has(index) ? 'translateX(0)' : 'translateX(-16px)',
+                                            transition: `opacity 0.4s ease, transform 0.4s ease`,
+                                        }}
+                                    >
                                         <div className="text-center font-bold text-lg">{index + 1}</div>
                                         <div className="flex items-center justify-start ml-4 pl-2 sm:pl-0 space-x-3 overflow-hidden">
                                             <div className="w-8 h-8 rounded-full bg-secondary outline outline-2 outline-white/20 overflow-hidden relative flex-shrink-0">
