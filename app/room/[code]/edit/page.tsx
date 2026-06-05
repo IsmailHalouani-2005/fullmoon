@@ -33,6 +33,14 @@ export default function EditRoomPage() {
     const [playerCount, setPlayerCount] = useState<number>(16);
     const [rolesCount, setRolesCount] = useState<Partial<Record<RoleId, number>>>(getDefaultRolesForPlayerCount(16));
     const [isCustom, setIsCustom] = useState<boolean>(false);
+    const [phaseDurations, setPhaseDurations] = useState<Record<string, number>>({
+        NIGHT: 45,
+        DAY_DISCUSSION: 60,
+        DAY_VOTE: 30,
+        MAYOR_ELECTION: 45,
+        HUNTER_SHOT: 15,
+        MAYOR_SUCCESSION: 15,
+    });
     const [livePlayerCounts, setLivePlayerCounts] = useState<Record<string, number>>({});
     const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(false);
 
@@ -91,6 +99,7 @@ export default function EditRoomPage() {
                             if (data.rolesCount) setRolesCount(data.rolesCount);
                             if (data.isCustom !== undefined) setIsCustom(data.isCustom);
                             if (data.secretCode) setSecretCode(data.secretCode);
+                            if (data.phaseDurations) setPhaseDurations(prev => ({ ...prev, ...data.phaseDurations }));
                         }
                     } catch (error) {
                         console.error('Error fetching room configuration:', error);
@@ -105,6 +114,10 @@ export default function EditRoomPage() {
         setPlayerCount(16);
         setRolesCount(getDefaultRolesForPlayerCount(16));
         setIsCustom(false);
+        setPhaseDurations({
+            NIGHT: 45, DAY_DISCUSSION: 60, DAY_VOTE: 30,
+            MAYOR_ELECTION: 45, HUNTER_SHOT: 15, MAYOR_SUCCESSION: 15,
+        });
     };
 
     const handleCreateVillage = async () => {
@@ -128,6 +141,7 @@ export default function EditRoomPage() {
                 rolesCount: filteredRolesCount,
                 isCustom,
                 secretCode,
+                phaseDurations,
                 isConfigured: true
             });
 
@@ -185,6 +199,8 @@ export default function EditRoomPage() {
                     setIsMicroEnabled={setIsMicroEnabled}
                     isMayorEnabled={isMayorEnabled}
                     setIsMayorEnabled={setIsMayorEnabled}
+                    phaseDurations={phaseDurations}
+                    setPhaseDurations={setPhaseDurations}
                     onApplyDefaults={handleApplyDefaults}
                     onCreateVillage={handleCreateVillage}
                 />

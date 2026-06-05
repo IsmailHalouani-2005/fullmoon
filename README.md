@@ -115,17 +115,25 @@ Topologie Mesh (P2P direct), sans serveur média — coût serveur nul.
 
 ### 5. Tests ⭐⭐
 
-**68 tests unitaires** couvrant la logique critique :
+**182 tests unitaires** couvrant la logique critique :
 
 | Suite | Tests |
 |-------|-------|
 | `checkVictory.test.ts` | Victoires village, loups, amour, solo, NONE |
 | `checkVictory.advanced.test.ts` | FOU infecté/amoureux, infectés, solos multiples |
+| `checkVictory.extreme.test.ts` | 1 joueur, 18 joueurs, effets multiples, cas limites |
 | `tallyVotes.test.ts` | Majorité, égalité, maire double, Loup Alpha double |
+| `tallyVotes.advanced.test.ts` | Loup Blanc/Assassin, égalité triangle, succession maire |
 | `distributeRoles.test.ts` | Formules A/B/C, total = J, village majoritaire |
 | `distributeCustomRoles.test.ts` | Pool vide, pool trop petit, Villageois en fallback |
+| `getCountsForJ.test.ts` | Valeurs exactes J=5→18, invariants mathématiques |
 | `isInWolfCamp.test.ts` | Tous les rôles du jeu vérifiés |
-| `wolf_chat.test.ts` | Chat nuit Loup Alpha → Loup Garou |
+| `rolesIntegrity.test.ts` | Structure ROLES : camps, powers, timing, cohérence |
+| `effects.test.ts` | infected, lover, gasoline, poisoned — interactions victoire |
+| `victoryDetection.test.ts` | Sons fin de partie — chaque rôle/combinaison |
+| `witchBlindSave.test.ts` | Sorcière aveugle — sauvegarde, victoire, effets |
+| `gameContext.test.ts` | GameContext exports, phases, maire, Sorcière |
+| `wolf_chat.test.ts` | Chat nuit Loup Alpha → Loup Garou (intégration) |
 
 ```bash
 npx jest

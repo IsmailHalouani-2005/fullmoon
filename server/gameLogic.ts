@@ -231,6 +231,7 @@ export function setupGameLogic(io: Server<ClientToServerEvents, ServerToClientEv
                 });
                 game.rolesCount = distributedRoles;
                 game.isMayorEnabled = config?.isMayorEnabled !== false;
+                game.phaseDurations = config?.phaseDurations || {};
 
                 game.nightActions = [];
 
@@ -783,7 +784,7 @@ export function setupGameLogic(io: Server<ClientToServerEvents, ServerToClientEv
                         if (userSocketMap.get(userId) === socket.id) {
                             userSocketMap.delete(userId);
                         }
-                    }, 60000);
+                    }, 60000).unref();
                 }
             }
 
@@ -908,16 +909,18 @@ function startPhase(roomCode: string, newPhase: Phase, games: Record<string, Gam
     }
 
     game.phase = newPhase;
-    let duration = 0;
-    switch (newPhase) {
-        case 'ROLE_REVEAL': duration = 15; break;
-        case 'MAYOR_ELECTION': duration = 45; break;
-        case 'MAYOR_SUCCESSION': duration = 15; break;
-        case 'NIGHT': duration = 45; break;
-        case 'DAY_DISCUSSION': duration = 60; break;
-        case 'DAY_VOTE': duration = 30; break;
-        case 'HUNTER_SHOT': duration = 10; break;
-    }
+
+    // Durées par défaut — peuvent être surchargées par game.phaseDurations (config hôte)
+    const DEFAULT_DURATIONS: Partial<Record<string, number>> = {
+        ROLE_REVEAL: 15,
+        MAYOR_ELECTION: 45,
+        MAYOR_SUCCESSION: 15,
+        NIGHT: 45,
+        DAY_DISCUSSION: 60,
+        DAY_VOTE: 30,
+        HUNTER_SHOT: 15,
+    };
+    const duration = game.phaseDurations?.[newPhase] ?? DEFAULT_DURATIONS[newPhase] ?? 0;
 
     if (newPhase === 'DAY_DISCUSSION') {
         game.dayCount += 1;
@@ -955,7 +958,7 @@ function startPhase(roomCode: string, newPhase: Phase, games: Record<string, Gam
                 clearInterval(gameTimers[roomCode]);
                 handlePhaseEnd(roomCode, currentGame.phase, games, gameTimers, io);
             }
-        }, 1000);
+        }, 1000).unref(); // Ne bloque pas l'arrêt du process (tests)
     }
 }
 
@@ -1010,7 +1013,7 @@ function handlePhaseEnd(roomCode: string, endedPhase: Phase, games: Record<strin
             // Délai pour laisser le temps à l'overlay de couronnement de s'afficher
             setTimeout(() => {
                 if (games[roomCode]) startPhase(roomCode, 'NIGHT', games, gameTimers, io);
-            }, 2500);
+            }, 2500).unref();
             break;
         }
         case 'MAYOR_SUCCESSION':
@@ -1338,7 +1341,7 @@ function handlePhaseEnd(roomCode: string, endedPhase: Phase, games: Record<strin
                     const vDetailsAtNight = checkVictory(g);
                     if (vDetailsAtNight) triggerGameOver(roomCode, vDetailsAtNight, games, gameTimers, io);
                 }
-            }, deathDelayNight);
+            }, deathDelayNight).unref();
             break;
         case 'DAY_DISCUSSION':
             // Clear silences at the end of day? No, user said "cycle of day and night".
@@ -1423,7 +1426,7 @@ function handlePhaseEnd(roomCode: string, endedPhase: Phase, games: Record<strin
                         startPhase(roomCode, 'NIGHT', games, gameTimers, io);
                     }
                 }
-            }, deathDelayDay);
+            }, deathDelayDay).unref();
             break;
         case 'HUNTER_SHOT':
             if (game.timer <= 0) {
@@ -1657,8 +1660,8 @@ function triggerGameOver(roomCode: string, victoryDetails: { winner: string, pla
                     delete gameTimers[roomCode];
                 }
             }
-        }, 5 * 60 * 1000); // 5 minutes
-    }, 4500);
+        }, 5 * 60 * 1000).unref(); // 5 minutes
+    }, 4500).unref();
 }
 
 function emitGameState(roomCode: string, game: GameState, io: Server) {
@@ -1790,18 +1793,19 @@ function emitGameState(roomCode: string, game: GameState, io: Server) {
                 }
             });
 
-            // Sorciere logic for Loup Blanc victim
-            const loupBlancEnt = game.players.find(p => p.role === 'LOUP_BLANC' && !p.effects.includes('infected') && p.isAlive);
-            const lbTargetId = loupBlancEnt ? game.votes[loupBlancEnt.id] : null;
-
-            if (playerRole === 'SORCIERE' && !tailoredGame.wolfVictimId && lbTargetId) {
-                // If wolves didn't vote but Loup Blanc did, Sorciere sees Loup Blanc's victim as wolfVictimId
-                tailoredGame.wolfVictimId = lbTargetId;
+            // Sorcière : sait qu'une victime existe (pour activer le bouton) mais pas qui c'est
+            // On utilise la sentinelle 'BLIND_SAVE' — truthy mais n'identifie personne
+            if (playerRole === 'SORCIERE') {
+                const loupBlancEnt = game.players.find(p => p.role === 'LOUP_BLANC' && !p.effects.includes('infected') && p.isAlive);
+                const lbTargetId = loupBlancEnt ? game.votes[loupBlancEnt.id] : null;
+                const hasVictim = !!tailoredGame.wolfVictimId || !!lbTargetId;
+                // Remplace l'ID réel par la sentinelle si quelqu'un est ciblé
+                tailoredGame.wolfVictimId = hasVictim ? 'BLIND_SAVE' : null;
             }
 
-            // Witch, Seer, and Wolf Pack can see the potential victim
-            const canSeeVictim = playerRole === 'SORCIERE' || playerRole === 'VOYANTE' || playerRole === 'PETITE_FILLE' || playerIsWolf;
-            if (!canSeeVictim) {
+            // Voyante et loups voient la victime réelle ; Petite Fille aussi
+            const canSeeVictim = playerRole === 'VOYANTE' || playerRole === 'PETITE_FILLE' || playerIsWolf;
+            if (!canSeeVictim && playerRole !== 'SORCIERE') {
                 tailoredGame.wolfVictimId = null;
             }
 

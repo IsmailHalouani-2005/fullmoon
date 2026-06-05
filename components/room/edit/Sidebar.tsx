@@ -19,12 +19,36 @@ interface SidebarProps {
     setIsMicroEnabled: (v: boolean) => void;
     isMayorEnabled: boolean;
     setIsMayorEnabled: (v: boolean) => void;
+    phaseDurations: Record<string, number>;
+    setPhaseDurations: (v: Record<string, number>) => void;
     onApplyDefaults: () => void;
     onCreateVillage: () => void;
 }
 
+const formatDuration = (s: number): string => {
+    if (s < 60) return `${s}s`;
+    const m = Math.floor(s / 60);
+    const rem = s % 60;
+    return rem > 0 ? `${m}min ${rem}s` : `${m}min`;
+};
+
+const MAIN_PHASES = [
+    { key: 'NIGHT',          label: 'La Nuit',   min: 30, max: 300, step: 15 },
+    { key: 'DAY_DISCUSSION', label: 'Le Débat',  min: 30, max: 300, step: 15 },
+    { key: 'DAY_VOTE',       label: 'Le Bûcher', min: 30, max: 300, step: 15 },
+];
+
+const ACTION_PHASES = [
+    { key: 'MAYOR_ELECTION',   label: 'Élection du Maire',   min: 15, max: 90, step: 15 },
+    { key: 'HUNTER_SHOT',      label: 'Tir du Chasseur',     min: 15, max: 90, step: 15 },
+    { key: 'MAYOR_SUCCESSION', label: 'Succession du Maire', min: 15, max: 90, step: 15 },
+];
+
 export default function Sidebar({
-    user, roomCode, secretCode, villageName, setVillageName, isPrivate, setIsPrivate, isMicroEnabled, setIsMicroEnabled, isMayorEnabled, setIsMayorEnabled, onApplyDefaults, onCreateVillage
+    user, roomCode, secretCode, villageName, setVillageName, isPrivate, setIsPrivate,
+    isMicroEnabled, setIsMicroEnabled, isMayorEnabled, setIsMayorEnabled,
+    phaseDurations, setPhaseDurations,
+    onApplyDefaults, onCreateVillage
 }: SidebarProps) {
 
     const [chatMessage, setChatMessage] = useState('');
@@ -37,7 +61,7 @@ export default function Sidebar({
     };
 
     return (
-        <div className="flex flex-col h-full gap-5 ">
+        <div className="flex flex-col h-full gap-5 overflow-y-auto pr-1">
             {/* Top Nav (Home, Settings, Group) */}
             <div className={`flex mt-4 justify-between items-center border-[3px] ${isDarkMode ? "border-white" : "border-dark"} rounded-lg py-1 px-3 bg-transparent`}>
                 <Link href="/play" className="p-1 hover:bg-slate-100 rounded">
@@ -90,19 +114,21 @@ export default function Sidebar({
                 </button>
             </div>
 
-            {/* Secret Code */}
-            <button
-                className="bg-[#2C3338] text-white p-3.5 rounded-lg text-center font-bold tracking-widest relative group overflow-hidden transition-transform active:scale-[0.98] border border-slate-800"
-                onClick={copyCode}
-            >
-                <span className="block group-hover:opacity-10 transition-opacity flex justify-center gap-2 items-end">
-                    <span className="text-xs text-slate-400 uppercase tracking-wider mb-1">Code Secret</span>
-                    <span className="text-lg tracking-widest">{secretCode}</span>
-                </span>
-                <div className="absolute inset-0 bg-black/50 flex items-center justify-center text-sm tracking-normal opacity-0 group-hover:opacity-100 transition-opacity gap-2">
-                    <Image src="/assets/images/icones/copy_paste-icon_white.png" alt="Copier" width={14} height={14} /> Copier
-                </div>
-            </button>
+            {/* Secret Code — affiché uniquement si le salon est privé */}
+            {isPrivate && (
+                <button
+                    className="w-full bg-[#2C3338] text-white py-4 px-3.5 rounded-lg text-center font-bold tracking-widest relative group overflow-hidden transition-transform active:scale-[0.98] border border-slate-800 flex-shrink-0"
+                    onClick={copyCode}
+                >
+                    <span className="flex flex-col items-center gap-0.5 group-hover:opacity-10 transition-opacity">
+                        <span className="text-xs text-slate-400 uppercase tracking-wider">Code Secret</span>
+                        <span className="text-xl tracking-[0.3em]">{secretCode}</span>
+                    </span>
+                    <div className="absolute inset-0 bg-black/50 flex items-center justify-center text-sm tracking-normal opacity-0 group-hover:opacity-100 transition-opacity gap-2">
+                        <Image src="/assets/images/icones/copy_paste-icon_white.png" alt="Copier" width={14} height={14} /> Copier
+                    </div>
+                </button>
+            )}
 
             {/* Micro and Mayor Toggles */}
             <div className="flex flex-col gap-3">
@@ -131,6 +157,55 @@ export default function Sidebar({
                             {isMayorEnabled ? 'ON' : 'OFF'}
                         </span>
                     </button>
+                </div>
+            </div>
+
+            {/* Durée des phases */}
+            <div className="flex flex-col gap-4">
+                <h3 className="font-bold text-base tracking-wide">Durée des phases</h3>
+
+                {/* Phases principales */}
+                <div className="flex flex-col gap-3">
+                    <p className="text-xs font-bold uppercase tracking-widest text-slate-400">Phases principales (30s – 5min)</p>
+                    {MAIN_PHASES.map(({ key, label, min, max, step }) => (
+                        <div key={key} className="flex flex-col gap-1">
+                            <div className="flex justify-between items-center text-sm">
+                                <span className="font-medium">{label}</span>
+                                <span className="font-extrabold text-[#D1A07A] text-sm min-w-[52px] text-right">
+                                    {formatDuration(phaseDurations[key])}
+                                </span>
+                            </div>
+                            <input
+                                type="range"
+                                min={min} max={max} step={step}
+                                value={phaseDurations[key]}
+                                onChange={e => setPhaseDurations({ ...phaseDurations, [key]: parseInt(e.target.value) })}
+                                className="w-full h-1.5 rounded-lg appearance-none cursor-pointer accent-[#D1A07A] bg-slate-600"
+                            />
+                        </div>
+                    ))}
+                </div>
+
+                {/* Phases d'action */}
+                <div className="flex flex-col gap-3">
+                    <p className="text-xs font-bold uppercase tracking-widest text-slate-400">Phases d'action (15s – 1min30)</p>
+                    {ACTION_PHASES.map(({ key, label, min, max, step }) => (
+                        <div key={key} className="flex flex-col gap-1">
+                            <div className="flex justify-between items-center text-sm">
+                                <span className="font-medium">{label}</span>
+                                <span className="font-extrabold text-[#D1A07A] text-sm min-w-[52px] text-right">
+                                    {formatDuration(phaseDurations[key])}
+                                </span>
+                            </div>
+                            <input
+                                type="range"
+                                min={min} max={max} step={step}
+                                value={phaseDurations[key]}
+                                onChange={e => setPhaseDurations({ ...phaseDurations, [key]: parseInt(e.target.value) })}
+                                className="w-full h-1.5 rounded-lg appearance-none cursor-pointer accent-[#D1A07A] bg-slate-600"
+                            />
+                        </div>
+                    ))}
                 </div>
             </div>
 

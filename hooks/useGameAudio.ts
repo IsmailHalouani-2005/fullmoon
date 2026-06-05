@@ -198,33 +198,22 @@ export function useGameAudio(game: GameState | null, currentUserUid: string | un
             const me = players.find(p => p.id === currentUserUid);
             if (!me) return;
 
-            let myCamp = "";
             let iWon = false;
+            const roleDef = ROLES[me.role as RoleId];
+            const myCamp = roleDef?.camp || '';
+            const isMeWolf = isInWolfCamp(me.role as RoleId) || me.effects?.includes('infected');
 
-            // Logique de victoire basique:
-            // "winner" peut être le nom du camp ("VILLAGE", "LOUPS", "AMOUREUX", "PIPER" ou "LOUP_BLANC", etc.)
-
-            // Si on est dans les amoureux et qu'ils gagnent
-            if (winner === 'AMOUREUX' && me.effects?.includes('lover')) {
+            if (winner === 'AMOUR' && me.effects?.includes('lover')) {
+                // Victoire des amoureux (clé serveur = 'AMOUR')
                 iWon = true;
-            } else if (winner === 'LOUP_BLANC' && me.role === 'LOUP_BLANC') {
+            } else if (winner === 'VILLAGEOIS' && myCamp === 'VILLAGE' && !isMeWolf) {
+                // Victoire du village
                 iWon = true;
-            } else if (winner === 'ANGE' && me.role === 'ANGE') {
-                // Pour roles custom future proof
+            } else if (winner === 'LOUPS' && (isMeWolf || myCamp === 'LOUPS')) {
+                // Victoire des loups (y compris infectés)
                 iWon = true;
-            } else {
-                // Camp standard (Village ou Loups)
-                const roleDef = ROLES[me.role as RoleId];
-                myCamp = roleDef ? roleDef.camp : "";
-
-                if (winner === myCamp && winner !== 'SOLO') {
-                    // J'appartiens au camp gagnant, est-ce que les amoureux n'ont pas volé la victoire ?
-                    iWon = true;
-                }
-            }
-            // Cas d'un loup infecté ou autre : "isInWolfCamp" 
-            const isMeWolf = isInWolfCamp(me.role as RoleId) || me.role === 'LOUP_GAROU' || me.role === 'LOUP_ALPHA' || me.role === 'GRAND_MECHANT_LOUP' || me.role === 'LOUP_INFECT';
-            if (winner === 'LOUPS' && (isMeWolf || me.effects?.includes('infected'))) {
+            } else if (winner === me.role) {
+                // Victoire solo : le winner correspond exactement au rôle du joueur
                 iWon = true;
             }
 

@@ -1,67 +1,24 @@
 import React, { useEffect } from 'react';
 import Image from 'next/image';
 import { ROLES, RoleId } from '@/types/roles';
-import { GameState, Phase } from '@/types/game';
+import { Phase } from '@/types/game';
 import RoleCard from '@/components/game/RoleCard';
 import PlayerCircleNode from '@/components/game/PlayerCircleNode';
 import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useToast } from '@/contexts/ToastContext';
+import { useGameContext } from '@/contexts/GameContext';
 
-interface ActiveGameProps {
-    currentPhase: Phase | string;
-    game: GameState;
-    roomCode: string;
-    dynamicRolesConfig: any;
-    copyInviteLink: () => void;
-    isHost: boolean;
-    groupConfig: any;
-    isInviteOpen: boolean;
-    setIsInviteOpen: (v: boolean) => void;
-    isPlayersListOpen: boolean;
-    setIsPlayersListOpen: (v: boolean) => void;
-    socket: any;
-    user: any;
-    isCardFlipped: boolean;
-    setIsCardFlipped: (v: boolean) => void;
-    setSelectedRole: (v: RoleId | null) => void;
-    activePower: string | null;
-    setActivePower: (v: string | null) => void;
-    powerTargets: string[];
-    setPowerTargets: (v: string[]) => void;
-    handlePowerClick: (powerId: string) => void;
-    handlePlayerClick: (playerId: string) => void;
-    getPlayerAvatar: (playerId: string, avatarUrl?: string) => string;
-    speakingPlayers: Set<string>;
-}
-
-export default function ActiveGame({
-    currentPhase,
-    game,
-    roomCode,
-    dynamicRolesConfig,
-    copyInviteLink,
-    isHost,
-    groupConfig,
-    isInviteOpen,
-    setIsInviteOpen,
-    isPlayersListOpen,
-    setIsPlayersListOpen,
-    socket,
-    user,
-    isCardFlipped,
-    setIsCardFlipped,
-    setSelectedRole,
-    activePower,
-    setActivePower,
-    powerTargets,
-    setPowerTargets,
-    handlePowerClick,
-    handlePlayerClick,
-    getPlayerAvatar,
-    speakingPlayers
-}: ActiveGameProps) {
+export default function ActiveGame() {
     const toast = useToast();
+    const {
+        game, currentPhase, roomCode, dynamicRolesConfig, copyInviteLink,
+        isHost, groupConfig, isInviteOpen, setIsInviteOpen,
+        isPlayersListOpen, setIsPlayersListOpen, socket, user,
+        isCardFlipped, setIsCardFlipped, setSelectedRole,
+        activePower, setActivePower, powerTargets, setPowerTargets,
+        handlePowerClick, handlePlayerClick, getPlayerAvatar, speakingPlayers,
+    } = useGameContext();
     const getCampColor = (camp: string) => {
         if (camp === 'VILLAGE') return 'text-green-600';
         if (camp === 'LOUPS') return 'text-red-600';
@@ -154,6 +111,9 @@ export default function ActiveGame({
                                         if (dynamicRolesConfig) {
                                             startPayload.rolesCount = dynamicRolesConfig;
                                             startPayload.isCustom = groupConfig?.isCustom;
+                                        }
+                                        if (groupConfig?.phaseDurations) {
+                                            startPayload.phaseDurations = groupConfig.phaseDurations;
                                         }
                                         socket?.emit('start_game', startPayload);
                                         // Persister dans Firestore pour que le Quick Join sache que la partie est lancée

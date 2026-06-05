@@ -11,7 +11,7 @@ describe('Wolf Chat Logic', () => {
     let clientAlpha: ClientSocket;
     let port: number;
 
-    jest.setTimeout(80000); // 80s timeout
+    jest.setTimeout(100000); // 100s timeout (65s wait + marge)
 
     beforeAll((done) => {
         httpServer = createServer();
@@ -25,9 +25,12 @@ describe('Wolf Chat Logic', () => {
         });
     });
 
-    afterAll(() => {
-        io.close();
-        httpServer.close();
+    afterAll((done) => {
+        // Forcer la déconnexion de tous les sockets avant de fermer le serveur
+        io.disconnectSockets(true);
+        io.close(() => {
+            httpServer.close(() => done());
+        });
     });
 
     beforeEach((done) => {
@@ -64,6 +67,18 @@ describe('Wolf Chat Logic', () => {
 
         let gotDirectMsg = false;
         let gotStateMessage = false;
+        let finished = false;
+        let outerTimer: NodeJS.Timeout | null = null;
+        let innerTimer: NodeJS.Timeout | null = null;
+
+        // Finalise le test une seule fois et nettoie tous les timers
+        const finish = (err?: Error) => {
+            if (finished) return;
+            finished = true;
+            if (outerTimer) { clearTimeout(outerTimer); outerTimer = null; }
+            if (innerTimer) { clearTimeout(innerTimer); innerTimer = null; }
+            done(err);
+        };
 
         clientAlpha.on('chat_message', (msg) => {
             if (msg.text === 'Hello Alpha!' && msg.chatType === 'night') {
@@ -76,13 +91,14 @@ describe('Wolf Chat Logic', () => {
                 const hasMessage = state.chatMessages?.find((m: any) => m.text === 'Hello Alpha!');
                 if (hasMessage && !gotStateMessage) {
                     gotStateMessage = true;
-                    done();
-                } else if (!hasMessage) {}
+                    finish(); // succès — nettoie les timers
+                }
             }
         });
 
-        // Wait 65s
-        setTimeout(() => {
+        // Wait 65s for NIGHT phase to start
+        outerTimer = setTimeout(() => {
+            outerTimer = null;
             clientWolf.emit('chat_message', {
                 senderId: 'userW',
                 senderName: 'WolfPlayer',
@@ -91,9 +107,10 @@ describe('Wolf Chat Logic', () => {
                 chatType: 'night'
             }, (_res: any) => {});
 
-            // Fail if not received in state within 5s
-            setTimeout(() => {
-                if (!gotStateMessage) done(new Error("Did not receive message in update_game state"));
+            // Fail si pas reçu dans les 5s
+            innerTimer = setTimeout(() => {
+                innerTimer = null;
+                if (!gotStateMessage) finish(new Error('Did not receive message in update_game state'));
             }, 5000);
         }, 65000);
     });

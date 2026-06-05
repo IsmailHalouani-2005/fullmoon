@@ -78,13 +78,14 @@ export interface GameState {
     infectedVictimId?: string | null;
     lastPoisonedId?: string | null;
     disconnectedPlayers?: { id: string; name: string }[];
+    phaseDurations?: Partial<Record<string, number>>; // durées personnalisées par phase (en secondes)
 }
 
 // -- Events Socket.io (Typage strict) --
 
 export interface ClientToServerEvents {
     join_game: (payload: { roomCode: string; userId: string; username: string; avatarUrl?: string }) => void;
-    start_game: (config?: { rolesCount: Partial<Record<RoleId, number>>, isCustom?: boolean, isMayorEnabled?: boolean }) => void;
+    start_game: (config?: { rolesCount: Partial<Record<RoleId, number>>, isCustom?: boolean, isMayorEnabled?: boolean, phaseDurations?: Partial<Record<string, number>> }) => void;
     vote_player: (targetId: string) => void;
     use_power: (payload: { powerId: PowerId; targetId?: string; targetId2?: string }) => void;
     chat_message: (payload: ChatMessage, callback?: (response: { status: 'success' | 'error', reason?: string }) => void) => void;

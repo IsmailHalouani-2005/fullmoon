@@ -18,6 +18,7 @@ import RoleInfoModal from '@/components/room/edit/RoleInfoModal';
 import RoleCard from '../../../components/game/RoleCard';
 import PlayerCircleNode from '../../../components/game/PlayerCircleNode';
 import EndGame from '../../../components/game/EndGame';
+import { GameProvider } from '@/contexts/GameContext';
 import ActiveGame from '../../../components/game/ActiveGame';
 import LoadingScreen from '@/components/room/LoadingScreen';
 import LoversModal from '@/components/game/LoversModal';
@@ -1122,32 +1123,19 @@ export default function RoomPage() {
                     hasNextRoom={!!nextRoomCode}
                 />
             ) : (
-                <ActiveGame
-                    currentPhase={currentPhase}
-                    game={game}
-                    roomCode={roomCode}
-                    dynamicRolesConfig={rolesConfig}
-                    copyInviteLink={copyInviteLink}
-                    isHost={isHost}
-                    groupConfig={groupConfig}
-                    isInviteOpen={isInviteOpen}
-                    setIsInviteOpen={setIsInviteOpen}
-                    isPlayersListOpen={isPlayersListOpen}
-                    setIsPlayersListOpen={setIsPlayersListOpen}
-                    socket={socket}
-                    user={user}
-                    isCardFlipped={isCardFlipped}
-                    setIsCardFlipped={setIsCardFlipped}
-                    setSelectedRole={setSelectedRole}
-                    activePower={activePower}
-                    setActivePower={setActivePower}
-                    powerTargets={powerTargets}
-                    setPowerTargets={setPowerTargets}
-                    handlePowerClick={handlePowerClick}
-                    handlePlayerClick={handlePlayerClick}
-                    getPlayerAvatar={getPlayerAvatar}
-                    speakingPlayers={speakingPlayers}
-                />
+                <GameProvider value={{
+                    game, currentPhase, roomCode, isHost, groupConfig,
+                    dynamicRolesConfig: rolesConfig,
+                    socket, user,
+                    activePower, setActivePower, powerTargets, setPowerTargets,
+                    handlePowerClick, handlePlayerClick,
+                    isCardFlipped, setIsCardFlipped, setSelectedRole,
+                    isInviteOpen, setIsInviteOpen,
+                    isPlayersListOpen, setIsPlayersListOpen,
+                    getPlayerAvatar, speakingPlayers, copyInviteLink,
+                }}>
+                    <ActiveGame />
+                </GameProvider>
             )}
             {/* Pop-up d'information sur le rôle (Plein Écran) */}
             {selectedRole && ROLES[selectedRole] && (
