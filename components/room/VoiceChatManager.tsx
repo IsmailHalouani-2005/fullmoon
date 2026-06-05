@@ -5,7 +5,8 @@ import { Socket } from 'socket.io-client';
 import { Player, Phase, GameState } from '@/types/game';
 import { isInWolfCamp } from '@/types/roles';
 
-const ADMIN_EMAILS = ['ismail.halouani@gmail.com', 'ilovehacking25@gmail.com', 'admin@admin.admin'];
+// Emails admin lus depuis .env.local — ne pas hardcoder dans le code source (visible sur GitHub)
+const ADMIN_EMAILS = (process.env.NEXT_PUBLIC_ADMIN_EMAILS || '').split(',').map(e => e.trim()).filter(Boolean);
 
 interface VoiceChatManagerProps {
     socket: Socket | null;

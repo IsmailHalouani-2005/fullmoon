@@ -8,11 +8,35 @@ import MicrophoneDebug from "../components/MicrophoneDebug";
 import ErrorBoundary from "../components/ErrorBoundary";
 
 
+const BASE_URL = 'https://fullmoon.ismailhalouani.eu';
+
 export const metadata: Metadata = {
-  title: "FullMoon | Le village s'endort",
-  description: "Jeu du Loup-Garou en ligne réinventé.",
+  title: "FullMoon | Le Jeu de Loup-Garou en ligne entre amis",
+  description: "Jouez aux Loups-Garous en ligne avec vos amis. Chat vocal automatique, rôles secrets, votes et pouvoirs — sans maître du jeu humain.",
   icons: {
     icon: "/assets/images/logo_fullmoon.ico",
+  },
+  openGraph: {
+    title: "FullMoon | Le Jeu de Loup-Garou en ligne entre amis",
+    description: "Jouez aux Loups-Garous en ligne avec vos amis. Chat vocal automatique, rôles secrets, votes et pouvoirs — sans maître du jeu humain.",
+    url: BASE_URL,
+    siteName: "FullMoon",
+    images: [
+      {
+        url: `${BASE_URL}/assets/images/thumbnail-fullmoon.jpg`,
+        width: 1200,
+        height: 630,
+        alt: "FullMoon — Loup-Garou en ligne",
+      },
+    ],
+    locale: "fr_FR",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "FullMoon | Le Jeu de Loup-Garou en ligne entre amis",
+    description: "Jouez aux Loups-Garous en ligne avec vos amis. Chat vocal, rôles secrets, votes — sans maître du jeu.",
+    images: [`${BASE_URL}/assets/images/thumbnail-fullmoon.jpg`],
   },
 };
 

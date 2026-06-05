@@ -2,20 +2,13 @@
 
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
-import { useState, useEffect } from 'react';
-import { auth } from '../lib/firebase';
-import { onAuthStateChanged } from 'firebase/auth';
 import { useThemeStore } from '../store/themeStore';
+import { useAuth } from '../contexts/AuthContext';
 
 export default function Hero() {
     const router = useRouter();
     const { isDarkMode } = useThemeStore();
-    const [user, setUser] = useState<any>(null);
-
-    useEffect(() => {
-        const unsubscribe = onAuthStateChanged(auth, setUser);
-        return () => unsubscribe();
-    }, []);
+    const { user } = useAuth();
 
     return (
         <section className={`relative w-full overflow-hidden min-h-[500px] flex items-center justify-center pb-20 pt-12`}>

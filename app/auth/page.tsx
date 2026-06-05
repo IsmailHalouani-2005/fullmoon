@@ -24,7 +24,26 @@ export default function AuthPage() {
     const [error, setError] = useState('');
     const [submitting, setSubmitting] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
+    const [failCount, setFailCount] = useState(0);
+    const [lockoutUntil, setLockoutUntil] = useState<number | null>(null);
+    const [lockoutRemaining, setLockoutRemaining] = useState(0);
     const isAuthenticatingRef = useRef(false);
+
+    // Décompte du lockout
+    useEffect(() => {
+        if (!lockoutUntil) return;
+        const interval = setInterval(() => {
+            const remaining = Math.ceil((lockoutUntil - Date.now()) / 1000);
+            if (remaining <= 0) {
+                setLockoutUntil(null);
+                setLockoutRemaining(0);
+                setFailCount(0);
+            } else {
+                setLockoutRemaining(remaining);
+            }
+        }, 1000);
+        return () => clearInterval(interval);
+    }, [lockoutUntil]);
 
     // Redirect to /play if already authenticated
     useEffect(() => {
@@ -35,6 +54,7 @@ export default function AuthPage() {
 
     const handleEmailAuth = async (e: React.FormEvent) => {
         e.preventDefault();
+        if (lockoutUntil && Date.now() < lockoutUntil) return;
         setError('');
         setSubmitting(true);
 
@@ -70,10 +90,21 @@ export default function AuthPage() {
             }
         } catch (err: any) {
             console.error(err);
+            const newFailCount = failCount + 1;
+            setFailCount(newFailCount);
+
             if (err.code === 'auth/email-already-in-use') {
                 setError('Cet email est déjà utilisé.');
             } else if (err.code === 'auth/wrong-password' || err.code === 'auth/user-not-found' || err.code === 'auth/invalid-credential') {
-                setError('Email ou mot de passe incorrect.');
+                if (newFailCount >= 3) {
+                    // Blocage 30s après 3 échecs
+                    const until = Date.now() + 30_000;
+                    setLockoutUntil(until);
+                    setLockoutRemaining(30);
+                    setError('Trop de tentatives échouées. Réessayez dans 30 secondes.');
+                } else {
+                    setError(`Email ou mot de passe incorrect. (${newFailCount}/3 tentatives)`);
+                }
             } else if (err.code === 'auth/weak-password') {
                 setError('Le mot de passe doit faire au moins 6 caractères.');
             } else {
@@ -217,10 +248,13 @@ export default function AuthPage() {
 
                     <button
                         type="submit"
-                        disabled={submitting}
-                        className="w-full flex justify-center py-3 px-4 border-3 border-dark rounded-md shadow-sm text-xl font-bold text-white bg-dark hover:bg-dark/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-dark transition-colors cursor-pointer disabled:opacity-50"
+                        disabled={submitting || !!lockoutUntil}
+                        className={`w-full flex justify-center py-3 px-4 border-3 rounded-md shadow-sm text-xl font-bold text-white transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${lockoutUntil ? 'bg-red-800 border-red-700' : 'bg-dark border-dark hover:bg-dark/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-dark'}`}
                     >
-                        {isLogin ? "Se connecter" : "S'inscrire"}
+                        {lockoutUntil
+                            ? `Réessayez dans ${lockoutRemaining}s`
+                            : submitting ? 'Chargement...'
+                            : isLogin ? 'Se connecter' : "S'inscrire"}
                     </button>
                 </form>
 
