@@ -2,12 +2,13 @@ import * as dotenv from 'dotenv';
 import path from 'path';
 import http from 'http';
 import { Server } from "socket.io";
-import { setupGameLogic, getRoomStats } from "./gameLogic";
+import { setupGameLogic, getRoomStats, getDetailedRoomStats } from "./gameLogic";
 
 // Load the Next.js environment variables
 dotenv.config({ path: path.resolve(__dirname, '../.env.local') });
 
 const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || 'http://localhost:3000,http://localhost:3001').split(',').map(o => o.trim());
+const ADMIN_SECRET = process.env.ADMIN_API_SECRET || '';
 
 // 1. Create native HTTP server to handle API + CORS
 const server = http.createServer((req, res) => {
@@ -30,6 +31,20 @@ const server = http.createServer((req, res) => {
         const stats = getRoomStats();
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify(stats));
+        return;
+    }
+
+    // Route: /api/admin/rooms — état détaillé de toutes les rooms (admin uniquement)
+    if (req.url?.startsWith('/api/admin/rooms')) {
+        const urlParams = new URL(req.url, 'http://localhost').searchParams;
+        const secret = urlParams.get('secret');
+        if (!ADMIN_SECRET || secret !== ADMIN_SECRET) {
+            res.writeHead(403, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'Forbidden' }));
+            return;
+        }
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(getDetailedRoomStats()));
         return;
     }
 

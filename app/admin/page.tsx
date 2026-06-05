@@ -116,6 +116,26 @@ export default function AdminPage() {
                             </button>
                         </div>
 
+                        {/* Monitor Card — Super Admin uniquement */}
+                        {isSuperAdmin && (
+                            <div
+                                onClick={() => router.push('/admin/monitor')}
+                                className="bg-slate-900/50 border border-[#D1A07A]/30 rounded-lg p-6 flex flex-col items-start cursor-pointer hover:border-[#D1A07A]/60 hover:bg-slate-800 transition-all group relative overflow-hidden"
+                            >
+                                <div className="absolute top-0 left-0 w-full h-1 bg-[#D1A07A] opacity-50 group-hover:opacity-100 transition-opacity" />
+                                <h2 className="text-xl font-bold text-slate-200 mb-2 flex items-center gap-2">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-[#D1A07A]"><rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" /><rect x="14" y="14" width="7" height="7" /><rect x="3" y="14" width="7" height="7" /></svg>
+                                    Tableau de Bord
+                                </h2>
+                                <p className="text-slate-400 text-sm mb-6 flex-1">
+                                    Visualisez en temps réel l'état de toutes les rooms actives (joueurs, rôles, phases, morts) et gérez tous les comptes utilisateurs.
+                                </p>
+                                <button className="w-full bg-[#D1A07A] hover:bg-[#b08465] text-dark font-bold py-3 px-4 rounded transition-colors shadow-lg uppercase tracking-wide text-sm">
+                                    Ouvrir le Tableau de Bord
+                                </button>
+                            </div>
+                        )}
+
                         {/* Simulation Tool Card */}
                         <div
                             onClick={() => router.push('/admin/simulation')}

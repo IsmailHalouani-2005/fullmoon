@@ -24,6 +24,36 @@ export function getRoomStats(): Record<string, number> {
     return stats;
 }
 
+/** Returns detailed game state for each active room (admin only) */
+export function getDetailedRoomStats() {
+    const result: Record<string, any> = {};
+    for (const [roomCode, game] of Object.entries(_games)) {
+        result[roomCode] = {
+            roomCode,
+            phase: game.phase,
+            timer: game.timer,
+            dayCount: game.dayCount,
+            hostId: game.hostId,
+            mayorId: game.mayorId,
+            isMayorEnabled: game.isMayorEnabled,
+            players: game.players.map(p => ({
+                id: p.id,
+                name: p.name,
+                role: p.role,
+                isAlive: p.isAlive,
+                isDisconnected: p.isDisconnected ?? false,
+                effects: p.effects,
+                hasVoted: p.hasVoted,
+                deadAt: p.deadAt ?? null,
+                stats: p.stats,
+            })),
+            totalPlayers: game.players.length,
+            alivePlayers: game.players.filter(p => p.isAlive).length,
+        };
+    }
+    return result;
+}
+
 export function setupGameLogic(io: Server<ClientToServerEvents, ServerToClientEvents>) {
     const games: Record<string, GameState> = _games;
     const disconnectTimeouts: Record<string, NodeJS.Timeout> = {};
@@ -82,6 +112,7 @@ export function setupGameLogic(io: Server<ClientToServerEvents, ServerToClientEv
                             clearInterval(gameTimers[code]);
                             delete gameTimers[code];
                         }
+                        deleteDoc(doc(db, "groups", code)).catch(e => console.error("Erreur gamedoc join cleanup:", e));
                     } else {
                         if (otherGame.hostId === userId) {
                             otherGame.hostId = otherGame.players[0].id;
@@ -712,6 +743,7 @@ export function setupGameLogic(io: Server<ClientToServerEvents, ServerToClientEv
                     clearInterval(gameTimers[roomCode]);
                     delete gameTimers[roomCode];
                 }
+                deleteDoc(doc(db, "groups", roomCode)).catch(e => console.error("Erreur gamedoc leave empty:", e));
             } else {
                 if (game.hostId === userId) {
                     game.hostId = game.players[0].id;
@@ -1659,6 +1691,7 @@ function triggerGameOver(roomCode: string, victoryDetails: { winner: string, pla
                     clearInterval(gameTimers[roomCode]);
                     delete gameTimers[roomCode];
                 }
+                deleteDoc(doc(db, "groups", roomCode)).catch(e => console.error("Erreur gamedoc gameover cleanup:", e));
             }
         }, 5 * 60 * 1000).unref(); // 5 minutes
     }, 4500).unref();
