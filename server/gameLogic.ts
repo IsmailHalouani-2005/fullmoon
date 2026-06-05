@@ -3,8 +3,12 @@ import { ClientToServerEvents, ServerToClientEvents, GameState, Player, ChatMess
 import { ROLES, RoleId, Camp, isInWolfCamp } from '../types/roles';
 import { distributeRoles, distributeCustomRoles, getCountsForJ } from '../lib/roleDistribution';
 import { io } from './index';
-import { db } from '../lib/firebase';
-import { doc, deleteDoc } from 'firebase/firestore';
+import { adminDb } from './firebaseAdmin';
+
+// Supprime un salon Firestore via Admin SDK (bypass des règles de sécurité)
+const deleteRoom = (roomCode: string) =>
+    adminDb.collection('groups').doc(roomCode).delete()
+        .catch((e: unknown) => console.error(`[Admin] Erreur suppression room ${roomCode}:`, e));
 
 
 // Shared games state so the HTTP layer can serve live stats
@@ -112,7 +116,7 @@ export function setupGameLogic(io: Server<ClientToServerEvents, ServerToClientEv
                             clearInterval(gameTimers[code]);
                             delete gameTimers[code];
                         }
-                        deleteDoc(doc(db, "groups", code)).catch(e => console.error("Erreur gamedoc join cleanup:", e));
+                        deleteRoom(code);
                     } else {
                         if (otherGame.hostId === userId) {
                             otherGame.hostId = otherGame.players[0].id;
@@ -743,7 +747,7 @@ export function setupGameLogic(io: Server<ClientToServerEvents, ServerToClientEv
                     clearInterval(gameTimers[roomCode]);
                     delete gameTimers[roomCode];
                 }
-                deleteDoc(doc(db, "groups", roomCode)).catch(e => console.error("Erreur gamedoc leave empty:", e));
+                deleteRoom(roomCode);
             } else {
                 if (game.hostId === userId) {
                     game.hostId = game.players[0].id;
@@ -807,7 +811,7 @@ export function setupGameLogic(io: Server<ClientToServerEvents, ServerToClientEv
                         if (currentGame.players.length === 0) {
                             delete games[roomCode];
                             if (gameTimers[roomCode]) clearInterval(gameTimers[roomCode]);
-                            deleteDoc(doc(db, "groups", roomCode)).catch(e => console.error("Erreur gamedoc disconnect delete:", e));
+                            deleteRoom(roomCode);
                         } else {
                             if (currentGame.hostId === userId) currentGame.hostId = currentGame.players[0].id;
                             emitGameState(roomCode, currentGame, io);
@@ -858,7 +862,7 @@ function startInactivityCheck(games: Record<string, GameState>, gameTimers: Reco
                         delete gameTimers[roomCode];
                     }
 
-                    deleteDoc(doc(db, "groups", roomCode)).catch(e => console.error("Erreur gamedoc idle delete:", e));
+                    deleteRoom(roomCode);
                 } else if (idleTime >= WARNING_TIMEOUT && game.players.length >= 5 && !game.lobbyWarningSent) {
                     // Send warning to host only
                     const host = game.players.find(p => p.id === game.hostId);
@@ -877,7 +881,7 @@ function startInactivityCheck(games: Record<string, GameState>, gameTimers: Reco
                         clearInterval(gameTimers[roomCode]);
                         delete gameTimers[roomCode];
                     }
-                    deleteDoc(doc(db, "groups", roomCode)).catch(e => console.error("Erreur gamedoc failsafe delete:", e));
+                    deleteRoom(roomCode);
                     return;
                 }
 
@@ -911,7 +915,7 @@ function startInactivityCheck(games: Record<string, GameState>, gameTimers: Reco
                         if (game.players.length === 0) {
                             delete games[roomCode];
                             if (gameTimers[roomCode]) clearInterval(gameTimers[roomCode]);
-                            deleteDoc(doc(db, "groups", roomCode)).catch(e => console.error("Erreur gamedoc empty delete:", e));
+                            deleteRoom(roomCode);
                         } else {
                             if (game.hostId === player.id) game.hostId = game.players[0].id;
                             emitGameState(roomCode, game, io);
@@ -1691,7 +1695,7 @@ function triggerGameOver(roomCode: string, victoryDetails: { winner: string, pla
                     clearInterval(gameTimers[roomCode]);
                     delete gameTimers[roomCode];
                 }
-                deleteDoc(doc(db, "groups", roomCode)).catch(e => console.error("Erreur gamedoc gameover cleanup:", e));
+                deleteRoom(roomCode);
             }
         }, 5 * 60 * 1000).unref(); // 5 minutes
     }, 4500).unref();
