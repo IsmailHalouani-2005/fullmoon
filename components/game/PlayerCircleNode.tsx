@@ -1,7 +1,7 @@
+import React, { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
 import { Player, Phase, GameState } from '@/types/game';
 import { ROLES, RoleId, isInWolfCamp } from "@/types/roles";
-import { useState, useEffect, useRef } from 'react';
 
 // ─── Tooltip générique ────────────────────────────────────────────────────────
 type TooltipDir = 'top' | 'bottom' | 'left' | 'right';
@@ -80,21 +80,21 @@ interface PlayerCircleNodeProps {
     totalPlayers: number;
     game: GameState;
     currentPhase: Phase | string;
-    currentUser: any;
+    currentUser: { uid: string } | null;
     onVote?: (playerId: string) => void;
     mockCanVote?: boolean;
-    mockRoleDef?: any;
+    mockRoleDef?: Record<string, unknown>;
     activePower?: string | null;
     powerTargets?: string[];
     wolfVictimId?: string | null;
     gmlVictimId?: string | null;
     infectedVictimId?: string | null;
     getPlayerAvatar: (playerId: string, fallbackUrl?: string) => string;
-    nightActions?: any[];
+    nightActions?: Record<string, unknown>[];
     isSpeaking?: boolean;
 }
 
-export default function PlayerCircleNode({
+function PlayerCircleNode({
     player,
     index,
     totalPlayers,
@@ -149,6 +149,7 @@ export default function PlayerCircleNode({
     const [dyingAnimation, setDyingAnimation] = useState(false);
     useEffect(() => {
         if (wasAliveRef.current && !player.isAlive) {
+            // eslint-disable-next-line react-hooks/set-state-in-effect
             setDyingAnimation(true);
             const t = setTimeout(() => setDyingAnimation(false), 2000);
             return () => clearTimeout(t);
@@ -409,3 +410,33 @@ export default function PlayerCircleNode({
         </div >
     );
 }
+
+// ─── Equality function pour React.memo ───────────────────────────────────────
+// On compare uniquement les props qui influencent le rendu de cet avatar.
+// game.timer est EXCLU → pas de re-render à chaque tick.
+// La stabilisation des références (players, votes) est faite côté update_game.
+function areEqual(prev: PlayerCircleNodeProps, next: PlayerCircleNodeProps): boolean {
+    return (
+        prev.player === next.player &&
+        prev.index === next.index &&
+        prev.totalPlayers === next.totalPlayers &&
+        prev.currentPhase === next.currentPhase &&
+        prev.activePower === next.activePower &&
+        prev.isSpeaking === next.isSpeaking &&
+        prev.wolfVictimId === next.wolfVictimId &&
+        prev.gmlVictimId === next.gmlVictimId &&
+        prev.infectedVictimId === next.infectedVictimId &&
+        prev.powerTargets === next.powerTargets &&
+        prev.nightActions === next.nightActions &&
+        // Champs du game state utilisés par ce composant (pas game.timer)
+        prev.game.players === next.game.players &&
+        prev.game.votes === next.game.votes &&
+        prev.game.mayorId === next.game.mayorId &&
+        prev.game.hostId === next.game.hostId &&
+        prev.game.dyingMayorId === next.game.dyingMayorId &&
+        prev.game.lastPoisonedId === next.game.lastPoisonedId &&
+        prev.game.wolfVictimId === next.game.wolfVictimId
+    );
+}
+
+export default React.memo(PlayerCircleNode, areEqual);

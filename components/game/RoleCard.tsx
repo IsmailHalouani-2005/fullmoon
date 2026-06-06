@@ -51,7 +51,7 @@ export default function RoleCard({
                         </div>
 
                         {/* Description */}
-                        <p className="text-[10px] sm:text-xs italic text-dark font-light leading-relaxed px-2 sm:px-4">"{roleDef.description}"</p>
+                        <p className="text-[10px] sm:text-xs italic text-dark font-light leading-relaxed px-2 sm:px-4">{'"'}{roleDef.description}{'"'}</p>
 
                         {/* Capacity (optional for testing/admin area) */}
                         {showCapacity && roleDef.capacity && (

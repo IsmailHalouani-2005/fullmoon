@@ -88,14 +88,15 @@ export default function AuthPage() {
 
                 router.push('/play');
             }
-        } catch (err: any) {
+        } catch (err: unknown) {
             console.error(err);
             const newFailCount = failCount + 1;
             setFailCount(newFailCount);
 
-            if (err.code === 'auth/email-already-in-use') {
+            const firebaseErr = err as { code?: string; message?: string };
+            if (firebaseErr.code === 'auth/email-already-in-use') {
                 setError('Cet email est déjà utilisé.');
-            } else if (err.code === 'auth/wrong-password' || err.code === 'auth/user-not-found' || err.code === 'auth/invalid-credential') {
+            } else if (firebaseErr.code === 'auth/wrong-password' || firebaseErr.code === 'auth/user-not-found' || firebaseErr.code === 'auth/invalid-credential') {
                 if (newFailCount >= 3) {
                     // Blocage 30s après 3 échecs
                     const until = Date.now() + 30_000;
@@ -105,10 +106,10 @@ export default function AuthPage() {
                 } else {
                     setError(`Email ou mot de passe incorrect. (${newFailCount}/3 tentatives)`);
                 }
-            } else if (err.code === 'auth/weak-password') {
+            } else if (firebaseErr.code === 'auth/weak-password') {
                 setError('Le mot de passe doit faire au moins 6 caractères.');
             } else {
-                setError(err.message || "Une erreur est survenue.");
+                setError(firebaseErr.message || "Une erreur est survenue.");
             }
             setSubmitting(false);
         }
@@ -139,7 +140,7 @@ export default function AuthPage() {
             }
 
             router.push('/play');
-        } catch (err: any) {
+        } catch (err: unknown) {
             console.error(err);
             setError("Erreur avec l'authentification Google.");
             setSubmitting(false);

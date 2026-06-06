@@ -1,17 +1,17 @@
 import { useEffect, useRef, useState } from 'react';
-import { GameState, Phase } from '@/types/game';
+import { GameState, Phase, Player } from '@/types/game';
 import { ROLES, RoleId, isInWolfCamp } from '@/types/roles';
 
 // Chemin de base vers les dossiers d'effets sonores
 const SFX_DIR = "/assets/soundeffects";
 
-export function useGameAudio(game: GameState | null, currentUserUid: string | undefined, socket: any, activePower?: string | null, ambianceVolume: number = 50) {
+export function useGameAudio(game: GameState | null, currentUserUid: string | undefined, socket: { on: (event: string, handler: (payload: unknown) => void) => void; off: (event: string, handler: (payload: unknown) => void) => void } | null, activePower?: string | null, ambianceVolume: number = 50) {
     // Refs pour les éléments audio persistant à travers les rendus
     const ambianceAudioRef = useRef<HTMLAudioElement | null>(null);
 
     // Refs pour mémoriser l'état précédent (détection de changements)
     const prevPhaseRef = useRef<Phase | null>(null);
-    const prevPlayersRef = useRef<any[]>([]);
+    const prevPlayersRef = useRef<Player[]>([]);
     const prevMayorRef = useRef<string | null>(null);
 
     const [isMuted, setIsMuted] = useState(false); // Optionnel : permettre au joueur de couper le son dynamiquement
@@ -30,6 +30,8 @@ export function useGameAudio(game: GameState | null, currentUserUid: string | un
                 ambianceAudioRef.current = null;
             }
         };
+        // Intentional run-once: audio element is created once on mount, ambianceVolume is managed via ref
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     // Ref pour le volume courant (évite les closures périmées dans changeAmbiance)
@@ -113,6 +115,8 @@ export function useGameAudio(game: GameState | null, currentUserUid: string | un
                 break;
         }
 
+        // changeAmbiance and game are intentionally omitted: we only want to re-run when phase or mute state changes
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [game?.phase, isMuted]);
 
     // -- 1.5 GESTION DES ARMES (CHASSEUR) --
@@ -120,6 +124,8 @@ export function useGameAudio(game: GameState | null, currentUserUid: string | un
         if (activePower === 'FUSIL') {
             playSFX('chasseur_gun_reload_sound.mp3');
         }
+        // playSFX is a stable inline function; adding it would cause unnecessary re-runs
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [activePower]);
 
     // -- 2. GESTION DES EFFETS SPECIAUX (Transitions) --
@@ -185,14 +191,16 @@ export function useGameAudio(game: GameState | null, currentUserUid: string | un
         prevPlayersRef.current = currentPlayers;
         prevMayorRef.current = currentMayor;
 
+        // currentUserUid and playSFX intentionally omitted: effect tracks game object diffs via refs
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [game]);
 
     // -- 3. GESTION DU GAME OVER VIA SOCKET --
     useEffect(() => {
         if (!socket || !currentUserUid) return;
 
-        const handleGameOver = (payload: { winner: string; players: any[] }) => {
-            const { winner, players } = payload;
+        const handleGameOver = (payload: unknown) => {
+            const { winner, players } = payload as { winner: string; players: Player[] };
 
             // Chercher notre joueur et son camp pour savoir si l'on a gagné
             const me = players.find(p => p.id === currentUserUid);
@@ -229,6 +237,8 @@ export function useGameAudio(game: GameState | null, currentUserUid: string | un
         return () => {
             socket.off('game_over', handleGameOver);
         };
+        // playSFX is a stable inline function; adding it would cause the listener to re-register unnecessarily
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [socket, currentUserUid]);
 
     // Exposé pour jouer le son du tir au moment exact où le chasseur clique

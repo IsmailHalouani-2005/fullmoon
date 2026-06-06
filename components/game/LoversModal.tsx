@@ -50,7 +50,7 @@ export default function LoversModal({ isOpen, onClose, loverName, isSameCamp }: 
                             <div className="bg-[#ff69b4]/10 p-3 rounded-lg border border-[#ff69b4]/30">
                                 <p className="text-[#ff69b4]">
                                     <Image src="/assets/images/icones/epees_epees.png" alt="Amour Impossible" width={20} height={20} className="inline-block mr-2 -mt-1" />
-                                    <strong>Amour Impossible :</strong> Vos camps sont ennemis ! Vous avez trahi les vôtres. Votre unique but est désormais de <strong>survivre jusqu'à la fin, SEULS tous les deux</strong>.
+                                    <strong>Amour Impossible :</strong> Vos camps sont ennemis ! Vous avez trahi les vôtres. Votre unique but est désormais de <strong>survivre jusqu{"'"}à la fin, SEULS tous les deux</strong>.
                                 </p>
                             </div>
                         )}

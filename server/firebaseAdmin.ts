@@ -8,6 +8,7 @@
  */
 import * as admin from 'firebase-admin';
 import * as path from 'path';
+import * as fs from 'fs';
 
 function initAdmin(): admin.app.App {
     if (admin.apps.length > 0) return admin.apps[0]!;
@@ -20,12 +21,11 @@ function initAdmin(): admin.app.App {
                 ? certPath
                 : path.resolve(process.cwd(), certPath);
 
-            // eslint-disable-next-line @typescript-eslint/no-var-requires
-            const serviceAccount = require(resolvedPath);
+            const serviceAccount = JSON.parse(fs.readFileSync(resolvedPath, 'utf-8')) as Record<string, unknown>;
 
             return admin.initializeApp({
-                credential: admin.credential.cert(serviceAccount),
-                projectId: serviceAccount.project_id,
+                credential: admin.credential.cert(serviceAccount as admin.ServiceAccount),
+                projectId: serviceAccount.project_id as string,
             });
         } catch (e) {
             console.error('[FirebaseAdmin] Impossible de charger le service account :', e);

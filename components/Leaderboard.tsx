@@ -9,7 +9,7 @@ import { LeaderboardRowSkeleton } from './ui/Skeleton';
 
 export default function Leaderboard() {
     const { isDarkMode } = useThemeStore();
-    const [topPlayers, setTopPlayers] = useState<any[]>([]);
+    const [topPlayers, setTopPlayers] = useState<Record<string, unknown>[]>([]);
     const [loading, setLoading] = useState(true);
     const tableRef = useRef<HTMLDivElement>(null);
     const [visibleRows, setVisibleRows] = useState<Set<number>>(new Set());
@@ -21,7 +21,7 @@ export default function Leaderboard() {
                 const q = query(usersRef, orderBy("stats.points", "desc"), limit(10));
                 const querySnapshot = await getDocs(q);
 
-                const players: any[] = [];
+                const players: Record<string, unknown>[] = [];
                 querySnapshot.forEach((doc) => {
                     players.push({ id: doc.id, ...doc.data() });
                 });

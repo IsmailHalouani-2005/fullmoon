@@ -7,7 +7,7 @@ import { doc, onSnapshot } from 'firebase/firestore';
 
 interface AuthContextValue {
     user: User | null;
-    userData: Record<string, any> | null;
+    userData: Record<string, unknown> | null;
     loading: boolean;
 }
 
@@ -19,7 +19,7 @@ const AuthContext = createContext<AuthContextValue>({
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
     const [user, setUser]         = useState<User | null>(null);
-    const [userData, setUserData] = useState<Record<string, any> | null>(null);
+    const [userData, setUserData] = useState<Record<string, unknown> | null>(null);
     const [loading, setLoading]   = useState(true);
 
     useEffect(() => {
@@ -36,7 +36,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 unsubUser = onSnapshot(
                     doc(db, 'users', currentUser.uid),
                     (snap) => {
-                        setUserData(snap.exists() ? (snap.data() as Record<string, any>) : null);
+                        setUserData(snap.exists() ? (snap.data() as Record<string, unknown>) : null);
                         setLoading(false);
                     },
                     () => setLoading(false)

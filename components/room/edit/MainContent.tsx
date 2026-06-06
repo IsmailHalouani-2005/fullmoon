@@ -98,7 +98,6 @@ export default function MainContent({
 
             <div className={`w-full bg-white border-[2px] border-[#2C3338] rounded-xl p-8 transition-opacity duration-300 ${!isCustom ? 'opacity-80' : ''}`}>
                 <RoleGroup
-                    camp="VILLAGE"
                     title="Camp du VILLAGE :"
                     roles={Object.values(ROLES).filter(r => r.camp === 'VILLAGE')}
                     rolesCount={rolesCount}
@@ -109,7 +108,6 @@ export default function MainContent({
                 />
                 <div className="my-8 h-[1px] bg-slate-200" />
                 <RoleGroup
-                    camp="LOUPS"
                     title="Camp des LOUPS-GAROU :"
                     roles={Object.values(ROLES).filter(r => r.camp === 'LOUPS')}
                     rolesCount={rolesCount}
@@ -120,7 +118,6 @@ export default function MainContent({
                 />
                 <div className="my-8 h-[1px] bg-slate-200" />
                 <RoleGroup
-                    camp="SOLO"
                     title="Camp des SOLITAIRES :"
                     roles={Object.values(ROLES).filter(r => r.camp === 'SOLO')}
                     rolesCount={rolesCount}
@@ -140,7 +137,15 @@ export default function MainContent({
 }
 
 // Subcomponent for Role Group
-function RoleGroup({ camp, title, roles, rolesCount, setRolesCount, onRoleClick, playerCount, isCustom }: any) {
+function RoleGroup({ title, roles, rolesCount, setRolesCount, onRoleClick, playerCount, isCustom }: {
+    title: string;
+    roles: RoleDefinition[];
+    rolesCount: Partial<Record<RoleId, number>>;
+    setRolesCount: (v: Partial<Record<RoleId, number>>) => void;
+    onRoleClick: (role: RoleDefinition) => void;
+    playerCount: number;
+    isCustom: boolean;
+}) {
     return (
         <div>
             <h2 className="text-2xl font-bold mb-6 text-[#2C3338]">{title}</h2>
@@ -151,7 +156,7 @@ function RoleGroup({ camp, title, roles, rolesCount, setRolesCount, onRoleClick,
                     const updateCount = (delta: number) => {
                         if (!isCustom) return; // Prevention
 
-                        const currentTotal = Object.values(rolesCount).reduce((sum: number, c: any) => sum + (c || 0), 0);
+                        const currentTotal = Object.values(rolesCount).reduce((sum: number, c: number | undefined) => sum + (c || 0), 0);
                         if (delta > 0 && currentTotal >= playerCount) {
                             return;
                         }

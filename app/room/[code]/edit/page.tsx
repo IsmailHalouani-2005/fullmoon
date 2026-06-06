@@ -41,7 +41,8 @@ export default function EditRoomPage() {
         HUNTER_SHOT: 15,
         MAYOR_SUCCESSION: 15,
     });
-    const [livePlayerCounts, setLivePlayerCounts] = useState<Record<string, number>>({});
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const [_livePlayerCounts, setLivePlayerCounts] = useState<Record<string, number>>({});
     const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(false);
 
     const { isDarkMode } = useThemeStore();
@@ -125,8 +126,6 @@ export default function EditRoomPage() {
 
         setIsSaving(true);
         try {
-            const totalRoles = Object.values(rolesCount).reduce((sum, count) => sum + (count || 0), 0);
-
             // Filtrer les rôles à 0 avant sauvegarde (pour la grille de la room)
             const filteredRolesCount = Object.fromEntries(
                 Object.entries(rolesCount).filter(([, count]) => (count ?? 0) > 0)

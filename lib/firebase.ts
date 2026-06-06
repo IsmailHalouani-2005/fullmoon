@@ -23,9 +23,8 @@ const firebaseConfig = {
 // Initialize Firebase
 // Singleton pattern pour éviter de ré-initialiser Firebase à chaque rechargement Next.js
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
-let analytics;
 if (typeof window !== "undefined") {
-    analytics = getAnalytics(app);
+    getAnalytics(app);
 }
 
 export const auth = getAuth(app);

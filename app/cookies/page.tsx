@@ -15,14 +15,14 @@ export default function CookiesPage() {
                     <p className="text-xl font-bold mb-8">fullmoon.ismailhalouani.eu</p>
 
                     <p>
-                        La présente politique de cookies a pour objectif d'informer les utilisateurs du site fullmoon.ismailhalouani.eu de l'utilisation des cookies techniques nécessaires. Un cookie est un petit fichier texte stocké sur votre appareil par votre navigateur lors de votre visite.
+                        La présente politique de cookies a pour objectif d{"'"}informer les utilisateurs du site fullmoon.ismailhalouani.eu de l{"'"}utilisation des cookies techniques nécessaires. Un cookie est un petit fichier texte stocké sur votre appareil par votre navigateur lors de votre visite.
                     </p>
 
-                    <h2 className="text-3xl mt-12 mb-6 text-[#D1A07A]">Qu'est-ce qu'un cookie ?</h2>
+                    <h2 className="text-3xl mt-12 mb-6 text-[#D1A07A]">Qu{"'"}est-ce qu{"'"}un cookie ?</h2>
                     <p>Les cookies sont des traceurs utilisés pour mémoriser des informations sur votre navigation. Ils peuvent être classés en deux catégories :</p>
                     <ul className="list-disc pl-6 my-4 space-y-2">
                         <li><strong>Essentiels :</strong> Strictement nécessaires au bon fonctionnement et à la sécurité du site.</li>
-                        <li><strong>Non Essentiels :</strong> Utilisés pour l'analyse, la publicité ou la personnalisation.</li>
+                        <li><strong>Non Essentiels :</strong> Utilisés pour l{"'"}analyse, la publicité ou la personnalisation.</li>
                     </ul>
 
                     <h2 className="text-3xl mt-12 mb-6 text-[#D1A07A]">Cookies Utilisés (Cookies Stricte Nécessité)</h2>
@@ -50,12 +50,12 @@ export default function CookiesPage() {
                     </div>
 
                     <p>
-                        Le site fullmoon.ismailhalouani.eu ne dépose aucun cookie non essentiel pour la mesure d'audience (type Google Analytics), la publicité ou les réseaux sociaux.
+                        Le site fullmoon.ismailhalouani.eu ne dépose aucun cookie non essentiel pour la mesure d{"'"}audience (type Google Analytics), la publicité ou les réseaux sociaux.
                     </p>
 
                     <h2 className="text-3xl mt-12 mb-6 text-[#D1A07A]">Gestion des Cookies</h2>
                     <p>
-                        Étant donné que le site utilise uniquement des cookies strictement nécessaires, aucune bannière de consentement n'est affichée.
+                        Étant donné que le site utilise uniquement des cookies strictement nécessaires, aucune bannière de consentement n{"'"}est affichée.
                     </p>
                     <p>
                         Toutefois, vous avez le droit de gérer et de bloquer ces cookies directement via les paramètres de votre navigateur (Chrome, Firefox, Edge, etc.). Bloquer les cookies techniques pourrait entraîner une dégradation du fonctionnement du site.

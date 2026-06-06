@@ -1,7 +1,6 @@
 'use client';
 
-import { useState } from 'react';
-import Image from 'next/image';
+import { useState, useMemo } from 'react';
 import Link from 'next/link';
 import { ROLES, RoleId } from "@/types/roles";
 import RoleCard from '@/components/game/RoleCard';
@@ -40,45 +39,54 @@ export default function ComponentsTestPage() {
     const [gameOverWinner, setGameOverWinner] = useState<string>('VILLAGEOIS');
     const [endGamePlayerCount, setEndGamePlayerCount] = useState<number>(8);
 
-    const endGameDistribution = distributeRoles(endGamePlayerCount);
-    // Flatten the distribution into an array of RoleIds
-    const endGameRoles: RoleId[] = [];
-    Object.entries(endGameDistribution).forEach(([role, count]) => {
-        for (let i = 0; i < (count as number); i++) {
-            endGameRoles.push(role as RoleId);
-        }
-    });
-
-    const endGamePlayers: Player[] = endGameRoles.map((role, i) => ({
-        id: `mock-end-${i}`,
-        socketId: `socket-end-${i}`,
-        name: `Joueur ${i + 1}`,
-        role: role,
-        avatarUrl: undefined,
-        isReady: true,
-        isHost: i === 0,
-        isAlive: false,
-        hasVoted: null,
-        votesAgainst: 0,
-        usedPowers: [],
-        effects: i === 1 ? ['infected'] : [], // Mock an infected player
-        stats: {
-            kills: Math.floor(Math.random() * 3),
-            saves: Math.floor(Math.random() * 2),
-            daysSurvived: Math.floor(Math.random() * 5) + 1,
-            powerUses: Math.floor(Math.random() * 2),
-            points: Math.floor(Math.random() * 50) + 10,
-            fled: 0,
-            wins: 1,
-            losses: 0,
-            gamesPlayed: 1
-        }
-    }));
+    const endGamePlayers: Player[] = useMemo(() => {
+        const endGameDistribution = distributeRoles(endGamePlayerCount);
+        // Flatten the distribution into an array of RoleIds
+        const endGameRoles: RoleId[] = [];
+        Object.entries(endGameDistribution).forEach(([role, count]) => {
+            for (let i = 0; i < (count as number); i++) {
+                endGameRoles.push(role as RoleId);
+            }
+        });
+        return endGameRoles.map((role, i) => ({
+            id: `mock-end-${i}`,
+            socketId: `socket-end-${i}`,
+            name: `Joueur ${i + 1}`,
+            role: role,
+            avatarUrl: undefined,
+            isReady: true,
+            isHost: i === 0,
+            isAlive: false,
+            hasVoted: null,
+            votesAgainst: 0,
+            usedPowers: [],
+            effects: i === 1 ? ['infected'] : [], // Mock an infected player
+            stats: {
+                // eslint-disable-next-line react-hooks/purity
+                kills: Math.floor(Math.random() * 3),
+                // eslint-disable-next-line react-hooks/purity
+                saves: Math.floor(Math.random() * 2),
+                // eslint-disable-next-line react-hooks/purity
+                daysSurvived: Math.floor(Math.random() * 5) + 1,
+                // eslint-disable-next-line react-hooks/purity
+                powerUses: Math.floor(Math.random() * 2),
+                // eslint-disable-next-line react-hooks/purity
+                points: Math.floor(Math.random() * 50) + 10,
+                fled: 0,
+                wins: 1,
+                losses: 0,
+                gamesPlayed: 1
+            }
+        }));
+    }, [endGamePlayerCount]);
 
     const mockGameOverData = {
         winner: gameOverWinner,
         players: endGamePlayers
     };
+
+    // eslint-disable-next-line react-hooks/purity
+    const lastActivityTimestamp = useMemo(() => Date.now(), []);
 
     // --- State pour le Cercle Joueur ---
     const [playerCount, setPlayerCount] = useState<number>(5);
@@ -125,7 +133,7 @@ export default function ComponentsTestPage() {
         isPrivate: false,
         secretCode: '1234',
         nightActions: [],
-        lastActivity: Date.now()
+        lastActivity: lastActivityTimestamp
     };
 
     const handleMockVote = (id: string) => {
@@ -158,7 +166,7 @@ export default function ComponentsTestPage() {
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
                         <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" />
                     </svg>
-                    Retour à l'Admin
+                    Retour à l{"'"}Admin
                 </Link>
             </div>
 
@@ -417,7 +425,7 @@ export default function ComponentsTestPage() {
                     </div>
 
                     <div className="flex-1 p-8 bg-slate-100 rounded-xl border border-slate-300 text-center relative overflow-hidden min-h-[300px] flex items-center justify-center">
-                        <p className="text-slate-500 italic">Le modal s'ouvrira en plein écran par-dessus l'interface.</p>
+                        <p className="text-slate-500 italic">Le modal s{"'"}ouvrira en plein écran par-dessus l{"'"}interface.</p>
 
                         {isModalOpen && (
                             <RoleInfoModal role={roleDef} onClose={() => setIsModalOpen(false)} />
@@ -466,7 +474,7 @@ export default function ComponentsTestPage() {
                     </div>
 
                     <div className="flex-1 p-8 bg-slate-100 rounded-xl border border-slate-300 text-center relative overflow-hidden min-h-[300px] flex items-center justify-center">
-                        <p className="text-slate-500 italic">Le modal s'ouvrira en plein écran par-dessus l'interface.</p>
+                        <p className="text-slate-500 italic">Le modal s{"'"}ouvrira en plein écran par-dessus l{"'"}interface.</p>
 
                         <LoversModal
                             isOpen={isLoverModalOpen}
@@ -497,7 +505,7 @@ export default function ComponentsTestPage() {
                     </div>
 
                     <div className="flex-1 p-8 bg-slate-100 rounded-xl border border-slate-300 text-center relative overflow-hidden min-h-[300px] flex items-center justify-center">
-                        <p className="text-slate-500 italic">Le modal s'ouvrira en plein écran par-dessus l'interface.</p>
+                        <p className="text-slate-500 italic">Le modal s{"'"}ouvrira en plein écran par-dessus l{"'"}interface.</p>
 
                         <InfectedModal
                             isOpen={isInfectedModalOpen}
@@ -524,7 +532,7 @@ export default function ComponentsTestPage() {
                     </div>
 
                     <div className="flex-1 p-8 bg-slate-100 rounded-xl border border-slate-300 text-center relative overflow-hidden min-h-[300px] flex items-center justify-center">
-                        <p className="text-slate-500 italic">Le modal s'ouvrira en plein écran par-dessus l'interface.</p>
+                        <p className="text-slate-500 italic">Le modal s{"'"}ouvrira en plein écran par-dessus l{"'"}interface.</p>
 
                         {isLeaveModalOpen && (
                             <div className="fixed inset-0 bg-black/80 z-50 flex flex-col items-center justify-center p-6 backdrop-blur-sm">
@@ -614,7 +622,7 @@ export default function ComponentsTestPage() {
                                     <EndGame
                                         gameOverData={mockGameOverData}
                                         confirmLeave={() => { alert('Mock: Quitter le village'); setIsGameOverOpen(false); }}
-                                        getPlayerAvatar={(id) => '/assets/images/icones/Photo_Profil-transparent.png'}
+                                        getPlayerAvatar={() => '/assets/images/icones/Photo_Profil-transparent.png'}
                                         currentUserId="mock-end-0"
                                         onReplay={() => alert('Mock: Rejouer')}
                                         hasNextRoom={false}
@@ -623,7 +631,7 @@ export default function ComponentsTestPage() {
                             </div>
                         ) : (
                             <div className="p-8 bg-slate-100 rounded-xl border border-slate-300 w-full text-center h-[300px] flex items-center justify-center">
-                                <p className="text-slate-500 italic">Le composant EndGame s'ouvrira en plein écran avec la distribution de rôles testée.</p>
+                                <p className="text-slate-500 italic">Le composant EndGame s{"'"}ouvrira en plein écran avec la distribution de rôles testée.</p>
                             </div>
                         )}
                     </div>

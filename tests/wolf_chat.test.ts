@@ -1,12 +1,13 @@
-import { createServer } from 'http';
+import { createServer, Server as HttpServer } from 'http';
 import { Server as SocketIOServer } from 'socket.io';
 import { io as Client, Socket as ClientSocket } from 'socket.io-client';
 import { setupGameLogic } from '../server/gameLogic';
 import * as roleDist from '../lib/roleDistribution';
+import { Player, ChatMessage } from '../types/game';
 
 describe('Wolf Chat Logic', () => {
     let io: SocketIOServer;
-    let httpServer: any;
+    let httpServer: HttpServer;
     let clientWolf: ClientSocket;
     let clientAlpha: ClientSocket;
     let port: number;
@@ -20,7 +21,7 @@ describe('Wolf Chat Logic', () => {
         setupGameLogic(io);
 
         httpServer.listen(() => {
-            port = (httpServer.address() as any).port;
+            port = (httpServer.address() as { port: number }).port;
             done();
         });
     });
@@ -51,9 +52,9 @@ describe('Wolf Chat Logic', () => {
         clientAlpha = Client(url, { query: { roomCode: 'TESTROOM', userId: 'userA', username: 'AlphaPlayer' } });
 
         clientWolf.on('connect', () => { clientWolf.emit('join_game', {}); });
-        clientWolf.on('update_game', (state) => { if (state.players && state.players.find((p: any) => p.id === 'userW')) checkDone(); });
+        clientWolf.on('update_game', (state) => { if (state.players && state.players.find((p: Player) => p.id === 'userW')) checkDone(); });
         clientAlpha.on('connect', () => { clientAlpha.emit('join_game', {}); });
-        clientAlpha.on('update_game', (state) => { if (state.players && state.players.find((p: any) => p.id === 'userA')) checkDone(); });
+        clientAlpha.on('update_game', (state) => { if (state.players && state.players.find((p: Player) => p.id === 'userA')) checkDone(); });
     });
 
     afterEach(() => {
@@ -88,7 +89,7 @@ describe('Wolf Chat Logic', () => {
 
         clientAlpha.on('update_game', (state) => {
             if (gotDirectMsg) {
-                const hasMessage = state.chatMessages?.find((m: any) => m.text === 'Hello Alpha!');
+                const hasMessage = state.chatMessages?.find((m: ChatMessage) => m.text === 'Hello Alpha!');
                 if (hasMessage && !gotStateMessage) {
                     gotStateMessage = true;
                     finish(); // succès — nettoie les timers
@@ -105,7 +106,7 @@ describe('Wolf Chat Logic', () => {
                 text: 'Hello Alpha!',
                 time: Date.now(),
                 chatType: 'night'
-            }, (_res: any) => {});
+            }, () => {});
 
             // Fail si pas reçu dans les 5s
             innerTimer = setTimeout(() => {

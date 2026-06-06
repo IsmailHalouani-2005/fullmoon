@@ -1,4 +1,5 @@
 import Image from 'next/image';
+import { ROLES, RoleId } from '@/types/roles';
 
 interface ProfileStatsProps {
     stats: {
@@ -18,6 +19,7 @@ interface ProfileStatsProps {
         daysSurvived: number;
         points: number;
         rank?: number | null;
+        roles?: Record<string, { wins: number; losses: number }>;
     };
 }
 
@@ -76,7 +78,7 @@ export default function ProfileStats({ stats }: ProfileStatsProps) {
 
                 {/* Faits d'Armes */}
                 <div className="flex-1 flex flex-col">
-                    <h3 className="text-white font-bold text-xl mb-6">Faits d'Armes</h3>
+                    <h3 className="text-white font-bold text-xl mb-6">Faits d{"'"}Armes</h3>
 
                     <div className="flex flex-col gap-3 text-sm text-white/80">
                         <div className="flex justify-between items-center">
@@ -100,7 +102,7 @@ export default function ProfileStats({ stats }: ProfileStatsProps) {
 
                     <div className="mt-auto pt-8">
                         <div className="bg-white/5 rounded-lg p-4 border border-white/5 italic text-xs text-white/40 leading-relaxed">
-                            Les faits d'armes reflètent vos actions héroïques (ou monstrueuses) au fil de vos aventures sous la pleine lune.
+                            Les faits d{"'"}armes reflètent vos actions héroïques (ou monstrueuses) au fil de vos aventures sous la pleine lune.
                         </div>
                     </div>
                 </div>
@@ -108,7 +110,7 @@ export default function ProfileStats({ stats }: ProfileStatsProps) {
 
             {/* Row 2: Team Stats */}
             <div className="w-full bg-[#2A2F32] rounded-xl p-8 md:p-12 shadow-2xl">
-                <h3 className="text-white font-bold text-xl mb-8 border-b border-white/10 pb-4">Statistiques d'équipe</h3>
+                <h3 className="text-white font-bold text-xl mb-8 border-b border-white/10 pb-4">Statistiques d{"'"}équipe</h3>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-12">
                     {/* Village */}
@@ -166,6 +168,56 @@ export default function ProfileStats({ stats }: ProfileStatsProps) {
                     </div>
                 </div>
             </div>
+
+            {/* Row 3: Stats par rôle */}
+            {stats.roles && Object.keys(stats.roles).length > 0 && (() => {
+                const roleEntries = Object.entries(stats.roles!)
+                    .map(([roleId, data]) => ({
+                        roleId,
+                        wins: data.wins || 0,
+                        losses: data.losses || 0,
+                        total: (data.wins || 0) + (data.losses || 0),
+                        winRate: ((data.wins || 0) + (data.losses || 0)) > 0
+                            ? Math.round(((data.wins || 0) / ((data.wins || 0) + (data.losses || 0))) * 100)
+                            : 0,
+                        roleDef: ROLES[roleId as RoleId],
+                    }))
+                    .filter(r => r.total > 0 && r.roleDef)
+                    .sort((a, b) => b.total - a.total)
+                    .slice(0, 5);
+
+                if (roleEntries.length === 0) return null;
+
+                return (
+                    <div className="w-full bg-[#2A2F32] rounded-xl p-8 md:p-12 shadow-2xl">
+                        <h3 className="text-white font-bold text-xl mb-8 border-b border-white/10 pb-4">Statistiques par rôle</h3>
+                        <div className="flex flex-col gap-4">
+                            {roleEntries.map(({ roleId, total, winRate, roleDef }) => (
+                                <div key={roleId} className="flex items-center gap-4">
+                                    <div className="relative w-10 h-10 shrink-0 rounded-full overflow-hidden border border-white/10">
+                                        <Image src={roleDef!.image} alt={roleDef!.label} fill className="object-contain p-1" />
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <div className="flex justify-between items-center mb-1">
+                                            <span className="text-white text-sm font-bold truncate">{roleDef!.label}</span>
+                                            <span className="text-xs text-white/50 shrink-0 ml-2">{total} partie{total > 1 ? 's' : ''}</span>
+                                        </div>
+                                        <div className="h-1.5 bg-white/10 rounded-full overflow-hidden">
+                                            <div
+                                                className={`h-full rounded-full transition-all ${winRate >= 60 ? 'bg-green-500' : winRate >= 40 ? 'bg-[#D1A07A]' : 'bg-red-500'}`}
+                                                style={{ width: `${winRate}%` }}
+                                            />
+                                        </div>
+                                    </div>
+                                    <span className={`text-sm font-extrabold shrink-0 w-12 text-right ${winRate >= 60 ? 'text-green-400' : winRate >= 40 ? 'text-[#D1A07A]' : 'text-red-400'}`}>
+                                        {winRate}%
+                                    </span>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                );
+            })()}
         </div>
     );
 }

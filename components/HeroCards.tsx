@@ -4,24 +4,6 @@ import Image from 'next/image';
 import { useState, useRef, MouseEvent } from 'react';
 import { useThemeStore } from '../store/themeStore';
 
-const cards = [
-    {
-        title: "Incarnez",
-        description: "Recevez un rôle unique et cachez votre identité.",
-        icon: "/assets/images/roles/werwolves/LoupGarou.png"
-    },
-    {
-        title: "Analysez",
-        description: "Observez les votes, lisez entre les lignes du chat.",
-        icon: "/assets/images/icones/Searching_Icone.png"
-    },
-    {
-        title: "Survivez",
-        description: "Éliminez les menaces avant qu'il ne soit trop tard.",
-        icon: "/assets/images/icones/Mort.png"
-    }
-];
-
     const features = [
         {
             title: "Le Jeu de Société, Réinventé",
@@ -43,11 +25,17 @@ const cards = [
         }
     ];
 
-function TiltCard({ card }: { card: any }) {
+interface CardData {
+    title: string;
+    description: string;
+    icon: string;
+    align: string;
+}
+
+function TiltCard({ card }: { card: CardData }) {
     const cardRef = useRef<HTMLDivElement>(null);
     const [rotate, setRotate] = useState({ x: 0, y: 0 });
     const [isHovered, setIsHovered] = useState(false);
-    const { isDarkMode } = useThemeStore();
 
     const handleMouseMove = (e: MouseEvent<HTMLDivElement>) => {
         if (!cardRef.current) return;

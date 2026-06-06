@@ -2,12 +2,10 @@
 
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
-import { useThemeStore } from '../store/themeStore';
 import { useAuth } from '../contexts/AuthContext';
 
 export default function Hero() {
     const router = useRouter();
-    const { isDarkMode } = useThemeStore();
     const { user } = useAuth();
 
     return (
@@ -30,7 +28,7 @@ export default function Hero() {
                     {/* Main Content */}
                     <div className="relative z-10">
                         <h1 className="font-enchanted text-6xl md:text-8xl lg:text-[100px] text-dark leading-none tracking-wide text-shadow-md mb-4">
-                            Le village s'endort.
+                            Le village s{"'"}endort.
                         </h1>
                         <h2 className="font-enchanted text-4xl md:text-6xl text-dark leading-none tracking-wide mb-10">
                             Serez-vous la prochaine victime ?
@@ -46,9 +44,11 @@ export default function Hero() {
 
                     {/* Silhouettes of village at the bottom of the box */}
                     <div className="absolute bottom-[-10px] left-0 right-0 w-full pointer-events-none opacity-90 mix-blend-multiply">
-                        <img
+                        <Image
                             src="/assets/images/icones/village_batiments.png"
                             alt="Village Silhouette"
+                            width={1200}
+                            height={120}
                             className="w-full h-30 sm:h-30 md:h-30 object-cover object-bottom"
                         />
                     </div>

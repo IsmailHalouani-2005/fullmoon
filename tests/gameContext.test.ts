@@ -4,19 +4,19 @@
  */
 import { checkVictory, tallyVotes } from '../server/gameLogic';
 import { makePlayer, makeGame } from './helpers';
+import * as GameContextModule from '../contexts/GameContext';
 
 // ─── GameContext exports ──────────────────────────────────────────────────────
 
 describe('GameContext exports', () => {
     it('exporte GameProvider et useGameContext', () => {
         // Si l'import échoue, le test échoue — vérifie que le module est valide
-        const mod = require('../contexts/GameContext');
-        expect(typeof mod.GameProvider).toBe('function');
-        expect(typeof mod.useGameContext).toBe('function');
+        expect(typeof GameContextModule.GameProvider).toBe('function');
+        expect(typeof GameContextModule.useGameContext).toBe('function');
     });
 
     it('GameProvider est un composant React valide (a un .length)', () => {
-        const { GameProvider } = require('../contexts/GameContext');
+        const { GameProvider } = GameContextModule;
         // Les composants React sont des fonctions
         expect(typeof GameProvider).toBe('function');
     });

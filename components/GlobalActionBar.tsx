@@ -17,12 +17,12 @@ export default function GlobalActionBar() {
     const { user, userData } = useAuth();
     const toast = useToast();
 
-    const [notifications, setNotifications] = useState<any[]>([]);
+    const [notifications, setNotifications] = useState<Record<string, unknown>[]>([]);
     const [unreadMessages, setUnreadMessages] = useState(0);
     const [showNotifications, setShowNotifications] = useState(false);
 
-    const [unreadChatsList, setUnreadChatsList] = useState<any[]>([]);
-    const [friends, setFriends] = useState<Record<string, any>>({});
+    const [unreadChatsList, setUnreadChatsList] = useState<Record<string, unknown>[]>([]);
+    const [friends, setFriends] = useState<Record<string, Record<string, unknown>>>({});
     const [showMessagesDropdown, setShowMessagesDropdown] = useState(false);
     const [isExpanded, setIsExpanded] = useState(false);
     const { isDarkMode, toggleDarkMode } = useThemeStore();
@@ -63,7 +63,7 @@ export default function GlobalActionBar() {
         const unsubFriends = onSnapshot(
             query(collection(db, 'users', uid, 'friends')),
             (snapshot) => {
-                const map: Record<string, any> = {};
+                const map: Record<string, Record<string, unknown>> = {};
                 snapshot.forEach(d => { map[d.id] = d.data(); });
                 setFriends(map);
             }
@@ -72,7 +72,7 @@ export default function GlobalActionBar() {
         const unsubNotifs = onSnapshot(
             query(collection(db, 'users', uid, 'notifications'), orderBy('createdAt', 'desc')),
             (snapshot) => {
-                setNotifications(snapshot.docs.map(d => ({ id: d.id, ...d.data() } as any)));
+                setNotifications(snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Record<string, unknown>)));
             }
         );
 
@@ -80,7 +80,7 @@ export default function GlobalActionBar() {
             query(collection(db, 'chats'), where('participants', 'array-contains', uid)),
             (snapshot) => {
                 let totalUnread = 0;
-                const unreadList: any[] = [];
+                const unreadList: Record<string, unknown>[] = [];
                 snapshot.forEach(d => {
                     const data = d.data();
                     const count = data.unreadCount?.[uid] || 0;
@@ -97,6 +97,7 @@ export default function GlobalActionBar() {
         );
 
         return () => { unsubFriends(); unsubNotifs(); unsubChats(); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [user?.uid]);
 
     const handleDeleteNotif = async (notifId: string) => {
@@ -108,7 +109,7 @@ export default function GlobalActionBar() {
         }
     };
 
-    const handleAcceptFriend = async (notif: any) => {
+    const handleAcceptFriend = async (notif: Record<string, unknown>) => {
         if (!user || !userData) return;
         try {
             // 1. Add them to my friends list
@@ -148,7 +149,7 @@ export default function GlobalActionBar() {
         }
     };
 
-    const handleRejectFriend = async (notif: any) => {
+    const handleRejectFriend = async (notif: Record<string, unknown>) => {
         if (!user || !userData) return;
         try {
             await handleDeleteNotif(notif.id);
@@ -168,7 +169,7 @@ export default function GlobalActionBar() {
         }
     };
 
-    const handleAcceptGroupInvite = async (notif: any) => {
+    const handleAcceptGroupInvite = async (notif: Record<string, unknown>) => {
         if (!user || !userData) return;
         try {
             const groupDoc = await getDoc(doc(db, "groups", notif.groupId));
@@ -226,7 +227,6 @@ export default function GlobalActionBar() {
         }
     };
 
-    const unreadNotifsCount = notifications.filter(n => !n.read && n.type !== 'friend_request_accepted' && n.type !== 'friend_request_rejected').length;
     // Note: To keep it similar, we show length of all notifications acting as unread actions.
     const activeNotifsCount = notifications.length;
 

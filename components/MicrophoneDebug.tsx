@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 
@@ -24,6 +24,7 @@ export default function MicrophoneDebug() {
             }
         });
 
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setIsHttps(window.location.protocol === 'https:' || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
         setHostname(window.location.hostname);
 
@@ -45,7 +46,7 @@ export default function MicrophoneDebug() {
                 streamRef = stream;
                 setStatus('Microphone Actif (Connecté)');
 
-                audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+                audioContext = new (window.AudioContext || (window as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext || AudioContext)();
                 analyser = audioContext.createAnalyser();
                 const source = audioContext.createMediaStreamSource(stream);
                 source.connect(analyser);
@@ -65,9 +66,9 @@ export default function MicrophoneDebug() {
                 };
 
                 checkVolume();
-            } catch (err: any) {
+            } catch (err: unknown) {
                 setStatus('Erreur / Permission Refusée');
-                setErrorMsg(err.message || 'Permission refusée');
+                setErrorMsg(err instanceof Error ? err.message : 'Permission refusée');
             }
         }
 
@@ -131,7 +132,7 @@ export default function MicrophoneDebug() {
 
             {!isHttps && (
                 <div className="mt-2 text-[8px] leading-tight text-red-300">
-                    ⚠️ Les navigateurs bloquent l'accès au micro si le site n'est pas en HTTPS (sauf localhost).
+                    ⚠️ Les navigateurs bloquent l{"'"}accès au micro si le site n{"'"}est pas en HTTPS (sauf localhost).
                 </div>
             )}
         </div>

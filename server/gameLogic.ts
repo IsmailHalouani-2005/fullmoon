@@ -1,8 +1,7 @@
-import { Server, Socket } from "socket.io";
+import { Server } from "socket.io";
 import { ClientToServerEvents, ServerToClientEvents, GameState, Player, ChatMessage, Phase } from "../types/game";
-import { ROLES, RoleId, Camp, isInWolfCamp } from '../types/roles';
+import { ROLES, RoleId, isInWolfCamp } from '../types/roles';
 import { distributeRoles, distributeCustomRoles, getCountsForJ } from '../lib/roleDistribution';
-import { io } from './index';
 import { adminDb } from './firebaseAdmin';
 
 // Supprime un salon Firestore via Admin SDK (bypass des règles de sécurité)
@@ -30,7 +29,7 @@ export function getRoomStats(): Record<string, number> {
 
 /** Returns detailed game state for each active room (admin only) */
 export function getDetailedRoomStats() {
-    const result: Record<string, any> = {};
+    const result: Record<string, unknown> = {};
     for (const [roomCode, game] of Object.entries(_games)) {
         result[roomCode] = {
             roomCode,
@@ -81,7 +80,6 @@ export function setupGameLogic(io: Server<ClientToServerEvents, ServerToClientEv
         const userId = socket.handshake.query.userId as string;
         const username = socket.handshake.query.username as string;
         const avatarUrl = socket.handshake.query.avatarUrl as string | undefined;
-        const connectionType = socket.handshake.query.type as string | undefined;
 
         if (!roomCode || !userId) {
             socket.disconnect();
@@ -151,6 +149,13 @@ export function setupGameLogic(io: Server<ClientToServerEvents, ServerToClientEv
             const existingPlayer = game.players.find(p => p.id === userId);
 
             if (!existingPlayer) {
+                // Partie déjà commencée → mode spectateur (observation sans rôle)
+                if (game.phase !== 'LOBBY') {
+                    userSocketMap.set(userId, socket.id);
+                    emitGameState(roomCode, game, io);
+                    return;
+                }
+
                 const joiningName = payload?.username || username;
                 game.players.push({
                     id: payload?.userId || userId,
@@ -218,11 +223,7 @@ export function setupGameLogic(io: Server<ClientToServerEvents, ServerToClientEv
                 const playerCount = game.players.length;
                 const roles: RoleId[] = [];
 
-                const configTotal = config?.rolesCount
-                    ? Object.values(config.rolesCount).reduce((s, c) => s + (c as number || 0), 0)
-                    : 0;
-
-                const { A, B, C } = getCountsForJ(playerCount);
+                getCountsForJ(playerCount);
 
                 let distrib;
                 if (config?.isCustom) {
@@ -443,7 +444,6 @@ export function setupGameLogic(io: Server<ClientToServerEvents, ServerToClientEv
                         });
 
                         // Optionally emit a system chat just for her
-                        const roleLabel = target.role ? ROLES[target.role].label : "Inconnu";
                         socket.emit("chat_message", {
                             senderId: 'system',
                             senderName: 'Système',
@@ -713,7 +713,7 @@ export function setupGameLogic(io: Server<ClientToServerEvents, ServerToClientEv
         });
 
         // Déconnexion explicite depuis le client (clic sur "Quitter le village")
-        (socket as any).on("leave_game", () => {
+        socket.on("leave_game", () => {
             const game = games[roomCode];
             if (!game) return;
             game.lastActivity = Date.now();
@@ -1736,7 +1736,7 @@ function emitGameState(roomCode: string, game: GameState, io: Server) {
         // Shallow-copy per player (all mutations below replace references, not mutate nested objects)
         const tailoredGame: GameState = {
             ...baseClone,
-            players: baseClone.players.map((p: any) => ({ ...p, effects: [...p.effects] })),
+            players: baseClone.players.map((p: Player) => ({ ...p, effects: [...p.effects] })),
             votes: { ...baseClone.votes },
             nightActions: [...baseClone.nightActions],
             chatMessages: [...baseClone.chatMessages],

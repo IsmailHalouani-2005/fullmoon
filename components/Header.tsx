@@ -18,7 +18,7 @@ export default function Header({ onQuickJoin, isDark = false }: HeaderProps) {
     const pathname = usePathname();
     const { isDarkMode } = useThemeStore();
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-    const [user, setUser] = useState<any>(null);
+    const [user, setUser] = useState<Record<string, unknown> | null>(null);
 
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, setUser);
@@ -80,7 +80,7 @@ export default function Header({ onQuickJoin, isDark = false }: HeaderProps) {
                             onClick={(e) => handleScroll(e, 'histoire')}
                             className={`font-bold tracking-wider hover:text-secondary transition-colors`}
                         >
-                            C'EST QUOI ?
+                            C{"'"}EST QUOI ?
                         </Link>
                         <Link
                             href="/#regles"
@@ -142,7 +142,7 @@ export default function Header({ onQuickJoin, isDark = false }: HeaderProps) {
                         onClick={(e) => handleScroll(e, 'histoire')}
                         className={`font-bold tracking-wider hover:text-secondary transition-colors`}
                     >
-                        C'EST QUOI ?
+                        C{"'"}EST QUOI ?
                     </Link>
                     <Link
                         href="/#regles"

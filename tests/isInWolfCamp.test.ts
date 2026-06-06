@@ -1,4 +1,4 @@
-import { isInWolfCamp, ROLES } from '../types/roles';
+import { isInWolfCamp, ROLES, RoleId } from '../types/roles';
 
 describe('isInWolfCamp', () => {
 
@@ -78,14 +78,14 @@ describe('isInWolfCamp', () => {
         const loups = Object.values(ROLES).filter(r => r.camp === 'LOUPS');
         expect(loups.length).toBeGreaterThan(0);
         loups.forEach(r => {
-            expect(isInWolfCamp(r.id as any)).toBe(true);
+            expect(isInWolfCamp(r.id as RoleId)).toBe(true);
         });
     });
 
     it('aucun rôle hors camp LOUPS ne retourne true', () => {
         const nonLoups = Object.values(ROLES).filter(r => r.camp !== 'LOUPS');
         nonLoups.forEach(r => {
-            expect(isInWolfCamp(r.id as any)).toBe(false);
+            expect(isInWolfCamp(r.id as RoleId)).toBe(false);
         });
     });
 

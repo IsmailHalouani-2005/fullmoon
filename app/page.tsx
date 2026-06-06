@@ -1,7 +1,6 @@
 import Header from '@/components/Header';
 import Hero from '@/components/Hero';
 import HeroCards from '@/components/HeroCards';
-import InfoSection from '@/components/InfoSection';
 import RulesSection from '@/components/RulesSection';
 import RoleCarousel from '@/components/RoleCarousel';
 import Leaderboard from '@/components/Leaderboard';

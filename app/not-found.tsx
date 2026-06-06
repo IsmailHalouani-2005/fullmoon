@@ -22,7 +22,7 @@ export default function NotFound() {
             </h2>
 
             <p className="text-slate-400 text-sm mb-10 max-w-sm leading-relaxed">
-                Cette page n'existe pas ou a été emportée par les loups pendant la nuit.
+                Cette page n{"'"}existe pas ou a été emportée par les loups pendant la nuit.
             </p>
 
             <Link

@@ -38,13 +38,13 @@ export default function InfectedModal({ isOpen, onClose }: InfectedModalProps) {
 
                         <div className="bg-slate-800/60 p-3 rounded-lg border border-slate-600">
                             <p className="text-slate-300">
-                                <strong>Secret préservé :</strong> Vous ne connaissez pas l'identité des loups, mais eux savent que vous êtes de leur côté.
+                                <strong>Secret préservé :</strong> Vous ne connaissez pas l{"'"}identité des loups, mais eux savent que vous êtes de leur côté.
                             </p>
                         </div>
 
                         <div className="bg-green-950/40 p-3 rounded-lg border border-green-500/30">
                             <p className="text-green-300">
-                                <strong>Pouvoir intact :</strong> Vous gardez l'utilisation du pouvoir de votre rôle initial !
+                                <strong>Pouvoir intact :</strong> Vous gardez l{"'"}utilisation du pouvoir de votre rôle initial !
                             </p>
                         </div>
                     </div>

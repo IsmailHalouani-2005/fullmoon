@@ -12,6 +12,13 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Compiled output & utility scripts (plain JS/CommonJS, not source TS)
+    "dist/**",
+    "server.js",
+    "scripts/**",
+    "debug-friends.js",
+    "temp-*.js",
+    "temp-*.mjs",
   ]),
 ]);
 

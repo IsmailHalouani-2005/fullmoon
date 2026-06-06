@@ -60,7 +60,7 @@ export default function AdminPage() {
         return (
             <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center text-white font-montserrat">
                 <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-red-500 mb-4"></div>
-                <p className="font-bold tracking-widest text-sm uppercase text-slate-400">Vérification de l'accès...</p>
+                <p className="font-bold tracking-widest text-sm uppercase text-slate-400">Vérification de l{"'"}accès...</p>
             </div>
         );
     }
@@ -78,7 +78,7 @@ export default function AdminPage() {
                             <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="currentColor" className="text-red-400"><path d="M12 2L4 5v6c0 5.25 3.4 10.15 8 11.5C16.6 21.15 20 16.25 20 11V5l-8-3z" /></svg>
                         </span>
                         <div>
-                            <h1 className="font-enchanted text-3xl md:text-5xl tracking-widest text-red-400 mb-1">Panneau d'Administration</h1>
+                            <h1 className="font-enchanted text-3xl md:text-5xl tracking-widest text-red-400 mb-1">Panneau d{"'"}Administration</h1>
                             <p className="text-slate-400 text-sm font-bold uppercase tracking-wide">Accès Restreint</p>
                         </div>
                     </div>
@@ -128,7 +128,7 @@ export default function AdminPage() {
                                     Tableau de Bord
                                 </h2>
                                 <p className="text-slate-400 text-sm mb-6 flex-1">
-                                    Visualisez en temps réel l'état de toutes les rooms actives (joueurs, rôles, phases, morts) et gérez tous les comptes utilisateurs.
+                                    Visualisez en temps réel l{"'"}état de toutes les rooms actives (joueurs, rôles, phases, morts) et gérez tous les comptes utilisateurs.
                                 </p>
                                 <button className="w-full bg-[#D1A07A] hover:bg-[#b08465] text-dark font-bold py-3 px-4 rounded transition-colors shadow-lg uppercase tracking-wide text-sm">
                                     Ouvrir le Tableau de Bord
@@ -148,7 +148,7 @@ export default function AdminPage() {
                                 </span> Simulateur
                             </h2>
                             <p className="text-slate-400 text-sm mb-6 flex-1">
-                                Testez la distribution des rôles et analysez les probabilités d'apparition selon vos paramètres personnalisés ou par défaut.
+                                Testez la distribution des rôles et analysez les probabilités d{"'"}apparition selon vos paramètres personnalisés ou par défaut.
                             </p>
                             <button className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded transition-colors shadow-lg uppercase tracking-wide text-sm">
                                 Ouvrir le Simulateur
@@ -167,7 +167,7 @@ export default function AdminPage() {
                                 </span> Composants
                             </h2>
                             <p className="text-slate-400 text-sm mb-6 flex-1">
-                                Visualisez et testez les différents composants de l'interface utilisateur de manière isolée.
+                                Visualisez et testez les différents composants de l{"'"}interface utilisateur de manière isolée.
                             </p>
                             <button className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 px-4 rounded transition-colors shadow-lg uppercase tracking-wide text-sm">
                                 Voir les Composants

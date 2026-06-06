@@ -39,19 +39,19 @@ export default function AdminMonitorPage() {
     const [activeTab, setActiveTab] = useState<'rooms' | 'users'>('rooms');
 
     // Rooms
-    const [liveRooms, setLiveRooms] = useState<Record<string, any>>({});  // Socket.io state
-    const [fsRooms, setFsRooms] = useState<any[]>([]);                    // Firestore rooms
+    const [liveRooms, setLiveRooms] = useState<Record<string, Record<string, unknown>>>({});  // Socket.io state
+    const [fsRooms, setFsRooms] = useState<Record<string, unknown>[]>([]);                    // Firestore rooms
     const [roomsLoading, setRoomsLoading] = useState(false);
     const [roomFilter, setRoomFilter] = useState<RoomFilter>('all');
     const [roomSort, setRoomSort] = useState<RoomSort>('created_desc');
     const [roomSearch, setRoomSearch] = useState('');
 
     // Users
-    const [users, setUsers] = useState<any[]>([]);
+    const [users, setUsers] = useState<Record<string, unknown>[]>([]);
     const [usersLoading, setUsersLoading] = useState(false);
     const [userSearch, setUserSearch] = useState('');
     const [userSort, setUserSort] = useState<UserSort>('points_desc');
-    const [editingUser, setEditingUser] = useState<any | null>(null);
+    const [editingUser, setEditingUser] = useState<Record<string, unknown> | null>(null);
     const [editPseudo, setEditPseudo] = useState('');
     const [editPoints, setEditPoints] = useState(0);
 
@@ -86,7 +86,7 @@ export default function AdminMonitorPage() {
         } finally {
             setRoomsLoading(false);
         }
-    }, []);
+    }, [toast]);
 
     // ─── Fetch users ──────────────────────────────────────────────────────────
 
@@ -100,7 +100,7 @@ export default function AdminMonitorPage() {
         } finally {
             setUsersLoading(false);
         }
-    }, []);
+    }, [toast]);
 
     useEffect(() => {
         if (!authorized) return;
@@ -226,7 +226,7 @@ export default function AdminMonitorPage() {
                     { key: 'rooms', label: `Rooms (${filteredRooms.length}/${mergedRooms.length})` },
                     { key: 'users', label: `Utilisateurs (${filteredUsers.length}/${users.length})` },
                 ].map(tab => (
-                    <button key={tab.key} onClick={() => setActiveTab(tab.key as any)}
+                    <button key={tab.key} onClick={() => setActiveTab(tab.key as 'rooms' | 'users')}
                         className={`px-6 py-3 font-bold text-sm border-b-2 transition-colors ${activeTab === tab.key ? 'border-[#D1A07A] text-[#D1A07A]' : 'border-transparent text-slate-400 hover:text-white'}`}>
                         {tab.label}
                     </button>
@@ -273,7 +273,7 @@ export default function AdminMonitorPage() {
                             </div>
                         ) : (
                             <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
-                                {filteredRooms.map((room: any) => (
+                                {filteredRooms.map((room: Record<string, unknown>) => (
                                     <div key={room.id} className="bg-[#1a1b26] rounded-xl border border-white/10 overflow-hidden">
                                         {/* Room header */}
                                         <div className="flex items-center justify-between px-4 py-3 border-b border-white/10">
@@ -298,7 +298,7 @@ export default function AdminMonitorPage() {
                                         <div className="p-3">
                                             {room.liveState ? (
                                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
-                                                    {room.liveState.players.map((p: any) => {
+                                                    {(room.liveState as { players: Record<string, unknown>[] }).players.map((p: Record<string, unknown>) => {
                                                         const roleDef = p.role ? ROLES[p.role as RoleId] : null;
                                                         return (
                                                             <div key={p.id} className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs border ${p.isAlive ? 'border-white/10 bg-white/5' : 'border-red-900/30 bg-red-950/20 opacity-60'}`}>
@@ -324,7 +324,7 @@ export default function AdminMonitorPage() {
                                                 /* Lobby non lancé — joueurs depuis Firestore */
                                                 room.players?.length > 0 ? (
                                                     <div className="flex flex-wrap gap-1.5">
-                                                        {room.players.map((p: any) => (
+                                                        {(room.players as Record<string, unknown>[]).map((p: Record<string, unknown>) => (
                                                             <span key={p.uid} className="flex items-center gap-1.5 px-2 py-1 bg-white/5 rounded-lg text-xs border border-white/10">
                                                                 <div className="w-4 h-4 rounded-full overflow-hidden relative flex-shrink-0">
                                                                     <Image src={p.photoURL || '/assets/images/icones/Photo_Profil-transparent.png'} alt={p.pseudo} fill className="object-cover" />

@@ -26,7 +26,8 @@ export default function PresenceManager() {
         });
 
         return () => unsub();
-    }, [user?.uid]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [user?.uid]); // user?.uid is the stable dep; the full `user` object reference changes on every auth tick
 
     return null;
 }

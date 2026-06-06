@@ -98,6 +98,7 @@ export default function PhaseTransitionOverlay({ phase, dayCount }: PhaseTransit
         // Nettoyer le timer précédent si la phase change rapidement
         if (timerRef.current) clearTimeout(timerRef.current);
 
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setDisplay(d);
         setFading(false);
         setVisible(true);

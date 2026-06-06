@@ -7,7 +7,7 @@ import Header from '../../components/Header';
 import PrivateChat from '../../components/PrivateChat';
 import GroupChat from '../../components/GroupChat'; // Added GroupChat import
 import { db, rtdb } from '../../lib/firebase';
-import { doc, getDoc, collection, query, orderBy, onSnapshot, where, getDocs, addDoc, setDoc, updateDoc, arrayUnion, arrayRemove, deleteDoc } from 'firebase/firestore';
+import { doc, getDoc, collection, query, onSnapshot, where, getDocs, addDoc, setDoc, updateDoc, arrayUnion, arrayRemove, deleteDoc } from 'firebase/firestore';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
 import { VillageCardSkeleton } from '@/components/ui/Skeleton';
@@ -49,15 +49,15 @@ export default function PlayPage() {
     const [activeTab, setActiveTab] = useState('Toutes');
     const [searchVillage, setSearchVillage] = useState('');
     const [searchPlayer, setSearchPlayer] = useState('');
-    const [villages, setVillages] = useState<any[]>([]);
-    const [playerSearchResults, setPlayerSearchResults] = useState<any[]>([]);
+    const [villages, setVillages] = useState<Record<string, unknown>[]>([]);
+    const [playerSearchResults, setPlayerSearchResults] = useState<Record<string, unknown>[]>([]);
     const [isSearchingPlayer, setIsSearchingPlayer] = useState(false);
-    const [friends, setFriends] = useState<any[]>([]);
-    const [friendsStatuses, setFriendsStatuses] = useState<Record<string, any>>({});
-    const [friendsGroups, setFriendsGroups] = useState<Record<string, any>>({});
+    const [friends, setFriends] = useState<Record<string, unknown>[]>([]);
+    const [friendsStatuses, setFriendsStatuses] = useState<Record<string, Record<string, unknown>>>({});
+    const [friendsGroups, setFriendsGroups] = useState<Record<string, Record<string, unknown>>>({});
     const [friendsOnlinePresence, setFriendsOnlinePresence] = useState<Record<string, boolean>>({});
     const [sentRequests, setSentRequests] = useState<string[]>([]);
-    const [group, setGroup] = useState<any>(null);
+    const [group, setGroup] = useState<Record<string, unknown> | null>(null);
     const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
     const [villagesLoading, setVillagesLoading] = useState(true);
     // Photos des hôtes de villages lues depuis Firestore (pour les comptes Base64)
@@ -75,11 +75,11 @@ export default function PlayPage() {
     const [showMobileSocialPanel, setShowMobileSocialPanel] = useState(false);
 
     // --- Private Village Join State ---
-    const [selectedPrivateVillage, setSelectedPrivateVillage] = useState<any>(null);
+    const [selectedPrivateVillage, setSelectedPrivateVillage] = useState<Record<string, unknown> | null>(null);
     const [inputSecretCode, setInputSecretCode] = useState("");
     const [joiningError, setJoiningError] = useState("");
 
-    const [pendingRejoinVillage, setPendingRejoinVillage] = useState<any>(null);
+    const [pendingRejoinVillage, setPendingRejoinVillage] = useState<Record<string, unknown> | null>(null);
     const [rejoinCountdown, setRejoinCountdown] = useState<number | null>(null);
     const isNavigatingRef = useRef(false);
     const rejoinCountdownRef = useRef<NodeJS.Timeout | null>(null);
@@ -100,6 +100,7 @@ export default function PlayPage() {
             (snapshot) => setFriends(snapshot.docs.map(d => ({ id: d.id, ...d.data() })))
         );
         return () => unsub();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [user?.uid]);
 
     // Listener chats non lus
@@ -121,6 +122,7 @@ export default function PlayPage() {
             }
         );
         return () => unsub();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [user?.uid]);
 
     // Listener villages global (indépendant de l'auth — se lance immédiatement)
@@ -131,18 +133,22 @@ export default function PlayPage() {
                 const villagesData = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
 
                 // Nettoyage des salons vides par l'hôte uniquement
-                villagesData.forEach(async (v: any) => {
-                    if ((!v.players || v.players.length === 0) && v.hostId === user?.uid) {
-                        await deleteGroupCompletely(v.id);
+                villagesData.forEach(async (v: Record<string, unknown>) => {
+                    const players = v.players as unknown[] | undefined;
+                    if ((!players || players.length === 0) && v.hostId === user?.uid) {
+                        await deleteGroupCompletely(v.id as string);
                     }
                 });
 
                 const activeVillages = villagesData
-                    .filter((v: any) => v.players?.length > 0 && v.isConfigured === true)
-                    .sort((a: any, b: any) => {
+                    .filter((v: Record<string, unknown>) => {
+                        const players = v.players as unknown[] | undefined;
+                        return players && players.length > 0 && v.isConfigured === true;
+                    })
+                    .sort((a: Record<string, unknown>, b: Record<string, unknown>) => {
                         if (!a.createdAt) return 1;
                         if (!b.createdAt) return -1;
-                        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+                        return new Date(b.createdAt as string).getTime() - new Date(a.createdAt as string).getTime();
                     });
 
                 setVillages(activeVillages);
@@ -151,34 +157,38 @@ export default function PlayPage() {
             (error) => { console.error('Error fetching villages:', error); setVillagesLoading(false); }
         );
         return () => unsub();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     // Clé stable basée sur les hostIds uniques — ne change que quand un nouvel hôte apparaît
     const hostIdsKey = useMemo(
-        () => [...new Set(villages.map((v: any) => v.hostId).filter(Boolean))].sort().join(','),
+        () => [...new Set(villages.map((v: Record<string, unknown>) => v.hostId as string).filter(Boolean))].sort().join(','),
         [villages]
     );
 
     // Charge les photos des hôtes une seule fois par hostId (ref évite la closure stale)
     useEffect(() => {
         if (!villages.length) return;
-        villages.forEach(async (v: any) => {
-            if (!v.hostId || fetchedHostIdsRef.current.has(v.hostId)) return;
+        villages.forEach(async (v: Record<string, unknown>) => {
+            const hostId = v.hostId as string | undefined;
+            if (!hostId || fetchedHostIdsRef.current.has(hostId)) return;
 
-            const hasRealPhoto = v.hostPhoto && !v.hostPhoto.startsWith('data:') && v.hostPhoto !== "/assets/images/icones/Photo_Profil-transparent.png";
+            const hostPhoto = v.hostPhoto as string | undefined;
+            const hasRealPhoto = hostPhoto && !hostPhoto.startsWith('data:') && hostPhoto !== "/assets/images/icones/Photo_Profil-transparent.png";
             if (hasRealPhoto) {
-                fetchedHostIdsRef.current.add(v.hostId);
+                fetchedHostIdsRef.current.add(hostId);
                 return;
             }
 
-            fetchedHostIdsRef.current.add(v.hostId);
+            fetchedHostIdsRef.current.add(hostId);
             try {
-                const snap = await getDoc(doc(db, "users", v.hostId));
+                const snap = await getDoc(doc(db, "users", hostId));
                 if (snap.exists()) {
-                    setHostAvatars(prev => ({ ...prev, [v.hostId]: snap.data().photoURL || '' }));
+                    setHostAvatars(prev => ({ ...prev, [hostId]: snap.data().photoURL || '' }));
                 }
-            } catch (e) { /* ignore */ }
+            } catch { /* ignore */ }
         });
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [hostIdsKey]); // Se déclenche uniquement quand de nouveaux hôtes apparaissent
 
     // Polling du nombre de joueurs connectés en direct (Socket.io) via /api/rooms-live
@@ -246,7 +256,7 @@ export default function PlayPage() {
                             const gameStarted = groupData.gameStarted === true;
                             // Vérifier si le joueur faisait partie de la partie au moment de son lancement
                             const wasInGame = gameStarted
-                                ? (groupData.players || []).some((p: any) => p.uid === user.uid)
+                                ? (groupData.players || []).some((p: { uid: string }) => p.uid === user.uid)
                                 : true; // En lobby, tous les joueurs du groupe peuvent toujours rejoindre
                             setPendingRejoinVillage({
                                 ...groupData,
@@ -267,6 +277,7 @@ export default function PlayPage() {
             }
         }
         return () => unsubscribeGroup();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [userData?.currentGroupId, user, userData?.pseudo]);
 
     // Compte à rebours pour le rejoin en partie (1 minute max avant déconnexion serveur)
@@ -295,13 +306,14 @@ export default function PlayPage() {
         return () => {
             if (rejoinCountdownRef.current) clearInterval(rejoinCountdownRef.current);
         };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [rejoinCountdown !== null]);
 
     // Real-time listener pour les amis ET les membres du groupe courant
     const idsToWatchString = useMemo(() => {
         const idsToWatch = new Set<string>();
-        friends.forEach(f => { if (f.friendId) idsToWatch.add(f.friendId); });
-        group?.players?.forEach((p: any) => { if (p.uid && p.uid !== user?.uid) idsToWatch.add(p.uid); });
+        friends.forEach(f => { if (f.friendId) idsToWatch.add(f.friendId as string); });
+        (group?.players as Array<{ uid?: string }> | undefined)?.forEach((p) => { if (p.uid && p.uid !== user?.uid) idsToWatch.add(p.uid); });
         return Array.from(idsToWatch).sort().join(',');
     }, [friends, group?.players, user?.uid]);
 
@@ -330,7 +342,7 @@ export default function PlayPage() {
         const groupIds = new Set<string>();
         Object.values(friendsStatuses).forEach(status => {
             if (status.currentGroupId) {
-                groupIds.add(status.currentGroupId);
+                groupIds.add(status.currentGroupId as string);
             }
         });
         return Array.from(groupIds).sort().join(',');
@@ -417,7 +429,7 @@ export default function PlayPage() {
                                 results.push({ id: uidDocParams.id, ...uidDocParams.data() });
                             }
                         }
-                    } catch (err) {
+                    } catch {
                         // ignore potential invalid doc path errors
                     }
                 }
@@ -462,7 +474,10 @@ export default function PlayPage() {
         }
     };
 
-    const handleAcceptFriend = async (notif: any) => {
+    type Notif = { id: string; fromUserId: string; fromPseudo: string; fromPhotoURL: string; groupId?: string };
+
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const _handleAcceptFriend = async (notif: Notif) => {
         if (!user) return;
         try {
             // 1. Add to my friends list
@@ -502,7 +517,8 @@ export default function PlayPage() {
         }
     };
 
-    const handleRejectFriend = async (notif: any) => {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const _handleRejectFriend = async (notif: Notif) => {
         if (!user) return;
         try {
             await handleDeleteNotif(notif.id);
@@ -541,7 +557,8 @@ export default function PlayPage() {
         }
     };
 
-    const handleAcceptGroupInvite = async (notif: any) => {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const _handleAcceptGroupInvite = async (notif: Notif) => {
         if (!user || !userData) return;
         isNavigatingRef.current = true;
         setPendingRejoinVillage(null);
@@ -637,7 +654,7 @@ export default function PlayPage() {
         }
     };
 
-    const handleJoinVillage = async (villageToJoin: any) => {
+    const handleJoinVillage = async (villageToJoin: Record<string, unknown>) => {
         if (!user || !userData) return;
         isNavigatingRef.current = true;
         setPendingRejoinVillage(null);
@@ -656,19 +673,22 @@ export default function PlayPage() {
 
                 // User is the host: move EVERYONE in the party to the village
                 // Check if village has enough space
-                const currentVillagePlayers = villageToJoin.players ? villageToJoin.players.length : 0;
-                if (currentVillagePlayers + group.players.length > (villageToJoin.maxPlayers || 16)) {
+                const villagePlayers = villageToJoin.players as unknown[] | undefined;
+                const villageMaxPlayers = (villageToJoin.maxPlayers as number | undefined) || 16;
+                const groupPlayers = group.players as Array<{ uid: string }>;
+                const currentVillagePlayers = villagePlayers ? villagePlayers.length : 0;
+                if (currentVillagePlayers + groupPlayers.length > villageMaxPlayers) {
                     toast.warning("Il n'y a pas assez de place dans ce village pour tout votre groupe !");
                     return;
                 }
 
                 // Add all party players to the village
-                await updateDoc(doc(db, "groups", villageToJoin.id), {
-                    players: arrayUnion(...group.players)
+                await updateDoc(doc(db, "groups", villageToJoin.id as string), {
+                    players: arrayUnion(...groupPlayers)
                 });
 
                 // Update currentGroupId for all party members
-                const updatePromises = group.players.map((p: any) =>
+                const updatePromises = groupPlayers.map((p) =>
                     updateDoc(doc(db, "users", p.uid), {
                         currentGroupId: villageToJoin.id
                     })
@@ -676,7 +696,7 @@ export default function PlayPage() {
                 await Promise.all(updatePromises);
 
                 // Delete the old party group since everyone left
-                await deleteGroupCompletely(group.id);
+                await deleteGroupCompletely(group.id as string);
 
             } else {
                 // Solo player (or in a solo group)
@@ -694,13 +714,15 @@ export default function PlayPage() {
                 }
 
                 // Check if village is full BEFORE joining
-                if (villageToJoin.players && villageToJoin.players.length >= (villageToJoin.maxPlayers || 16)) {
+                const soloVillagePlayers = villageToJoin.players as unknown[] | undefined;
+                const soloVillageMaxPlayers = (villageToJoin.maxPlayers as number | undefined) || 16;
+                if (soloVillagePlayers && soloVillagePlayers.length >= soloVillageMaxPlayers) {
                     toast.warning("Ce village est déjà complet !");
                     return;
                 }
 
                 // Add player to the new village
-                await updateDoc(doc(db, "groups", villageToJoin.id), {
+                await updateDoc(doc(db, "groups", villageToJoin.id as string), {
                     players: arrayUnion(playerObj)
                 });
 
@@ -714,7 +736,7 @@ export default function PlayPage() {
             setSelectedPrivateVillage(null);
 
             isNavigatingRef.current = true;
-            router.push(`/room/${villageToJoin.id}`);
+            router.push(`/room/${villageToJoin.id as string}`);
         } catch (error) {
             console.error("Erreur lors de la connexion au village:", error);
             toast.error("Erreur en rejoignant le village.");
@@ -779,7 +801,7 @@ export default function PlayPage() {
 
             if (isParty) {
                 // Update currentGroupId for all party members
-                const updatePromises = group.players.map((p: any) =>
+                const updatePromises = (group.players as Array<{ uid: string }>).map((p) =>
                     updateDoc(doc(db, "users", p.uid), {
                         currentGroupId: newGroupId
                     })
@@ -787,7 +809,7 @@ export default function PlayPage() {
                 await Promise.all(updatePromises);
 
                 // Delete the old party group
-                await deleteGroupCompletely(group.id);
+                await deleteGroupCompletely(group.id as string);
             } else {
                 await updateDoc(doc(db, "users", user.uid), {
                     currentGroupId: newGroupId
@@ -827,17 +849,24 @@ export default function PlayPage() {
             );
 
             // Filtres : public, configuré, en lobby (pas de phase ou phase === 'LOBBY'), assez de place
+            type VillageDoc = Record<string, unknown> & { id: string };
             const candidates = snap.docs
-                .map(d => ({ id: d.id, ...d.data() } as any))
-                .filter(v =>
-                    v.players && v.players.length > 0 &&                          // au moins un joueur
-                    v.gameStarted !== true &&                                      // partie pas encore lancée (en lobby)
-                    v.phase !== 'GAME_OVER' &&                                          // pas terminée
-                    (v.maxPlayers - v.players.length) >= partySize &&             // assez de place
-                    !v.players.some((p: any) => p.uid === user.uid)              // pas déjà dedans
-                )
+                .map(d => ({ id: d.id, ...d.data() } as VillageDoc))
+                .filter(v => {
+                    const players = v.players as Array<{ uid: string }> | undefined;
+                    const maxPlayers = (v.maxPlayers as number | undefined) || 16;
+                    return players && players.length > 0 &&
+                        v.gameStarted !== true &&
+                        v.phase !== 'GAME_OVER' &&
+                        (maxPlayers - players.length) >= partySize &&
+                        !players.some((p) => p.uid === user.uid);
+                })
                 // Tri : le plus rempli en premier (bientôt plein = meilleur match)
-                .sort((a: any, b: any) => b.players.length - a.players.length);
+                .sort((a, b) => {
+                    const ap = (a.players as unknown[]).length;
+                    const bp = (b.players as unknown[]).length;
+                    return bp - ap;
+                });
 
             if (candidates.length > 0) {
                 // Rejoindre le meilleur village trouvé
@@ -875,12 +904,12 @@ export default function PlayPage() {
                 });
 
                 if (isParty) {
-                    const updatePromises = group.players.map((p: any) =>
+                    const updatePromises = (group.players as Array<{ uid: string }>).map((p) =>
                         updateDoc(doc(db, "users", p.uid), { currentGroupId: newGroupId })
                     );
                     await Promise.all(updatePromises);
 
-                    await deleteGroupCompletely(group.id);
+                    await deleteGroupCompletely(group.id as string);
                 } else {
                     await updateDoc(doc(db, "users", user.uid), { currentGroupId: newGroupId });
                 }
@@ -894,13 +923,14 @@ export default function PlayPage() {
         }
     };
 
-    const handleKickPlayer = async (playerToKick: any) => {
+    const handleKickPlayer = async (playerToKick: { uid: string }) => {
         if (!user || group?.hostId !== user.uid) return;
         try {
-            if (group.players && group.players.length <= 1) {
-                await deleteGroupCompletely(group.id);
+            const groupPlayers = group.players as unknown[] | undefined;
+            if (groupPlayers && groupPlayers.length <= 1) {
+                await deleteGroupCompletely(group.id as string);
             } else {
-                await updateDoc(doc(db, "groups", group.id), {
+                await updateDoc(doc(db, "groups", group.id as string), {
                     players: arrayRemove(playerToKick)
                 });
             }
@@ -1055,7 +1085,7 @@ export default function PlayPage() {
                                 v.name?.toLowerCase().includes(searchVillage.toLowerCase())
                             ).filter(v => {
                                 // 1. Finished games ("Fin") should not be visible to anyone unless they are IN the game
-                                const isUserInGroup = v.players?.some((p: any) => p.uid === user?.uid);
+                                const isUserInGroup = (v.players as Array<{ uid: string }> | undefined)?.some((p) => p.uid === user?.uid);
                                 if (v.phase === 'GAME_OVER') {
                                     return isUserInGroup; // Hide from outside, show to players inside
                                 }
@@ -1079,7 +1109,7 @@ export default function PlayPage() {
                                             <Image src="/assets/images/icones/house-icon_black.png" alt="Aucun village" width={64} height={64} className="mb-4 opacity-40" />
                                             <h3 className="font-enchanted text-3xl mb-2">Aucun village trouvé</h3>
                                             <p className={`${!isDarkMode ? "text-dark/60" : "text-[#fafafa]/60"} text-sm mb-6 max-w-sm`}>
-                                                Il n'y a actuellement aucun village correspondant à votre recherche. Pourquoi ne pas créer le vôtre ?
+                                                Il n{"'"}y a actuellement aucun village correspondant à votre recherche. Pourquoi ne pas créer le vôtre ?
                                             </p>
                                             <button
                                                 onClick={handleCreateGroup}
@@ -1110,7 +1140,7 @@ export default function PlayPage() {
                                                     style={{ background: 'linear-gradient(to right, #E3D1A5 15%, #F9F4DF 15%)' }}
                                                     onClick={() => {
                                                         if (loadingAction !== null) return;
-                                                        const isUserInGroup = village.players?.some((p: any) => p.uid === user?.uid);
+                                                        const isUserInGroup = (village.players as Array<{ uid: string }> | undefined)?.some((p) => p.uid === user?.uid);
 
                                                         // If it's already started and user is NOT inside, block join
                                                         if (isStarted && !isUserInGroup) {
@@ -1209,7 +1239,7 @@ export default function PlayPage() {
                                 )}
                             </div>
                             <div className="grid grid-cols-2 gap-4">
-                                {group?.players?.map((p: any) => (
+                                {(group?.players as Array<Record<string, unknown>> | undefined)?.map((p) => (
                                     <div key={p.uid} className="flex items-center justify-between gap-3 cursor-pointer group hover:bg-white/5 p-2 rounded -ml-2 transition-colors" onClick={() => router.push(`/profil/${p.uid}`)}>
                                         <div className="flex items-center gap-3">
                                             <div className={`relative w-10 h-10 rounded-full border ${p.uid === group?.hostId ? 'border-yellow-400' : 'border-[#E3D1A5]'} bg-[#E3D1A5]/20 overflow-hidden`}>
@@ -1319,7 +1349,7 @@ export default function PlayPage() {
 
                             <div className="flex flex-col gap-4">
                                 {friends.length === 0 ? (
-                                    <p className="text-white/40 text-xs italic text-center mt-4">Vous n'avez pas encore d'amis. Cherchez un joueur pour l'ajouter !</p>
+                                    <p className="text-white/40 text-xs italic text-center mt-4">Vous n{"'"}avez pas encore d{"'"}amis. Cherchez un joueur pour l{"'"}ajouter !</p>
                                 ) : (
                                     [...friends].sort((a, b) => {
                                         const isOnlineA = friendsOnlinePresence[a.friendId] === true;
@@ -1444,7 +1474,7 @@ export default function PlayPage() {
                                 </div>
                             )}
                             <div>
-                                <label className="block text-sm font-bold text-slate-800 mb-2 uppercase tracking-wide">Code Secret (<span className="text-slate-500 lowercase font-normal italic">demandez-le à l'hôte</span>)</label>
+                                <label className="block text-sm font-bold text-slate-800 mb-2 uppercase tracking-wide">Code Secret (<span className="text-slate-500 lowercase font-normal italic">demandez-le à l{"'"}hôte</span>)</label>
                                 <input
                                     type="text"
                                     value={inputSecretCode}
@@ -1563,9 +1593,9 @@ export default function PlayPage() {
                                             if (groupSnap.exists()) {
                                                 const gData = groupSnap.data();
                                                 if (gData.players && gData.players.length <= 1) {
-                                                    await deleteGroupCompletely(pendingRejoinVillage.id);
+                                                    await deleteGroupCompletely(pendingRejoinVillage.id as string);
                                                 } else {
-                                                    const updatedPlayers = gData.players.filter((p: any) => p.uid !== user.uid);
+                                                    const updatedPlayers = (gData.players as Array<{ uid: string }>).filter((p) => p.uid !== user.uid);
                                                     await updateDoc(groupRef, { players: updatedPlayers });
                                                 }
                                             }

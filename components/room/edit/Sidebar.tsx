@@ -45,12 +45,13 @@ const ACTION_PHASES = [
 ];
 
 export default function Sidebar({
-    user, roomCode, secretCode, villageName, setVillageName, isPrivate, setIsPrivate,
+    user, secretCode, villageName, setVillageName, isPrivate, setIsPrivate,
     isMicroEnabled, setIsMicroEnabled, isMayorEnabled, setIsMayorEnabled,
     phaseDurations, setPhaseDurations,
     onApplyDefaults, onCreateVillage
 }: SidebarProps) {
 
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const [chatMessage, setChatMessage] = useState('');
     const { isDarkMode } = useThemeStore();
     const toast = useToast();
@@ -188,7 +189,7 @@ export default function Sidebar({
 
                 {/* Phases d'action */}
                 <div className="flex flex-col gap-3">
-                    <p className="text-xs font-bold uppercase tracking-widest text-slate-400">Phases d'action (15s – 1min30)</p>
+                    <p className="text-xs font-bold uppercase tracking-widest text-slate-400">Phases d{"'"}action (15s – 1min30)</p>
                     {ACTION_PHASES.map(({ key, label, min, max, step }) => (
                         <div key={key} className="flex flex-col gap-1">
                             <div className="flex justify-between items-center text-sm">

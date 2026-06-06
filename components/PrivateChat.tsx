@@ -4,13 +4,13 @@ import { useState, useEffect, useRef } from "react";
 import { db, auth } from "@/lib/firebase";
 import { collection, doc, query, orderBy, onSnapshot, addDoc, serverTimestamp, setDoc, getDoc, updateDoc } from "firebase/firestore";
 import Image from "next/image";
-import { onAuthStateChanged } from "firebase/auth";
+import { onAuthStateChanged, User } from "firebase/auth";
 
 interface Message {
     id: string;
     text: string;
     senderId: string;
-    createdAt: any;
+    createdAt: unknown;
 }
 
 interface PrivateChatProps {
@@ -23,7 +23,7 @@ interface PrivateChatProps {
 export default function PrivateChat({ friendId, friendPseudo, friendPhotoURL, onClose }: PrivateChatProps) {
     const [messages, setMessages] = useState<Message[]>([]);
     const [newMessage, setNewMessage] = useState("");
-    const [currentUser, setCurrentUser] = useState<any>(null);
+    const [currentUser, setCurrentUser] = useState<User | null>(null);
     const [isFriend, setIsFriend] = useState(false);
     const [isBlocked, setIsBlocked] = useState(false);
     const [hasBlockedMe, setHasBlockedMe] = useState(false);
@@ -70,6 +70,12 @@ export default function PrivateChat({ friendId, friendPseudo, friendPhotoURL, on
         return [currentUser.uid, friendId].sort().join("_");
     };
 
+    const scrollToBottom = () => {
+        setTimeout(() => {
+            messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+        }, 100);
+    };
+
     // Load Messages
     useEffect(() => {
         const chatId = getChatId();
@@ -87,28 +93,23 @@ export default function PrivateChat({ friendId, friendPseudo, friendPhotoURL, on
             scrollToBottom();
         });
 
-        // Mark as read whenchat is open
+        // Mark as read when chat is open
         const markAsRead = async () => {
             try {
                 const chatDocRef = doc(db, "chats", chatId);
                 const chatDocSnap = await getDoc(chatDocRef);
                 if (chatDocSnap.exists()) {
                     await updateDoc(chatDocRef, {
-                        [`unreadCount.${currentUser.uid}`]: 0
+                        [`unreadCount.${currentUser!.uid}`]: 0
                     });
                 }
-            } catch (err) { }
+            } catch { }
         };
         markAsRead();
 
         return () => unsubscribe();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [currentUser, friendId, isFriend, isBlocked, hasBlockedMe]);
-
-    const scrollToBottom = () => {
-        setTimeout(() => {
-            messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-        }, 100);
-    };
 
     const handleSendMessage = async (e: React.FormEvent) => {
         e.preventDefault();

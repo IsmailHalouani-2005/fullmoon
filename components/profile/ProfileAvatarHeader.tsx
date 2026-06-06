@@ -2,8 +2,8 @@ import Image from 'next/image';
 
 interface ProfileAvatarHeaderProps {
     playerId: string;
-    playerData: any;
-    currentUser: any;
+    playerData: Record<string, unknown>;
+    currentUser: Record<string, unknown> | null;
     isFriend: boolean;
     hasBlockedMe: boolean;
     isBlocked: boolean;
@@ -19,9 +19,9 @@ interface ProfileAvatarHeaderProps {
 export default function ProfileAvatarHeader({
     playerId,
     playerData,
-    currentUser,
+    currentUser: _currentUser, // eslint-disable-line @typescript-eslint/no-unused-vars
     isFriend,
-    hasBlockedMe,
+    hasBlockedMe: _hasBlockedMe, // eslint-disable-line @typescript-eslint/no-unused-vars
     isBlocked,
     hasPendingRequest,
     unreadCount,

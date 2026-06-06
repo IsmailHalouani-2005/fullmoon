@@ -5,10 +5,9 @@ import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
 import Header from '../../components/Header';
-import { auth, db, storage } from '../../lib/firebase';
+import { auth, db } from '../../lib/firebase';
 import { onAuthStateChanged, signOut, updateProfile, updateEmail, updatePassword, linkWithPopup, GoogleAuthProvider, deleteUser } from 'firebase/auth';
 import { doc, getDoc, updateDoc, deleteDoc, collection, query, where, getCountFromServer } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import ProfileStats from '../../components/profile/ProfileStats';
 import { useToast } from '../../contexts/ToastContext';
 import { Skeleton } from '../../components/ui/Skeleton';
@@ -17,8 +16,8 @@ export default function ProfilePage() {
     const router = useRouter();
     const toast = useToast();
     const [loading, setLoading] = useState(true);
-    const [user, setUser] = useState<any>(null);
-    const [userData, setUserData] = useState<any>(null);
+    const [user, setUser] = useState<import('firebase/auth').User | null>(null);
+    const [userData, setUserData] = useState<Record<string, unknown> | null>(null);
     const [userRank, setUserRank] = useState<number | null>(null);
 
     // Form fields
@@ -105,7 +104,7 @@ export default function ProfilePage() {
                 try {
                     // Try to update Auth profile photo, might fail if Base64 string is too long for Auth
                     await updateProfile(user, { photoURL: currentPhotoUrl });
-                } catch (e: any) {
+                } catch (e: unknown) {
                     console.warn("L'image est trop grande pour Firebase Auth (photoURL limit), mais elle sera sauvegardée dans Firestore.", e);
                 }
             }
@@ -125,14 +124,14 @@ export default function ProfilePage() {
                         const groupData = groupSnap.data();
 
                         // Update player in array
-                        const updatedPlayers = groupData.players?.map((p: any) => {
+                        const updatedPlayers = groupData.players?.map((p: Record<string, unknown>) => {
                             if (p.uid === user.uid) {
                                 return { ...p, pseudo: pseudo, photoURL: currentPhotoUrl };
                             }
                             return p;
                         }) || [];
 
-                        const updates: any = { players: updatedPlayers };
+                        const updates: Record<string, unknown> = { players: updatedPlayers };
 
                         // If user is the host, update host info
                         if (groupData.hostId === user.uid) {
@@ -164,14 +163,15 @@ export default function ProfilePage() {
             }
 
             // Update local state
-            setUserData((prev: any) => ({ ...prev, pseudo, photoURL: currentPhotoUrl }));
+            setUserData((prev) => ({ ...(prev as Record<string, unknown>), pseudo, photoURL: currentPhotoUrl }));
             toast.success("Modifications enregistrées !");
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error("Erreur lors de la sauvegarde :", error);
-            if (error.code === 'auth/requires-recent-login') {
+            const firebaseErr = error as { code?: string; message?: string };
+            if (firebaseErr.code === 'auth/requires-recent-login') {
                 toast.info("Pour modifier l'email ou le mot de passe, veuillez vous déconnecter et vous reconnecter.");
             } else {
-                toast.error("Erreur : la sauvegarde a échoué. " + error.message);
+                toast.error("Erreur : la sauvegarde a échoué. " + firebaseErr.message);
             }
         } finally {
             setIsSaving(false);
@@ -184,12 +184,13 @@ export default function ProfilePage() {
             const provider = new GoogleAuthProvider();
             await linkWithPopup(user, provider);
             toast.success("Compte lié à Google !");
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error("Erreur de liaison Google", error);
-            if (error.code === 'auth/credential-already-in-use') {
+            const firebaseErr = error as { code?: string; message?: string };
+            if (firebaseErr.code === 'auth/credential-already-in-use') {
                 toast.error("Ce compte Google est déjà lié à un autre profil.");
             } else {
-                toast.error("Erreur lors de la liaison : " + error.message);
+                toast.error("Erreur lors de la liaison : " + firebaseErr.message);
             }
         }
     };
@@ -208,14 +209,15 @@ export default function ProfilePage() {
             await signOut(auth);
             // Force a hard redirect to the home page to clear all React states
             window.location.href = '/';
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error("Erreur de suppression de compte", error);
-            if (error.code === 'auth/requires-recent-login') {
+            const firebaseErr = error as { code?: string; message?: string };
+            if (firebaseErr.code === 'auth/requires-recent-login') {
                 toast.warning("Pour des raisons de sécurité, veuillez vous déconnecter et vous reconnecter avant de supprimer votre compte.");
                 await signOut(auth);
                 window.location.href = '/';
             } else {
-                toast.error("Erreur lors de la suppression : " + error.message);
+                toast.error("Erreur lors de la suppression : " + firebaseErr.message);
             }
         }
     };
@@ -283,16 +285,8 @@ export default function ProfilePage() {
     };
 
     // Use wins/losses/fled directly from new stats, fallback to old ones if new is 0
-    const totalWins = stats.wins || stats.totalWins || 0;
-    const totalLosses = stats.losses || stats.totalLosses || 0;
-    const totalLeaves = stats.fled || stats.totalLeaves || 0;
-    const totalGames = stats.gamesPlayed || (totalWins + totalLosses + totalLeaves);
 
-    const winRate = totalGames > 0 ? Math.round((totalWins / totalGames) * 100) : 0;
-    const lossRate = totalGames > 0 ? Math.round((totalLosses / totalGames) * 100) : 0;
-    const leaveRate = totalGames > 0 ? Math.round((totalLeaves / totalGames) * 100) : 0;
-
-    const isLinkedWithGoogle = user?.providerData?.some((provider: any) => provider.providerId === 'google.com');
+    const isLinkedWithGoogle = user?.providerData?.some((provider: { providerId: string }) => provider.providerId === 'google.com');
 
     return (
         <div className="min-h-screen w-full bg-background text-dark font-montserrat flex flex-col">
@@ -326,7 +320,7 @@ export default function ProfilePage() {
                                         e.preventDefault();
                                         setIsDragging(false);
                                         const file = e.dataTransfer.files?.[0];
-                                        if (file) handleImageChange({ target: { files: [file] } } as any);
+                                        if (file) handleImageChange({ target: { files: [file] } } as React.ChangeEvent<HTMLInputElement>);
                                     }}
                                 >
                                     <div className="absolute inset-0 bg-[url('/assets/images/icones/village_batiments.png')] bg-cover opacity-20 bg-center" />
@@ -453,7 +447,7 @@ export default function ProfilePage() {
                                     : 'bg-white text-dark hover:bg-gray-100'
                                     }`}
                             >
-                                <img src="https://www.google.com/favicon.ico" alt="Google" width={18} height={18} className={isLinkedWithGoogle ? "opacity-50 grayscale" : ""} />
+                                <Image src="https://www.google.com/favicon.ico" alt="Google" width={18} height={18} className={isLinkedWithGoogle ? "opacity-50 grayscale" : ""} unoptimized />
                                 {isLinkedWithGoogle ? "GOOGLE (Lié)" : "GOOGLE"}
                             </button>
                         </div>

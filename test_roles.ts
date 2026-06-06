@@ -1,1 +1,1 @@
-import { ROLES, RoleId, Camp, isInWolfCamp } from './types/roles';
+// test_roles.ts — role type tests

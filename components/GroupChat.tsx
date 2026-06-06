@@ -2,9 +2,9 @@
 
 import { useState, useEffect, useRef } from "react";
 import { db, auth } from "@/lib/firebase";
-import { collection, doc, query, orderBy, onSnapshot, addDoc, serverTimestamp, setDoc, getDoc, updateDoc } from "firebase/firestore";
+import { collection, doc, query, orderBy, onSnapshot, addDoc, serverTimestamp, getDoc, updateDoc } from "firebase/firestore";
 import Image from "next/image";
-import { onAuthStateChanged } from "firebase/auth";
+import { onAuthStateChanged, User } from "firebase/auth";
 import { io, Socket } from "socket.io-client";
 import VoiceChatManager from "./room/VoiceChatManager";
 import { GameState } from "@/types/game";
@@ -15,7 +15,7 @@ interface Message {
     senderId: string;
     senderPseudo: string;
     senderPhotoURL: string;
-    createdAt: any;
+    createdAt: unknown;
 }
 
 interface GroupChatProps {
@@ -26,8 +26,8 @@ interface GroupChatProps {
 export default function GroupChat({ groupId, onClose }: GroupChatProps) {
     const [messages, setMessages] = useState<Message[]>([]);
     const [newMessage, setNewMessage] = useState("");
-    const [currentUser, setCurrentUser] = useState<any>(null);
-    const [currentData, setCurrentData] = useState<any>(null);
+    const [currentUser, setCurrentUser] = useState<User | null>(null);
+    const [currentData, setCurrentData] = useState<Record<string, unknown> | null>(null);
     const [isAutoScrollEnabled, setIsAutoScrollEnabled] = useState(true);
 
     // Voice Chat State
@@ -39,7 +39,7 @@ export default function GroupChat({ groupId, onClose }: GroupChatProps) {
     const [socket, setSocket] = useState<Socket | null>(null);
     const [groupGame, setGroupGame] = useState<GameState | null>(null);
     const [speakingPlayers, setSpeakingPlayers] = useState<Set<string>>(new Set());
-    const [groupPlayers, setGroupPlayers] = useState<any[]>([]);
+    const [groupPlayers, setGroupPlayers] = useState<Record<string, unknown>[]>([]);
 
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -52,14 +52,17 @@ export default function GroupChat({ groupId, onClose }: GroupChatProps) {
         setIsAutoScrollEnabled(isAtBottom);
     };
 
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const [groupData, setGroupData] = useState<Record<string, unknown> | null>(null);
+
     // Listen to group data (especially players list for voice chat)
     useEffect(() => {
         if (!groupId) return;
         const unsubscribe = onSnapshot(doc(db, "groups", groupId), (snapshot) => {
             if (snapshot.exists()) {
                 const data = snapshot.data();
-                setGroupData(data); // Using local groupData state if it exists, otherwise define it
-                const playersList = (data.players || []).map((p: any) => ({
+                setGroupData(data as Record<string, unknown>);
+                const playersList = (data.players || []).map((p: Record<string, unknown>) => ({
                     id: p.uid,
                     name: p.pseudo || "Joueur",
                     avatarUrl: p.photoURL || "",
@@ -72,8 +75,6 @@ export default function GroupChat({ groupId, onClose }: GroupChatProps) {
         });
         return () => unsubscribe();
     }, [groupId]);
-
-    const [groupData, setGroupData] = useState<any>(null);
 
     // Get current user and their data
     useEffect(() => {
@@ -113,6 +114,7 @@ export default function GroupChat({ groupId, onClose }: GroupChatProps) {
             setGroupGame(gameState);
         });
 
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setSocket(newSocket);
 
         return () => {
@@ -181,12 +183,12 @@ export default function GroupChat({ groupId, onClose }: GroupChatProps) {
             });
 
             // Update parent group last activity & unread counts
-            const updates: any = {
+            const updates: Record<string, unknown> = {
                 lastMessageAt: serverTimestamp()
             };
 
             if (groupData?.players) {
-                groupData.players.forEach((p: any) => {
+                (groupData.players as Record<string, unknown>[]).forEach((p) => {
                     if (p.uid !== currentUser.uid) {
                         const currentUnread = groupData.unreadCount?.[p.uid] || 0;
                         updates[`unreadCount.${p.uid}`] = currentUnread + 1;
@@ -291,7 +293,7 @@ export default function GroupChat({ groupId, onClose }: GroupChatProps) {
                 {messages.length === 0 ? (
                     <div className="flex-1 flex flex-col items-center justify-center text-center opacity-50 px-4">
                         <Image src="/assets/images/icones/chat-icon.png" alt="" width={40} height={40} className="mb-2 opacity-50" />
-                        <p className="text-sm font-medium">L'historique est vide.</p>
+                        <p className="text-sm font-medium">L{"'"}historique est vide.</p>
                         <p className="text-xs mt-1">Dites bonjour à votre groupe !</p>
                     </div>
                 ) : (
@@ -314,7 +316,7 @@ export default function GroupChat({ groupId, onClose }: GroupChatProps) {
                                         <p className="text-sm break-words whitespace-pre-wrap leading-relaxed">{msg.text}</p>
                                     </div>
                                     <span className={`text-[9px] text-white/30 mt-1 opacity-0 group-hover/msg:opacity-100 transition-opacity px-1 ${isMe ? "text-right" : "text-left"}`}>
-                                        {msg.createdAt?.toDate ? new Date(msg.createdAt.toDate()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '...'}
+                                        {(msg.createdAt as { toDate?: () => Date } | null)?.toDate ? new Date((msg.createdAt as { toDate: () => Date }).toDate()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '...'}
                                     </span>
                                 </div>
                             </div>

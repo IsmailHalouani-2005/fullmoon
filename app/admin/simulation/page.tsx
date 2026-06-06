@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
@@ -48,7 +48,7 @@ export default function AdminSimulationPage() {
     };
 
     const handleRunBatch = (runs: number = 100) => {
-        const stats: Record<RoleId, number> = {} as any;
+        const stats: Partial<Record<RoleId, number>> = {};
 
         for (let i = 0; i < runs; i++) {
             const res = isCustom
@@ -60,7 +60,7 @@ export default function AdminSimulationPage() {
             });
         }
 
-        const finalStats: Record<RoleId, { count: number; percentage: number }> = {} as any;
+        const finalStats: Partial<Record<RoleId, { count: number; percentage: number }>> = {};
         Object.entries(stats).forEach(([rId, total]) => {
             finalStats[rId as RoleId] = {
                 count: total as number,
@@ -183,7 +183,7 @@ export default function AdminSimulationPage() {
                                 {Object.values(ROLES).map(role => (
                                     <div key={role.id} className="bg-slate-900 border border-slate-700 rounded-lg p-3 flex flex-col items-center group">
                                         <div className="relative w-12 h-12 mb-2 group-hover:scale-110 transition-transform">
-                                            <img src={role.image} alt={role.label} className="object-contain" />
+                                            <Image src={role.image} alt={role.label} fill className="object-contain" />
                                         </div>
                                         <div className="text-[10px] font-bold uppercase text-slate-400 mb-2 truncate max-w-full">{role.label}</div>
                                         <div className="flex items-center gap-3">
@@ -212,7 +212,7 @@ export default function AdminSimulationPage() {
                                 <div className="flex flex-wrap gap-4">
                                     {Object.entries(lastResult).map(([rId, count]) => (
                                         <div key={rId} className="bg-slate-900/80 border border-slate-700 rounded-lg px-4 py-2 flex items-center gap-3">
-                                            <img src={ROLES[rId as RoleId].image} alt="" className="w-8 h-8 object-contain" />
+                                            <Image src={ROLES[rId as RoleId].image} alt="" width={32} height={32} className="object-contain" />
                                             <div>
                                                 <div className="text-[10px] font-bold text-slate-500 uppercase">{ROLES[rId as RoleId].label}</div>
                                                 <div className="font-bold text-slate-200">x{count}</div>
@@ -243,7 +243,7 @@ export default function AdminSimulationPage() {
                                             {Object.entries(batchResults.stats).sort((a, b) => b[1].count - a[1].count).map(([rId, data]) => (
                                                 <tr key={rId} className="group hover:bg-slate-700/30 transition-colors">
                                                     <td className="py-3 flex items-center gap-3">
-                                                        <img src={ROLES[rId as RoleId].image} alt="" className="w-6 h-6 object-contain" />
+                                                        <Image src={ROLES[rId as RoleId].image} alt="" width={24} height={24} className="object-contain" />
                                                         <span className="font-bold text-slate-300">{ROLES[rId as RoleId].label}</span>
                                                     </td>
                                                     <td className="py-3 font-mono text-slate-400">{data.count}</td>

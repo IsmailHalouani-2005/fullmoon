@@ -14,9 +14,9 @@ export default function ActiveGame() {
     const {
         game, currentPhase, roomCode, dynamicRolesConfig, copyInviteLink,
         isHost, groupConfig, isInviteOpen, setIsInviteOpen,
-        isPlayersListOpen, setIsPlayersListOpen, socket, user,
+        isPlayersListOpen: _isPlayersListOpen, setIsPlayersListOpen, socket, user, // eslint-disable-line @typescript-eslint/no-unused-vars
         isCardFlipped, setIsCardFlipped, setSelectedRole,
-        activePower, setActivePower, powerTargets, setPowerTargets,
+        activePower, setActivePower: _setActivePower, powerTargets, setPowerTargets: _setPowerTargets, // eslint-disable-line @typescript-eslint/no-unused-vars
         handlePowerClick, handlePlayerClick, getPlayerAvatar, speakingPlayers,
     } = useGameContext();
     const getCampColor = (camp: string) => {
@@ -68,12 +68,12 @@ export default function ActiveGame() {
                         <h2 className="text-4xl sm:text-3xl font-extrabold tracking-widest mb-1 text-slate-900 font-enchanted">EN ATTENTE DES JOUEURS</h2>
                         <p className=" text-sm text-slate-600 mb-5 font-bold">({game.players.length} / {(() => {
                             const total = dynamicRolesConfig && Object.keys(dynamicRolesConfig).length > 0
-                                ? Object.values(dynamicRolesConfig).reduce((a: any, b: any) => a + (b || 0), 0) as number
+                                ? Object.values(dynamicRolesConfig).reduce((a: number, b: number) => a + (b || 0), 0) as number
                                 : null;
                             return total && total > 0 ? total : (groupConfig?.maxPlayers || '?');
                         })()} joueurs)</p>
 
-                        <p className="text-sm text-slate-500 mb-2">Invitez d'autres joueurs pour remplir le village</p>
+                        <p className="text-sm text-slate-500 mb-2">Invitez d{"'"}autres joueurs pour remplir le village</p>
 
                         <div className="flex items-center gap-2 bg-[#D1A07A] text-dark px-6 py-3 rounded-lg w-full cursor-pointer hover:bg-[#b08465] transition-colors shadow-[0_0_10px_-1px_#2D3436]" onClick={copyInviteLink}>
                             <span className="flex-1 font-bold text-sm truncate text-left">{typeof window !== 'undefined' ? `${window.location.host}/room/${roomCode}` : roomCode}</span>
@@ -107,7 +107,7 @@ export default function ActiveGame() {
                             {isHost && game.players.length >= 5 ? (
                                 <button
                                     onClick={async () => {
-                                        const startPayload: any = { isMayorEnabled: groupConfig?.isMayorEnabled };
+                                        const startPayload: Record<string, unknown> = { isMayorEnabled: groupConfig?.isMayorEnabled };
                                         if (dynamicRolesConfig) {
                                             startPayload.rolesCount = dynamicRolesConfig;
                                             startPayload.isCustom = groupConfig?.isCustom;
@@ -127,7 +127,7 @@ export default function ActiveGame() {
                                 </button>
                             ) : (
                                 <div className="text-sm italic font-montserrat pointer-events-none text-slate-500">
-                                    En attente de l'hôte (min. 5 joueurs)...
+                                    En attente de l{"'"}hôte (min. 5 joueurs)...
                                 </div>
                             )}
                         </div>
@@ -137,7 +137,7 @@ export default function ActiveGame() {
                         <h2 className="absolute -top-40 md:relative md:top-auto text-4xl sm:text-2xl font-extrabold tracking-widest mb-2 text-center text-slate-900 font-enchanted drop-shadow-md">Découvrez votre Rôle</h2>
 
                         <RoleCard
-                            roleId={user && game.players.find((p: any) => p.id === user.uid)?.role ? (game.players.find((p: any) => p.id === user.uid)!.role as RoleId) : undefined}
+                            roleId={user && game.players.find((p: { id: string }) => p.id === user.uid)?.role ? (game.players.find((p: { id: string }) => p.id === user.uid)!.role as RoleId) : undefined}
                             isCardFlipped={isCardFlipped}
                             onFlip={() => setIsCardFlipped(true)}
                             isMayor={user ? game.mayorId === user.uid : false}
@@ -200,8 +200,8 @@ export default function ActiveGame() {
                         <div className="flex flex-col items-center justify-center z-20 -mt-10 md:mt-0 relative w-full">
 
                             {/* Rappel du rôle du joueur */}
-                            {(user && game.players.find((p: any) => p.id === user.uid)?.role) && (() => {
-                                const mePlayer = game.players.find((p: any) => p.id === user.uid)!;
+                            {(user && game.players.find((p: { id: string }) => p.id === user.uid)?.role) && (() => {
+                                const mePlayer = game.players.find((p: { id: string }) => p.id === user.uid)!;
                                 const myRole = mePlayer.role! as RoleId;
                                 const roleDef = ROLES[myRole];
                                 if (!roleDef) return null;
@@ -224,13 +224,13 @@ export default function ActiveGame() {
                                                 {(roleDef.powers || []).map(power => {
                                                     const usedPowers = mePlayer.usedPowers || [];
                                                     const isUsedOneTime = power.type === 'one-time' && usedPowers.includes(power.id);
-                                                    const isUsedThisNight = game.nightActions?.some((a: any) => a.sourceId === user?.uid && a.powerId === power.id);
+                                                    const isUsedThisNight = game.nightActions?.some((a: { sourceId: string; powerId: string; targetId?: string }) => a.sourceId === user?.uid && a.powerId === power.id);
                                                     const isUsed = isUsedOneTime || (power.type === 'active' && isUsedThisNight);
 
                                                     // Sorcière : si une potion est utilisée cette nuit, bloquer l'autre pendant cette nuit
-                                                    const usedPotionThisNight = game.nightActions?.some((a: any) => a.sourceId === user.uid && (a.powerId === 'POTION_SOIN' || a.powerId === 'POTION_POISON'));
+                                                    const usedPotionThisNight = game.nightActions?.some((a: { sourceId: string; powerId: string; targetId?: string }) => a.sourceId === user.uid && (a.powerId === 'POTION_SOIN' || a.powerId === 'POTION_POISON'));
                                                     const isPotion = power.id === 'POTION_SOIN' || power.id === 'POTION_POISON';
-                                                    const isTemporarilyBlocked = isPotion && usedPotionThisNight && !game.nightActions.some((a: any) => a.powerId === power.id); // L'autre potion est bloquée
+                                                    const isTemporarilyBlocked = isPotion && usedPotionThisNight && !game.nightActions.some((a: { powerId: string }) => a.powerId === power.id); // L'autre potion est bloquée
 
                                                     // GML Specific: canGMLKill logic
                                                     let canGMLKill = true;
@@ -242,7 +242,7 @@ export default function ActiveGame() {
                                                             (game.rolesCount?.['LOUP_INFECT'] || 0);
 
                                                         let currentWolvesAlive = 0;
-                                                        game.players.forEach((p: any) => {
+                                                        game.players.forEach((p: { isAlive: boolean; role: string }) => {
                                                             if (p.isAlive && (p.role === 'LOUP_GAROU' || p.role === 'LOUP_ALPHA' || p.role === 'GRAND_MECHANT_LOUP' || p.role === 'LOUP_INFECT')) {
                                                                 currentWolvesAlive++;
                                                             }
@@ -266,9 +266,9 @@ export default function ActiveGame() {
                                                     let canPyromaneUse = true;
                                                     let pyromaneDisableMessage = "";
                                                     if (mePlayer.role === 'PYROMANE') {
-                                                        const hasGasolineAlive = game.players.some((p: any) => p.isAlive && p.effects.includes('gasoline'));
-                                                        const usedEssenceTonight = game.nightActions?.some((a: any) => a.sourceId === user?.uid && a.powerId === 'ESSENCE');
-                                                        const usedAllumetteTonight = game.nightActions?.some((a: any) => a.sourceId === user?.uid && a.powerId === 'ALLUMETTE');
+                                                        const hasGasolineAlive = game.players.some((p: { isAlive: boolean; effects: string[] }) => p.isAlive && p.effects.includes('gasoline'));
+                                                        const usedEssenceTonight = game.nightActions?.some((a: { sourceId: string; powerId: string; targetId?: string }) => a.sourceId === user?.uid && a.powerId === 'ESSENCE');
+                                                        const usedAllumetteTonight = game.nightActions?.some((a: { sourceId: string; powerId: string; targetId?: string }) => a.sourceId === user?.uid && a.powerId === 'ALLUMETTE');
 
                                                         if (power.id === 'ALLUMETTE') {
                                                             if (!hasGasolineAlive) {
@@ -345,14 +345,14 @@ export default function ActiveGame() {
                                         {/* Helper text for Loup Infecte */}
                                         {activePower === 'MORSURE_INFECTE' && (
                                             <div className="mt-3 text-red-500 font-bold text-xs sm:text-sm animate-pulse drop-shadow-md bg-black/40 px-3 py-1 rounded-full border border-red-500/50">
-                                                Cliquez sur la victime des loups pour qu'elle soit infectée
+                                                Cliquez sur la victime des loups pour qu{"'"}elle soit infectée
                                             </div>
                                         )}
 
                                         {/* Helper text for Loup Blanc */}
                                         {currentPhase === 'NIGHT' && mePlayer?.role === 'LOUP_BLANC' && !mePlayer?.effects?.includes('infected') && !activePower && (
                                             <div className="mt-3 text-red-500 font-bold text-xs sm:text-xs animate-pulse drop-shadow-md bg-black/40 px-3 py-1 rounded-full border border-red-500/50 text-center">
-                                                Votez pour tuer un Loup-Garou. <br /> Si vous ciblez un autre rôle, l'attaque échouera.
+                                                Votez pour tuer un Loup-Garou. <br /> Si vous ciblez un autre rôle, l{"'"}attaque échouera.
                                             </div>
                                         )}
 
@@ -366,7 +366,7 @@ export default function ActiveGame() {
                                         {/* Helper text for Pyromane (Essence) */}
                                         {activePower === 'ESSENCE' && (
                                             <div className="mt-3 text-orange-400 font-bold text-xs sm:text-sm animate-pulse drop-shadow-md bg-black/40 px-3 py-1 rounded-full border border-orange-500/50 text-center">
-                                                Choisissez un joueur à arroser d'essence
+                                                Choisissez un joueur à arroser d{"'"}essence
                                             </div>
                                         )}
 
@@ -379,7 +379,7 @@ export default function ActiveGame() {
 
                                         {/* Feedback text for Pyromane (Allumette activée) */}
                                         {/* On vérifie si l'action ALLUMETTE est dans les actions de nuit du joueur */}
-                                        {currentPhase === 'NIGHT' && mePlayer?.role === 'PYROMANE' && game.nightActions?.some((a: any) => a.sourceId === user?.uid && a.powerId === 'ALLUMETTE') && (
+                                        {currentPhase === 'NIGHT' && mePlayer?.role === 'PYROMANE' && game.nightActions?.some((a: { sourceId: string; powerId: string; targetId?: string }) => a.sourceId === user?.uid && a.powerId === 'ALLUMETTE') && (
                                             <div className="mt-3 text-red-500 font-bold text-xs sm:text-sm animate-pulse drop-shadow-md bg-black/60 px-3 py-1 rounded-full border border-red-500/50 text-center">
                                                 Incendie programmé pour cette nuit ! 🔥
                                             </div>
@@ -392,7 +392,7 @@ export default function ActiveGame() {
                 )}
 
                 {/* Affichage des Joueurs en Cercle */}
-                {game.players.map((player: any, index: number) => (
+                {game.players.map((player, index: number) => (
                     <PlayerCircleNode
                         key={player.id}
                         player={player}

@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { Socket } from 'socket.io-client';
-import { Player, Phase, GameState } from '@/types/game';
+import { Player, GameState } from '@/types/game';
 import { isInWolfCamp } from '@/types/roles';
 
 // Emails admin lus depuis .env.local — ne pas hardcoder dans le code source (visible sur GitHub)
@@ -56,7 +56,8 @@ export default function VoiceChatManager({
         micSensitivityRef.current = micSensitivity;
     }, [micSensitivity]);
     const [acState, setAcState] = useState<string>('unknown');
-    const [speakingPlayers, setSpeakingPlayers] = useState<Set<string>>(new Set());
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const [_speakingPlayers, setSpeakingPlayers] = useState<Set<string>>(new Set());
     const speakingPlayersRef = useRef<Set<string>>(new Set());
 
     // Polite Peer state
@@ -106,6 +107,7 @@ export default function VoiceChatManager({
         return () => {
             localStreamRefForCleanup.current?.getTracks().forEach(track => track.stop());
         };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     // --- 2. Update Local Mic Track ---
@@ -142,7 +144,7 @@ export default function VoiceChatManager({
             return;
         }
 
-        const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+        const audioContext = new (window.AudioContext || (window as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext)();
 
         // Ensure context is running for volume detection
         if (audioContext.state === 'suspended') {
@@ -226,6 +228,7 @@ export default function VoiceChatManager({
                 handleSpeaking({ userId: currentUser.uid, isSpeaking: false });
             }
         };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isMicroOn, localStream, socket, roomCode, handleSpeaking, currentUser?.uid]);
 
     // --- 3. Manage Peer Connections based on Game Phase/Roles ---
@@ -246,6 +249,7 @@ export default function VoiceChatManager({
             }
             return false;
         });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [players, game?.players, game?.phase, currentUser?.uid]);
 
     useEffect(() => {
@@ -274,6 +278,7 @@ export default function VoiceChatManager({
             }
         });
 
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [game?.phase, game?.players.length, players?.length, socket, localStream, type, targets, currentUser?.uid]);
 
     // Periodic Poke (Every 15s, if targets exist but no pairs, try re-initiating)
@@ -336,7 +341,7 @@ export default function VoiceChatManager({
             }
         };
 
-        const handleSignal = async ({ senderId, signal }: { senderId: string, signal: any }) => {
+        const handleSignal = async ({ senderId, signal }: { senderId: string, signal: RTCSessionDescriptionInit | RTCIceCandidateInit & { candidate?: string; sdpMid?: string } }) => {
             setStats(s => ({ ...s, recvSig: s.recvSig + 1 }));
             let pc = peerConnections.current[senderId];
             if (!pc) {
@@ -406,6 +411,7 @@ export default function VoiceChatManager({
             socket.off('voice_signal', handleSignal);
             socket.off('player_speaking', handleSpeaking);
         };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [socket, handleSpeaking, type, currentUser?.uid]);
 
     // --- Helper Functions ---
@@ -537,7 +543,8 @@ export default function VoiceChatManager({
     // --- 4b. Sync Local tracks to all connections ---
     useEffect(() => {
         if (!localStream) return;
-        Object.entries(peerConnections.current).forEach(([id, pc]) => {
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        Object.entries(peerConnections.current).forEach(([_id, pc]) => {
             const senders = pc.getSenders();
             const hasAudio = senders.some(s => s.track?.kind === 'audio' && s.track?.id);
 
@@ -599,7 +606,7 @@ export default function VoiceChatManager({
             if (!remoteAnalyzersRef.current[id] && stream.getAudioTracks().length > 0) {
                 try {
                     if (!sharedAcRef.current) {
-                        const AC = (window.AudioContext || (window as any).webkitAudioContext);
+                        const AC = (window.AudioContext || (window as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext);
                         sharedAcRef.current = new AC();
                     }
                     if (sharedAcRef.current.state === 'suspended') sharedAcRef.current.resume();
@@ -639,7 +646,7 @@ export default function VoiceChatManager({
     function resetConnections() {
         console.log("VoiceChat: Resetting all peer connections...");
         try {
-            const ac = new (window.AudioContext || (window as any).webkitAudioContext)();
+            const ac = new (window.AudioContext || (window as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext)();
             const osc = ac.createOscillator();
             const gain = ac.createGain();
             osc.connect(gain);

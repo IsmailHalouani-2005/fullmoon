@@ -12,8 +12,8 @@ export interface GameContextValue {
     currentPhase: Phase | string;
     roomCode: string;
     isHost: boolean;
-    groupConfig: any;
-    dynamicRolesConfig: any;
+    groupConfig: Record<string, unknown>;
+    dynamicRolesConfig: Record<string, unknown>;
 
     // Connexion
     socket: Socket | null;

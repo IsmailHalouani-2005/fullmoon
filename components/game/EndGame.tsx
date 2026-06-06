@@ -1,35 +1,37 @@
+'use client';
 import Image from 'next/image';
 import { ROLES, RoleId, RoleDefinition } from '@/types/roles';
 import { useState } from 'react';
 import RoleInfoModal from '@/components/room/edit/RoleInfoModal';
+import { useToast } from '@/contexts/ToastContext';
 
 interface EndGameProps {
-    gameOverData: any;
+    gameOverData: Record<string, unknown>;
     confirmLeave: () => void;
     getPlayerAvatar: (id: string, avatarUrl?: string) => string;
     currentUserId?: string;
     onReplay: () => void;
-    hasNextRoom?: boolean;
 }
 
-export default function EndGame({ gameOverData, confirmLeave, getPlayerAvatar, currentUserId, onReplay, hasNextRoom }: EndGameProps) {
+export default function EndGame({ gameOverData, confirmLeave, getPlayerAvatar, currentUserId, onReplay }: EndGameProps) {
     const [selectedRoleForModal, setSelectedRoleForModal] = useState<RoleDefinition | null>(null);
     const [isLeaving, setIsLeaving] = useState(false);
     const [isReplaying, setIsReplaying] = useState(false);
+    const toast = useToast();
 
     if (!gameOverData) return null;
 
-    const myPlayer = gameOverData.players.find((p: any) => p.id === currentUserId);
+    const myPlayer = (gameOverData.players as Record<string, unknown>[]).find((p) => p.id === currentUserId);
 
     // --- Group Players by Camp / Winning status ---
-    const winners: any[] = [];
-    const village: any[] = [];
-    const loups: any[] = [];
-    const solos: any[] = [];
+    const winners: Record<string, unknown>[] = [];
+    const village: Record<string, unknown>[] = [];
+    const loups: Record<string, unknown>[] = [];
+    const solos: Record<string, unknown>[] = [];
 
     const winnerKey = gameOverData.winner;
 
-    gameOverData.players.forEach((p: any) => {
+    (gameOverData.players as Record<string, unknown>[]).forEach((p) => {
         const baseCamp = ROLES[p.role as RoleId]?.camp;
         const isInfected = p.effects?.includes('infected');
         const effectiveCamp = isInfected ? 'LOUPS' : baseCamp;
@@ -80,6 +82,24 @@ export default function EndGame({ gameOverData, confirmLeave, getPlayerAvatar, c
         groups.push({ title: 'Reste des Solos', color: 'text-blue-400', players: solos });
     }
 
+    const handleShare = async () => {
+        if (!myPlayer) return;
+        const roleLabel = ROLES[myPlayer.role as RoleId]?.label || myPlayer.role || '?';
+        const isWinner = winners.some(p => p.id === currentUserId);
+        const result = isWinner ? '🏆 Victoire' : '💀 Défaite';
+        const text = `${result} en tant que ${roleLabel} sur FullMoon ! ${myPlayer.stats?.points ?? 0} pts · ${myPlayer.stats?.kills ?? 0} élim. · ${myPlayer.stats?.daysSurvived ?? 0} jours survécus 🌕`;
+        try {
+            if (typeof navigator !== 'undefined' && navigator.share) {
+                await navigator.share({ text, url: typeof window !== 'undefined' ? window.location.origin : '' });
+            } else {
+                await navigator.clipboard.writeText(text);
+                toast.success('Résultat copié dans le presse-papiers !');
+            }
+        } catch {
+            // L'utilisateur a annulé le partage — pas d'erreur
+        }
+    };
+
     return (
         <main className="flex-1 relative flex flex-col items-center justify-center pt-6 font-montserrat overflow-y-auto bg-white text-dark">
             <div className="text-center max-w-6xl w-full mt-10">
@@ -103,7 +123,7 @@ export default function EndGame({ gameOverData, confirmLeave, getPlayerAvatar, c
 
                     {gameOverData.winner === 'AMOUR' && (
                         <p className="text-lg text-slate-300 font-bold mb-4">
-                            L'amour triomphe toujours ! Le couple a survécu.
+                            L{"'"}amour triomphe toujours ! Le couple a survécu.
                         </p>
                     )}
 
@@ -114,7 +134,7 @@ export default function EndGame({ gameOverData, confirmLeave, getPlayerAvatar, c
                                     {group.title}
                                 </h3>
                                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2 w-full">
-                                    {group.players.map((p: any) => (
+                                    {group.players.map((p: Record<string, unknown>) => (
                                         <button
                                             key={p.id}
                                             className="flex min-w-[200px] items-center bg-dark/70 hover:bg-dark/80 p-2 px-3 rounded-xl border border-slate-600 transition-all cursor-pointer"
@@ -199,6 +219,14 @@ export default function EndGame({ gameOverData, confirmLeave, getPlayerAvatar, c
                     >
                         {isLeaving ? 'Chargement...' : 'Quitter le village'}
                     </button>
+                    {myPlayer && (
+                        <button
+                            onClick={handleShare}
+                            className="border-2 border-slate-500 text-slate-300 text-lg font-extrabold px-8 py-3 rounded-lg transition-all uppercase tracking-wide hover:border-[#D1A07A] hover:text-[#D1A07A]"
+                        >
+                            Partager
+                        </button>
+                    )}
                 </div>
             </div>
 

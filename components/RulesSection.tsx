@@ -158,13 +158,13 @@ export default function RulesSection() {
                         <div className="flex-1">
                             <h3 className={`font-enchanted text-3xl mb-3 ${dark ? 'text-[#D1A07A]' : 'text-dark'}`}>Le But du Jeu</h3>
                             <p className={`text-sm leading-relaxed font-medium ${dark ? 'text-slate-300' : 'text-dark/80'}`}>
-                                Le village de FullMoon est divisé en camps secrets. Les <span className="text-emerald-600 font-bold">Villageois</span> doivent identifier et éliminer tous les <span className="text-red-600 font-bold">Loups-Garous</span>. Les loups, eux, doivent dévorer les habitants jusqu'à dominer le village. Les <span className="text-purple-600 font-bold">Solitaires</span> poursuivent leurs propres objectifs — souvent au détriment des deux camps.
+                                Le village de FullMoon est divisé en camps secrets. Les <span className="text-emerald-600 font-bold">Villageois</span> doivent identifier et éliminer tous les <span className="text-red-600 font-bold">Loups-Garous</span>. Les loups, eux, doivent dévorer les habitants jusqu{"'"}à dominer le village. Les <span className="text-purple-600 font-bold">Solitaires</span> poursuivent leurs propres objectifs — souvent au détriment des deux camps.
                             </p>
                         </div>
                         <div className={`flex-1 border-l-0 md:border-l-2 md:pl-8 ${dark ? 'border-slate-700' : 'border-slate-200'}`}>
-                            <h3 className={`font-enchanted text-3xl mb-3 ${dark ? 'text-[#D1A07A]' : 'text-dark'}`}>La Règle d'Or</h3>
+                            <h3 className={`font-enchanted text-3xl mb-3 ${dark ? 'text-[#D1A07A]' : 'text-dark'}`}>La Règle d{"'"}Or</h3>
                             <p className={`text-sm leading-relaxed font-medium italic ${dark ? 'text-slate-300' : 'text-dark/80'}`}>
-                                "Dans FullMoon, le silence est parfois plus suspect qu'un cri. Mais attention : celui qui accuse trop vite pourrait bien être celui qui a le plus à cacher."
+                                {"\""} Dans FullMoon, le silence est parfois plus suspect qu{"'"}un cri. Mais attention : celui qui accuse trop vite pourrait bien être celui qui a le plus à cacher. {"\""}
                             </p>
                         </div>
                     </div>
@@ -176,7 +176,7 @@ export default function RulesSection() {
                     style={{ opacity: 0, transform: 'translateY(24px)', transition: 'opacity 0.7s ease 0.2s, transform 0.7s ease 0.2s' }}
                 >
                     <h3 className={`font-enchanted text-4xl text-center mb-10 ${dark ? 'text-[#D1A07A]' : 'text-dark'}`}>
-                        Le Déroulement d'une Partie
+                        Le Déroulement d{"'"}une Partie
                     </h3>
 
                     {/* Desktop : horizontal */}

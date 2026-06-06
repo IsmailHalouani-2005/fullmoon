@@ -1,7 +1,6 @@
 'use client';
 
 import Image from 'next/image';
-
 import { useEffect, useState, useMemo, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { io, Socket } from 'socket.io-client';
@@ -9,14 +8,12 @@ import { User } from 'firebase/auth';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
-import { GameState, ServerToClientEvents, ClientToServerEvents, Player, Phase } from '@/types/game';
+import { GameState, ServerToClientEvents, ClientToServerEvents, Player } from '@/types/game';
 import { ROLES, RoleId, PowerId, isInWolfCamp } from "@/types/roles";
 import { distributeRoles, distributeCustomRoles } from '@/lib/roleDistribution';
 import { doc, getDoc, setDoc, deleteDoc, collection, query, onSnapshot, addDoc, updateDoc, increment, arrayUnion } from 'firebase/firestore';
 import { getDatabase, ref, onValue } from 'firebase/database';
 import RoleInfoModal from '@/components/room/edit/RoleInfoModal';
-import RoleCard from '../../../components/game/RoleCard';
-import PlayerCircleNode from '../../../components/game/PlayerCircleNode';
 import EndGame from '../../../components/game/EndGame';
 import { GameProvider } from '@/contexts/GameContext';
 import ActiveGame from '../../../components/game/ActiveGame';
@@ -27,6 +24,10 @@ import VoiceChatManager from '@/components/room/VoiceChatManager';
 import PhaseTransitionOverlay from '@/components/game/PhaseTransitionOverlay';
 
 import { useGameAudio } from '@/hooks/useGameAudio';
+import { gameFingerprint } from '@/lib/gameFingerprint';
+import { filterChatMessages, windowChatMessages, CHAT_WINDOW_SIZE } from '@/lib/chatWindowing';
+import { useVisibilityReconnect } from '@/hooks/useVisibilityReconnect';
+import type { GroupConfig } from '@/types/group';
 
 export default function RoomPage() {
     const params = useParams();
@@ -39,7 +40,7 @@ export default function RoomPage() {
     const [game, setGame] = useState<GameState | null>(null);
     const [socket, setSocket] = useState<Socket<ServerToClientEvents, ClientToServerEvents> | null>(null);
     const [rolesConfig, setRolesConfig] = useState<Partial<Record<RoleId, number>> | null>(null);
-    const [groupConfig, setGroupConfig] = useState<any>(null);
+    const [groupConfig, setGroupConfig] = useState<GroupConfig | null>(null);
     const [selectedRole, setSelectedRole] = useState<RoleId | null>(null);
     const [isCardFlipped, setIsCardFlipped] = useState(false);
     const [activeChatTab, setActiveChatTab] = useState<'day' | 'night'>('day');
@@ -67,16 +68,9 @@ export default function RoomPage() {
         senderName: string;
         text: string;
         time: number;
-        chatType?: 'day' | 'night' | 'system' | 'lover' | 'highlighted' | 'poisoned';
+        chatType: 'day' | 'night' | 'system' | 'lover' | 'highlighted' | 'poisoned';
     }
-    const getCampColor = (camp: string) => {
-        switch (camp) {
-            case 'VILLAGE': return 'text-green-400';
-            case 'LOUPS': return 'text-red-500';
-            case 'SOLO': return 'text-purple-400';
-            default: return 'text-white';
-        }
-    };
+
     const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
     const [chatInput, setChatInput] = useState("");
 
@@ -102,7 +96,7 @@ export default function RoomPage() {
     // Invitations State
     const [isInviteOpen, setIsInviteOpen] = useState(false);
     const [isPlayersListOpen, setIsPlayersListOpen] = useState(false);
-    const [friends, setFriends] = useState<any[]>([]);
+    const [friends, setFriends] = useState<{ id: string; [key: string]: unknown }[]>([]);
     const [invitedFriends, setInvitedFriends] = useState<string[]>([]);
     const [friendsOnlinePresence, setFriendsOnlinePresence] = useState<Record<string, boolean>>({});
 
@@ -132,7 +126,8 @@ export default function RoomPage() {
     const [showPlayerIdleWarning, setShowPlayerIdleWarning] = useState(false);
 
     // Audio System
-    const { isMuted, setIsMuted, playOneShot } = useGameAudio(game, user?.uid, socket, activePower, ambianceVolume);
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { isMuted: _isMuted, setIsMuted: _setIsMuted, playOneShot } = useGameAudio(game, user?.uid, socket, activePower, ambianceVolume);
 
     // --- SORCIÈRE MODALS ---
     const [witchHealTarget, setWitchHealTarget] = useState<string | null>(null);
@@ -193,6 +188,7 @@ export default function RoomPage() {
                 console.error("Erreur avatar fetch", e);
             }
         });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [playerIdsKey]); // Ne se déclenche que quand des joueurs rejoignent/quittent
 
     /** Retourne la meilleure photo disponible pour un uid donné */
@@ -213,7 +209,7 @@ export default function RoomPage() {
                 }
 
                 const data = groupDoc.data();
-                const isUserInGroup = data.players?.some((p: any) => p.uid === user.uid);
+                const isUserInGroup = data.players?.some((p: { uid: string }) => p.uid === user.uid);
 
                 if (data.phase === 'GAME_OVER' && !isUserInGroup) {
                     toast.warning("Cette partie est terminée. Impossible de la rejoindre en cours.");
@@ -229,6 +225,7 @@ export default function RoomPage() {
         };
 
         validateRoom();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [user, roomCode, router]);
 
     // 3. Se connecter au Serveur de Jeu (Socket.io)
@@ -257,13 +254,21 @@ export default function RoomPage() {
         });
 
         // Écouter les mises à jour du jeu
-        newSocket.on('update_game', (gameState) => {
-            setGame(gameState);
+        newSocket.on('update_game', (newState) => {
+            setGame(prev => {
+                if (!prev) return newState;
+                // Perf : si seul le timer a changé, on réutilise les références existantes
+                // pour que React.memo sur PlayerCircleNode puisse bailout par === comparison.
+                if (gameFingerprint(prev) === gameFingerprint(newState)) {
+                    return { ...prev, timer: newState.timer };
+                }
+                return newState;
+            });
             // Synchroniser le chat UNIQUEMENT si le serveur a plus de messages que le client
             // (cas de première connexion ou reconnexion). Les mises à jour incrémentales
             // arrivent via 'chat_message' — écraser à chaque seconde causerait des re-renders massifs.
-            if (gameState.chatMessages && gameState.chatMessages.length > chatMessagesCountRef.current) {
-                setChatMessages(gameState.chatMessages);
+            if (newState.chatMessages && newState.chatMessages.length > chatMessagesCountRef.current) {
+                setChatMessages(newState.chatMessages);
             }
         });
 
@@ -309,7 +314,7 @@ export default function RoomPage() {
 
             // --- FIREBASE STATS UPDATE ---
             if (!user) return;
-            const myPlayerObj = payload.players.find((p: any) => p.id === user.uid);
+            const myPlayerObj = payload.players.find((p: { id: string }) => p.id === user.uid);
             if (!myPlayerObj) return;
 
             // Simple check to determine if the user won
@@ -338,9 +343,8 @@ export default function RoomPage() {
                     // Determine camp
                     const isVillage = myRole?.camp === 'VILLAGE' && !myPlayerObj.effects?.includes('infected');
                     const isWolf = myRole?.camp === 'LOUPS' || myPlayerObj.effects?.includes('infected');
-                    const isSolo = !isVillage && !isWolf;
 
-                    const updates: any = {
+                    const updates: Record<string, unknown> = {
                         "stats.wins": (s.wins || 0) + (hasWon ? 1 : 0),
                         "stats.losses": (s.losses || 0) + (!hasWon ? 1 : 0),
                         "stats.gamesPlayed": (s.gamesPlayed || 0) + 1,
@@ -362,7 +366,36 @@ export default function RoomPage() {
                         else updates["stats.soloLosses"] = (s.soloLosses || 0) + 1;
                     }
 
+                    // Stats par rôle (pour les statistiques enrichies du profil)
+                    if (myPlayerObj.role) {
+                        const roleId = myPlayerObj.role as string;
+                        const prevRole = (currentData.stats?.roles?.[roleId]) || { wins: 0, losses: 0 };
+                        updates[`stats.roles.${roleId}.wins`] = (prevRole.wins || 0) + (hasWon ? 1 : 0);
+                        updates[`stats.roles.${roleId}.losses`] = (prevRole.losses || 0) + (!hasWon ? 1 : 0);
+                    }
+
                     await updateDoc(userRef, updates);
+
+                    // Historique de parties — enregistre cette partie dans la sous-collection
+                    try {
+                        const myRoleDef = ROLES[myPlayerObj.role as RoleId];
+                        await addDoc(collection(db, "users", user.uid, "gameHistory"), {
+                            roleId: myPlayerObj.role || null,
+                            roleLabel: myRoleDef?.label || myPlayerObj.role || 'Inconnu',
+                            roleImage: myRoleDef?.image || null,
+                            roleCamp: myPlayerObj.effects?.includes('infected') ? 'LOUPS' : (myRoleDef?.camp || 'VILLAGE'),
+                            hasWon,
+                            winner: payload.winner,
+                            points: myPlayerObj.stats?.points || 0,
+                            kills: myPlayerObj.stats?.kills || 0,
+                            saves: myPlayerObj.stats?.saves || 0,
+                            daysSurvived: myPlayerObj.stats?.daysSurvived || 0,
+                            playerCount: payload.players.length,
+                            playedAt: new Date().toISOString(),
+                        });
+                    } catch (histErr) {
+                        console.warn('[History] Impossible de sauvegarder l\'historique:', histErr);
+                    }
                 }
 
                 // Si je suis l'hôte, pénaliser les joueurs qui ont fui
@@ -405,22 +438,11 @@ export default function RoomPage() {
             setShowPlayerIdleWarning(true);
         });
 
-        // Rejoindre officiellement la salle UNIQUEMENT quand le socket est bien connecté
+        // Rejoindre la salle à la connexion initiale ET à chaque reconnexion automatique.
+        // Socket.io v4 : 'connect' se déclenche sur la connexion initiale ET après chaque reconnect.
+        // On fusionne tout ici pour éviter le double join_game (l'ancien handler 'reconnect'
+        // émettait join_game une deuxième fois sur reconnect).
         newSocket.on('connect', () => {
-            newSocket.emit('join_game', {
-                roomCode,
-                userId: user.uid,
-                username: user.displayName || user.email?.split('@')[0] || "Anonyme",
-                avatarUrl: getSafeAvatarUrl(user.photoURL || firestorePhotoURL)
-            });
-        });
-
-        // Suivi de l'état de connexion pour l'indicateur visuel
-        newSocket.on('connect',    () => setSocketConnected(true));
-        newSocket.on('disconnect', () => setSocketConnected(false));
-
-        // Gestion de la reconnexion automatique par Socket.io
-        newSocket.on('reconnect', () => {
             setSocketConnected(true);
             newSocket.emit('join_game', {
                 roomCode,
@@ -430,13 +452,23 @@ export default function RoomPage() {
             });
         });
 
+        newSocket.on('disconnect', () => setSocketConnected(false));
+
         setSocket(newSocket);
 
         // Nettoyage quand on quitte la page
         return () => {
             newSocket.disconnect();
         };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [user, roomCode, firestorePhotoURL, isValidatingRoom, groupConfig?.isMicro, micPermissionGranted]);
+
+    // Bug #3 — Page Visibility API
+    // Sur iOS/mobiles, les onglets mis en arrière-plan peuvent voir le WebSocket se couper.
+    // Quand l'onglet revient au premier plan : si le socket est déconnecté, on force la reconnexion ;
+    // s'il est connecté, on envoie un ping pour signaler qu'on est toujours là.
+    // Bug #3 — iOS timer drift fix: reconnect socket when tab becomes visible again
+    useVisibilityReconnect(socket);
 
     // Track user activity to prevent idle kick
     useEffect(() => {
@@ -468,7 +500,7 @@ export default function RoomPage() {
         const unsubscribe = onSnapshot(doc(db, "groups", roomCode), (snapshot) => {
             if (snapshot.exists()) {
                 const data = snapshot.data();
-                setGroupConfig(data);
+                setGroupConfig(data as GroupConfig);
                 if (data.rolesCount) {
                     setRolesConfig(data.rolesCount);
                 }
@@ -556,7 +588,7 @@ export default function RoomPage() {
                     if (groupData.players && groupData.players.length <= 1) {
                         await deleteDoc(groupRef);
                     } else {
-                        const updatedPlayers = groupData.players.filter((p: any) => p.uid !== user.uid);
+                        const updatedPlayers = groupData.players.filter((p: { uid: string }) => p.uid !== user.uid);
                         await updateDoc(groupRef, { players: updatedPlayers });
                     }
                 }
@@ -597,6 +629,24 @@ export default function RoomPage() {
         return Object.keys(counts).length > 0 ? counts : null;
     }, [game?.players]);
 
+    // ─── Perf #5 : Chat windowing ────────────────────────────────────────────────
+    // Délègue le filtrage et la troncature aux fonctions pures de lib/chatWindowing.
+    // Encapsulées dans useMemo : recalcul seulement si les données changent, pas à chaque tick.
+    const [showAllMessages, setShowAllMessages] = useState(false);
+
+    const filteredChatMessages = useMemo(
+        () => filterChatMessages(chatMessages, activeChatTab, mePlayer?.role, user?.uid, r => isInWolfCamp(r as RoleId)),
+        [chatMessages, activeChatTab, mePlayer?.role, user?.uid]
+    );
+
+    const { displayed: displayedMessages, hiddenCount: hiddenMessageCount } = useMemo(
+        () => windowChatMessages(filteredChatMessages, CHAT_WINDOW_SIZE, showAllMessages),
+        [filteredChatMessages, showAllMessages]
+    );
+
+    // Réinitialiser "tout afficher" quand l'utilisateur change d'onglet jour/nuit
+    useEffect(() => { setShowAllMessages(false); }, [activeChatTab]);
+
     // ⚠️ BLOCKER 1 : Configuration du salon en cours de chargement
     if (!groupConfig) {
         return <LoadingScreen roomCode={roomCode} />;
@@ -608,7 +658,7 @@ export default function RoomPage() {
             <div className="h-screen w-screen bg-primary flex flex-col items-center justify-center p-4 text-center z-[9999]">
                 <h1 className="text-secondary font-enchanted text-5xl mb-6">Chat Vocal Activé</h1>
                 <p className="text-dark/70 font-montserrat mb-8 max-w-md bg-white p-4 rounded-lg shadow-md border-2 border-dark/10 text-sm">
-                    Pour rejoindre ce village, nous devons activer votre microphone. Le navigateur vous demandera l'autorisation.
+                    Pour rejoindre ce village, nous devons activer votre microphone. Le navigateur vous demandera l{"'"}autorisation.
                 </p>
                 <button
                     onClick={async () => {
@@ -616,7 +666,7 @@ export default function RoomPage() {
                             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
                             stream.getTracks().forEach(t => t.stop());
                             setMicPermissionGranted(true);
-                        } catch (err) {
+                        } catch {
                             toast.error("Le microphone est nécessaire pour ce salon.");
                             setMicPermissionGranted(true);
                         }
@@ -641,7 +691,9 @@ export default function RoomPage() {
 
     const isHost = game.hostId === user.uid;
 
-    // La phase de Nuit est désormais gérée dans le rendu principal du composant
+    // Mode spectateur : l'utilisateur regarde sans être un joueur de la partie.
+    // Le serveur ne l'a pas ajouté à game.players car la partie était déjà commencée.
+    const isSpectator = game.phase !== 'LOBBY' && !game.players.find(p => p.id === user.uid);
 
     const handleSendMessage = (e: React.FormEvent) => {
         e.preventDefault();
@@ -650,15 +702,13 @@ export default function RoomPage() {
         const me = game.players.find(p => p.id === user.uid);
         if (me && !me.isAlive) return; // Un mort ne parle plus (sauf ongle système peut-être plus tard, mais simplifions)
 
-        const camp = me?.role ? ROLES[me.role as RoleId]?.camp : 'UNKNOWN';
-
         socket.emit('chat_message', {
             senderId: user.uid,
             senderName: user.displayName || user.email?.split('@')[0] || "Anonyme",
             text: chatInput,
             time: Date.now(),
             chatType: activeChatTab
-        }, (response) => {
+        }, () => {
         });
         setIsChatAutoScrollEnabled(true);
         setChatInput("");
@@ -670,7 +720,8 @@ export default function RoomPage() {
         toast.success("Lien copié !");
     };
 
-    const copySecretCode = () => {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const _copySecretCode = () => {
         if (!game?.secretCode) return;
         navigator.clipboard.writeText(game.secretCode);
         toast.success("Code secret copié !");
@@ -724,6 +775,7 @@ export default function RoomPage() {
     };
 
     const handlePowerClick = (powerId: string) => {
+        if (isSpectator) return;
         if (powerId === 'ALLUMETTE') {
             setShowAllumetteConfirm(true);
             return;
@@ -759,6 +811,7 @@ export default function RoomPage() {
     };
 
     const handlePlayerClick = (playerId: string) => {
+        if (isSpectator) return; // spectateurs ne peuvent pas voter
         const me = game?.players.find(p => p.id === user?.uid);
 
         if (!activePower) {
@@ -838,6 +891,28 @@ export default function RoomPage() {
 
     return (
         <div className={`h-screen max-h-screen overflow-hidden flex font-montserrat transition-colors duration-1000 ${currentPhase === 'NIGHT' ? 'bg-[#1a1b26] text-slate-200' : 'bg-[#fafafa] text-slate-900'} relative`}>
+
+            {/* Bannière mode spectateur */}
+            {isSpectator && (
+                <div className="fixed top-0 left-0 right-0 z-[9998] flex items-center justify-center gap-2 bg-slate-800/95 text-slate-300 text-sm font-bold py-2 px-4 shadow-lg backdrop-blur-sm">
+                    <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                    </svg>
+                    Mode Spectateur — vous observez cette partie sans y participer
+                </div>
+            )}
+
+            {/* Bannière de reconnexion — visible dès que le socket est coupé */}
+            {!socketConnected && currentPhase !== 'END' && (
+                <div className="fixed top-0 left-0 right-0 z-[9999] flex items-center justify-center gap-2 bg-red-600 text-white text-sm font-bold py-2 px-4 shadow-lg animate-pulse">
+                    <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                    </svg>
+                    Connexion perdue — Reconnexion en cours...
+                </div>
+            )}
+
             {/* Mobile Toggle Button (Visible only on small screens) */}
             <button
                 onClick={() => { setIsMobileSidebarOpen(!isMobileSidebarOpen); setIsPlayersListOpen(false); setIsInviteOpen(false); }}
@@ -959,18 +1034,17 @@ export default function RoomPage() {
                         onScroll={handleChatScroll}
                         className="flex-1 overflow-y-auto p-4 space-y-2 relative z-10 w-full flex flex-col"
                     >
+                        {/* Bouton "Messages précédents" — visible uniquement si des messages sont cachés */}
+                        {hiddenMessageCount > 0 && (
+                            <button
+                                onClick={() => setShowAllMessages(true)}
+                                className={`w-full text-xs font-bold py-2 px-3 rounded-lg mb-2 transition-colors ${currentPhase === 'NIGHT' ? 'bg-slate-700 text-slate-300 hover:bg-slate-600' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}
+                            >
+                                ↑ {hiddenMessageCount} message{hiddenMessageCount > 1 ? 's' : ''} précédent{hiddenMessageCount > 1 ? 's' : ''}
+                            </button>
+                        )}
                         <div className="mt-auto"></div>
-                        {chatMessages.filter(msg => {
-                            if (msg.chatType === 'system' || msg.chatType === 'lover' || msg.chatType === 'highlighted') return true;
-                            if (msg.chatType === 'night') {
-                                const isMeWolf = mePlayer?.role && isInWolfCamp(mePlayer.role as RoleId);
-                                const isPetiteFille = mePlayer?.role === 'PETITE_FILLE';
-                                const isMeSender = msg.senderId === user?.uid;
-                                const show = (activeChatTab === 'night' && (isMeWolf || isPetiteFille)) || (isMeSender && isMeWolf);
-                                return show;
-                            }
-                            return activeChatTab === 'day';
-                        }).map((msg, idx) => {
+                        {displayedMessages.map((msg, idx) => {
                             const senderIndex = game.players.findIndex(p => p.id === msg.senderId);
                             const senderPlayer = senderIndex !== -1 ? game.players[senderIndex] : null;
                             const senderNumber = senderIndex + 1;
@@ -979,7 +1053,6 @@ export default function RoomPage() {
 
                             // Joueur actuel pour la mention (Nom, "Joueur X", ou "JX")
                             const myIndex = game.players.findIndex(p => p.id === user.uid);
-                            const myPlayer = myIndex !== -1 ? game.players[myIndex] : null;
                             const myNumber = myIndex + 1;
 
                             // Highlight strict : @Pseudo ou @Chiffre ou Chiffre seul
@@ -1070,8 +1143,8 @@ export default function RoomPage() {
                         const isDeadPlayer = mePlayer ? !mePlayer.isAlive : false;
                         const isMePetiteFille = mePlayer?.role === 'PETITE_FILLE';
 
-                        // Condition de parole stricte : Les morts se taisent. Les petites filles se taisent la nuit.
-                        const canChat = game ? (!isDeadPlayer && (
+                        // Condition de parole stricte : Les morts se taisent, les spectateurs aussi.
+                        const canChat = game ? (!isSpectator && !isDeadPlayer && (
                             currentPhase === 'LOBBY' ||
                             (activeChatTab === 'day' && currentPhase !== 'NIGHT') ||
                             (activeChatTab === 'night' && currentPhase === 'NIGHT' && mePlayer?.role && isInWolfCamp(mePlayer.role as RoleId))
@@ -1082,7 +1155,7 @@ export default function RoomPage() {
                                 {mePlayer?.effects?.includes('poisoned') ? (
                                     <div className="flex-1 rounded-lg px-4 py-3 text-sm flex items-center gap-2 bg-purple-900/10 border border-purple-500/30 text-purple-600 font-bold shadow-inner">
                                         <Image src="/assets/images/icones/powers/Effet_Empoisonnement.png" alt="Poison" width={20} height={20} />
-                                        Le poison vous mutile. Vous ne pouvez pas parler aujourd'hui.
+                                        Le poison vous mutile. Vous ne pouvez pas parler aujourd{"'"}hui.
                                     </div>
                                 ) : (
                                     <>
@@ -1148,7 +1221,7 @@ export default function RoomPage() {
                     const partnerId = game.lovers?.find((id: string) => id !== mePlayer?.id);
                     // Si Cupidon s'est lié lui-même (p1===p2), partnerId sera undefined ou le même
                     const actualPartnerId = partnerId || mePlayer?.id;
-                    const partner = game.players.find((p: any) => p.id === actualPartnerId);
+                    const partner = game.players.find((p) => p.id === actualPartnerId);
 
                     if (partner) {
                         const isSameCamp = game?.areLoversSameCamp ?? true;
@@ -1224,7 +1297,7 @@ export default function RoomPage() {
                                 }}
                                 className="px-6 py-2 bg-orange-600 hover:bg-orange-500 text-white font-bold rounded shadow transition-colors w-full uppercase text-sm tracking-wide"
                             >
-                                J'ai compris
+                                J{"'"}ai compris
                             </button>
                         </div>
                     </div>
@@ -1237,7 +1310,7 @@ export default function RoomPage() {
                         <div className="absolute top-0 left-0 w-full h-1 bg-orange-600 animate-pulse"></div>
                         <h2 className="text-2xl font-enchanted tracking-wider text-orange-500 mb-4">Êtes-vous toujours là ?</h2>
                         <p className="text-slate-300 text-sm mb-8">
-                            Vous n'avez eu aucune interaction depuis 9 minutes.<br /><br />
+                            Vous n{"'"}avez eu aucune interaction depuis 9 minutes.<br /><br />
                             <span className="text-white font-bold">Bougez la souris ou cliquez pour ne pas être déconnecté dans 1 minute !</span>
                         </p>
                         <div className="flex gap-4 justify-center">
@@ -1339,7 +1412,7 @@ export default function RoomPage() {
                     <div className="bg-[#2C3338] text-white max-w-sm w-full rounded-2xl p-6 border-2 border-[#D1A07A] shadow-2xl relative text-center" onClick={e => e.stopPropagation()}>
                         <h3 className="text-2xl font-enchanted font-extrabold text-[#D1A07A] mb-4">Potion de Vie</h3>
                         <p className="text-sm text-slate-300 mb-6">
-                            Vous sentez que quelqu'un est en danger cette nuit...<br />
+                            Vous sentez que quelqu{"'"}un est en danger cette nuit...<br />
                             <span className="font-bold text-white">Voulez-vous utiliser votre potion pour sauver cette personne ?</span>
                             <br /><span className="text-slate-500 text-xs mt-1 block italic">Vous ne savez pas qui est ciblé.</span>
                         </p>
@@ -1405,8 +1478,8 @@ export default function RoomPage() {
                         </div>
                         <h3 className="text-2xl font-enchanted font-extrabold text-orange-400 mb-4 tracking-wider">Briser les Cendres</h3>
                         <p className="text-sm text-slate-300 mb-6">
-                            Voulez-vous vraiment déclencher l'incendie général ?<br />
-                            <span className="font-bold text-orange-400">Tous les joueurs aspergés d'essence mourront simultanément.</span>
+                            Voulez-vous vraiment déclencher l{"'"}incendie général ?<br />
+                            <span className="font-bold text-orange-400">Tous les joueurs aspergés d{"'"}essence mourront simultanément.</span>
                         </p>
                         <div className="flex justify-center gap-4 mt-2">
                             <button
