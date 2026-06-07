@@ -255,41 +255,6 @@ ALLOWED_ORIGINS= #Dev local
 
 ---
 
-## 🌐 Déploiement (Production)
-
-| Composant | Hébergement | Notes |
-|-----------|-------------|-------|
-| Frontend + Backend | Infomaniak (Node.js) | Piloté par `server.js` |
-| Base de données | Firebase (Firestore + RTDB) | Cloud |
-
-### Fichiers à uploader via SFTP après `pnpm build`
-
-```
-.next/                        ← build Next.js compilé
-server/                       ← moteur de jeu (ts-node au runtime)
-lib/                          ← firebase.ts, roleDistribution.ts
-types/                        ← game.ts, roles.ts, firestore.ts
-public/                       ← assets, sons, images
-server.js                     ← point d'entrée production
-package.json
-package-lock.json
-next.config.ts
-tsconfig.json                 ← requis par ts-node
-.npmrc
-fullmoon-serviceAccount.json  ← clé Firebase Admin SDK
-```
-
-> ⚠️ Ne pas uploader : `node_modules/` (installé sur le serveur), `app/`, `components/`, `contexts/`, `store/` (compilés dans `.next/`), `tests/`
->
-> 🔑 Les variables d'environnement (clés Firebase, `ALLOWED_ORIGINS`, `NEXT_PUBLIC_SOCKET_URL`) sont à configurer directement dans le **Manager Infomaniak** — ne pas uploader `.env.local`.
-
-Puis dans le Manager Infomaniak :
-- **Commande de démarrage** : `node server.js`
-- **Version Node.js** : 20.x minimum
-- **Variables d'environnement** : saisir les clés via leur interface
-
----
-
 ## 🔒 Sécurité
 
 - **CORS restreint** : origines explicitement listées dans `ALLOWED_ORIGINS`
