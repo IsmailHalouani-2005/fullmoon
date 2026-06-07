@@ -82,7 +82,7 @@ export default function ComponentsTestPage() {
 
     const mockGameOverData = {
         winner: gameOverWinner,
-        players: endGamePlayers
+        players: endGamePlayers.map(p => ({ ...p, role: p.role ?? '' })),
     };
 
     // eslint-disable-next-line react-hooks/purity
@@ -330,7 +330,7 @@ export default function ComponentsTestPage() {
                                     currentUser={null} // Pas d'user spécifique pour le test
                                     mockCanVote={circlePhase === 'DAY_VOTE' || circlePhase === 'MAYOR_ELECTION' || circlePhase === 'NIGHT'} // Force enable click on test
                                     onVote={handleMockVote}
-                                    mockRoleDef={index === 0 ? ROLES['VILLAGEOIS'] : (index === 1 ? ROLES['LOUP_GAROU'] : undefined)}
+                                    mockRoleDef={index === 0 ? ROLES['VILLAGEOIS'] as unknown as Record<string, unknown> : (index === 1 ? ROLES['LOUP_GAROU'] as unknown as Record<string, unknown> : undefined)}
                                     getPlayerAvatar={() => "/assets/images/icones/Photo_Profil-transparent.png"}
                                 />
                             ))}

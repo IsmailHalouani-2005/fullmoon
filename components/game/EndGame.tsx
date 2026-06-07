@@ -5,15 +5,38 @@ import { useState } from 'react';
 import RoleInfoModal from '@/components/room/edit/RoleInfoModal';
 import { useToast } from '@/contexts/ToastContext';
 
+interface PlayerStats {
+    points?: number;
+    kills?: number;
+    saves?: number;
+    daysSurvived?: number;
+}
+
+interface GamePlayer {
+    id: string;
+    name: string;
+    role: string;
+    avatarUrl?: string;
+    effects?: string[];
+    stats?: PlayerStats;
+}
+
+interface GameOverData {
+    winner: string;
+    players: GamePlayer[];
+    [key: string]: unknown;
+}
+
 interface EndGameProps {
-    gameOverData: Record<string, unknown>;
+    gameOverData: GameOverData;
     confirmLeave: () => void;
     getPlayerAvatar: (id: string, avatarUrl?: string) => string;
     currentUserId?: string;
     onReplay: () => void;
+    hasNextRoom?: boolean;
 }
 
-export default function EndGame({ gameOverData, confirmLeave, getPlayerAvatar, currentUserId, onReplay }: EndGameProps) {
+export default function EndGame({ gameOverData, confirmLeave, getPlayerAvatar, currentUserId, onReplay, hasNextRoom }: EndGameProps) {
     const [selectedRoleForModal, setSelectedRoleForModal] = useState<RoleDefinition | null>(null);
     const [isLeaving, setIsLeaving] = useState(false);
     const [isReplaying, setIsReplaying] = useState(false);
@@ -21,17 +44,17 @@ export default function EndGame({ gameOverData, confirmLeave, getPlayerAvatar, c
 
     if (!gameOverData) return null;
 
-    const myPlayer = (gameOverData.players as Record<string, unknown>[]).find((p) => p.id === currentUserId);
+    const myPlayer = gameOverData.players.find((p) => p.id === currentUserId);
 
     // --- Group Players by Camp / Winning status ---
-    const winners: Record<string, unknown>[] = [];
-    const village: Record<string, unknown>[] = [];
-    const loups: Record<string, unknown>[] = [];
-    const solos: Record<string, unknown>[] = [];
+    const winners: GamePlayer[] = [];
+    const village: GamePlayer[] = [];
+    const loups: GamePlayer[] = [];
+    const solos: GamePlayer[] = [];
 
     const winnerKey = gameOverData.winner;
 
-    (gameOverData.players as Record<string, unknown>[]).forEach((p) => {
+    gameOverData.players.forEach((p) => {
         const baseCamp = ROLES[p.role as RoleId]?.camp;
         const isInfected = p.effects?.includes('infected');
         const effectiveCamp = isInfected ? 'LOUPS' : baseCamp;
@@ -44,7 +67,7 @@ export default function EndGame({ gameOverData, confirmLeave, getPlayerAvatar, c
             isWinner = true;
         } else if (winnerKey === 'AMOUR' && p.effects?.includes('lover')) {
             isWinner = true;
-        } else if (['VILLAGEOIS', 'LOUPS', 'AMOUR'].includes(winnerKey) === false && p.role === winnerKey) {
+        } else if (!['VILLAGEOIS', 'LOUPS', 'AMOUR'].includes(winnerKey) && p.role === winnerKey) {
             isWinner = true;
         }
 
@@ -134,7 +157,7 @@ export default function EndGame({ gameOverData, confirmLeave, getPlayerAvatar, c
                                     {group.title}
                                 </h3>
                                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2 w-full">
-                                    {group.players.map((p: Record<string, unknown>) => (
+                                    {group.players.map((p: GamePlayer) => (
                                         <button
                                             key={p.id}
                                             className="flex min-w-[200px] items-center bg-dark/70 hover:bg-dark/80 p-2 px-3 rounded-xl border border-slate-600 transition-all cursor-pointer"
@@ -200,9 +223,10 @@ export default function EndGame({ gameOverData, confirmLeave, getPlayerAvatar, c
 
                 <div className="mt-4 flex gap-4 justify-center flex-wrap">
                     <button
-                        disabled={isReplaying}
+                        disabled={isReplaying || hasNextRoom === false}
                         onClick={() => { setIsReplaying(true); onReplay(); }}
-                        className={`border-2 text-lg font-extrabold px-8 py-3 rounded-lg transition-all uppercase tracking-wide ${isReplaying ? 'bg-slate-600 border-slate-500 text-slate-300 cursor-not-allowed' : 'bg-dark text-white border-slate-600 hover:border-[#D1A07A] hover:shadow-[0_0_15px_rgba(209,160,122,0.3)]'}`}
+                        title={hasNextRoom === false ? 'Le prochain salon n\'est pas encore prêt' : undefined}
+                        className={`border-2 text-lg font-extrabold px-8 py-3 rounded-lg transition-all uppercase tracking-wide ${isReplaying || hasNextRoom === false ? 'bg-slate-600 border-slate-500 text-slate-300 cursor-not-allowed' : 'bg-dark text-white border-slate-600 hover:border-[#D1A07A] hover:shadow-[0_0_15px_rgba(209,160,122,0.3)]'}`}
                     >
                         {isReplaying ? 'Connexion...' : 'Rejouer'}
                     </button>

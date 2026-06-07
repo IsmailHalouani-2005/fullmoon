@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import Image from 'next/image';
 import { ROLES, RoleId } from '@/types/roles';
-import { Phase } from '@/types/game';
+import { Phase, Player } from '@/types/game';
 import RoleCard from '@/components/game/RoleCard';
 import PlayerCircleNode from '@/components/game/PlayerCircleNode';
 import { doc, updateDoc } from 'firebase/firestore';
@@ -68,9 +68,9 @@ export default function ActiveGame() {
                         <h2 className="text-4xl sm:text-3xl font-extrabold tracking-widest mb-1 text-slate-900 font-enchanted">EN ATTENTE DES JOUEURS</h2>
                         <p className=" text-sm text-slate-600 mb-5 font-bold">({game.players.length} / {(() => {
                             const total = dynamicRolesConfig && Object.keys(dynamicRolesConfig).length > 0
-                                ? Object.values(dynamicRolesConfig).reduce((a: number, b: number) => a + (b || 0), 0) as number
+                                ? Object.values(dynamicRolesConfig).reduce((a: number, b) => a + ((b as number) || 0), 0) as number
                                 : null;
-                            return total && total > 0 ? total : (groupConfig?.maxPlayers || '?');
+                            return total && total > 0 ? total : ((groupConfig?.maxPlayers as number | undefined) || '?');
                         })()} joueurs)</p>
 
                         <p className="text-sm text-slate-500 mb-2">Invitez d{"'"}autres joueurs pour remplir le village</p>
@@ -81,13 +81,13 @@ export default function ActiveGame() {
                         </div>
 
                         {/* Section Code Secret (Uniquement pour l'Hôte si Village Privé) */}
-                        {isHost && (game.isPrivate || groupConfig?.isPrivate) && (
+                        {isHost && (game.isPrivate || (groupConfig?.isPrivate as boolean | undefined)) && (
                             <div className="mt-2 w-full flex flex-col items-center">
                                 <p className="text-sm font-bold text-slate-800 uppercase tracking-wide mb-2">Code Secret (Privé)</p>
                                 <div className="flex items-center gap-2 bg-slate-800 text-white px-6 py-2 rounded-lg w-3/4 shadow-inner">
-                                    <span className="flex-1 text-sm tracking-widest text-center">{game.secretCode || groupConfig?.secretCode}</span>
+                                    <span className="flex-1 text-sm tracking-widest text-center">{game.secretCode || (groupConfig?.secretCode as string | undefined)}</span>
                                     <button onClick={() => {
-                                        const code = game.secretCode || groupConfig?.secretCode;
+                                        const code = game.secretCode || (groupConfig?.secretCode as string | undefined);
                                         if (!code) return;
                                         navigator.clipboard.writeText(code);
                                         toast.success("Code secret copié !");
@@ -242,7 +242,7 @@ export default function ActiveGame() {
                                                             (game.rolesCount?.['LOUP_INFECT'] || 0);
 
                                                         let currentWolvesAlive = 0;
-                                                        game.players.forEach((p: { isAlive: boolean; role: string }) => {
+                                                        game.players.forEach((p: Player) => {
                                                             if (p.isAlive && (p.role === 'LOUP_GAROU' || p.role === 'LOUP_ALPHA' || p.role === 'GRAND_MECHANT_LOUP' || p.role === 'LOUP_INFECT')) {
                                                                 currentWolvesAlive++;
                                                             }
@@ -408,7 +408,7 @@ export default function ActiveGame() {
                         wolfVictimId={game.wolfVictimId}
                         gmlVictimId={game.gmlVictimId}
                         infectedVictimId={game.infectedVictimId}
-                        nightActions={game.nightActions}
+                        nightActions={game.nightActions as unknown as Record<string, unknown>[]}
                         isSpeaking={speakingPlayers.has(player.id)}
                     />
                 ))}

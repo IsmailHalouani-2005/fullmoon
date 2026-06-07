@@ -92,6 +92,7 @@ export interface ClientToServerEvents {
     voice_signal: (payload: { targetId: string; signal: unknown; type: 'room' | 'group' }) => void;
     voice_request_connect: (payload: { targetId: string; type: 'room' | 'group' }) => void;
     player_speaking: (payload: { isSpeaking: boolean; type: 'room' | 'group' }) => void;
+    join_voice_room: () => void;
     ping_activity: () => void;
     leave_game: () => void;
 }

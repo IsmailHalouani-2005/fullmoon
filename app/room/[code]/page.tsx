@@ -45,7 +45,7 @@ export default function RoomPage() {
     const [isCardFlipped, setIsCardFlipped] = useState(false);
     const [activeChatTab, setActiveChatTab] = useState<'day' | 'night'>('day');
     const [activePower, setActivePower] = useState<string | null>(null);
-    const [ambianceVolume, setAmbianceVolume] = useState<number>(50);
+    const [ambianceVolume, setAmbianceVolume] = useState<number>(25);
     const [powerTargets, setPowerTargets] = useState<string[]>([]);
 
     const chatEndRef = useRef<HTMLDivElement>(null);
@@ -127,7 +127,7 @@ export default function RoomPage() {
 
     // Audio System
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { isMuted: _isMuted, setIsMuted: _setIsMuted, playOneShot } = useGameAudio(game, user?.uid, socket, activePower, ambianceVolume);
+    const { isMuted: _isMuted, setIsMuted: _setIsMuted, playOneShot } = useGameAudio(game, user?.uid, socket as unknown as { on: (event: string, handler: (payload: unknown) => void) => void; off: (event: string, handler: (payload: unknown) => void) => void } | null, activePower, ambianceVolume);
 
     // --- SORCIÈRE MODALS ---
     const [witchHealTarget, setWitchHealTarget] = useState<string | null>(null);
@@ -150,7 +150,7 @@ export default function RoomPage() {
         }
         setUser(authUser);
         // photoURL vient directement du userData du context — plus de getDoc bloquant
-        setFirestorePhotoURL(authUserData?.photoURL ?? null);
+        setFirestorePhotoURL((authUserData?.photoURL as string | null | undefined) ?? null);
     }, [authUser, authUserData, authLoading, router]);
 
     /** Ne jamais envoyer une photo Base64 via socket — trop lourde. On passe undefined à la place. */
@@ -421,12 +421,9 @@ export default function RoomPage() {
 
         newSocket.on('room_shutdown', async (reason) => {
             toast.warning(reason);
-            // Fallback : Si on est l'hôte et qu'on reçoit cet événement (ex: inactivité), 
-            // on s'assure que la room est bien supprimée de la base de données
-            if (groupConfig?.hostId === user.uid) {
-                deleteDoc(doc(db, "groups", roomCode as string))
-                    .catch(e => console.error("Client fallback delete failed", e));
-            }
+            // Tous les joueurs tentent la suppression côté client (idempotent — le 1er gagne)
+            deleteDoc(doc(db, "groups", roomCode as string))
+                .catch(() => {}); // Ignore si déjà supprimée
             router.push('/play');
         });
 
@@ -593,8 +590,10 @@ export default function RoomPage() {
                     }
                 }
 
+                // Restaurer le groupe social si possible, sinon effacer
+                const socialGroupId = (authUserData?.socialGroupId as string | undefined) || null;
                 await updateDoc(doc(db, "users", user.uid), {
-                    currentGroupId: null
+                    currentGroupId: socialGroupId
                 });
             } catch (error) {
                 console.error("Error cleaning up player before leaving:", error);
@@ -753,19 +752,52 @@ export default function RoomPage() {
             router.push('/play');
             return;
         }
+
+        const playerEntry = {
+            uid: user.uid,
+            pseudo: authUserData?.pseudo || user.displayName || 'Joueur',
+            photoURL: getSafeAvatarUrl(user.photoURL || firestorePhotoURL) || '',
+        };
+
         try {
-            // Ajouter le joueur au doc Firestore du nouveau salon
-            // (rend le salon visible dans /play dès le 1er rejoueur)
-            await updateDoc(doc(db, "groups", nextRoomCode), {
-                players: arrayUnion({
-                    uid: user.uid,
-                    pseudo: authUserData?.pseudo || user.displayName || 'Joueur',
-                    photoURL: getSafeAvatarUrl(user.photoURL || firestorePhotoURL) || '',
-                })
-            });
+            const nextRoomRef = doc(db, "groups", nextRoomCode);
+            const nextRoomSnap = await getDoc(nextRoomRef);
+
+            if (nextRoomSnap.exists()) {
+                // Document déjà créé par l'hôte — se contente d'ajouter le joueur
+                await updateDoc(nextRoomRef, { players: arrayUnion(playerEntry) });
+            } else {
+                // L'hôte n'a pas encore créé le doc (réseau lent, onglet fermé…)
+                // On le crée nous-mêmes avec les mêmes paramètres que la partie qui vient de se terminer
+                await setDoc(nextRoomRef, {
+                    id: nextRoomCode,
+                    name: groupConfig?.name || 'Village',
+                    mode: groupConfig?.isCustom ? 'Personnalisé' : 'Classique',
+                    isPrivate: groupConfig?.isPrivate || false,
+                    isMicro: groupConfig?.isMicro !== false,
+                    isMayorEnabled: groupConfig?.isMayorEnabled !== false,
+                    maxPlayers: groupConfig?.maxPlayers || 16,
+                    rolesCount: groupConfig?.rolesCount || {},
+                    isCustom: groupConfig?.isCustom || false,
+                    isVillage: true,
+                    hostId: user.uid,
+                    hostPseudo: playerEntry.pseudo,
+                    hostPhoto: playerEntry.photoURL,
+                    isConfigured: true,
+                    players: [playerEntry],
+                    gameStarted: false,
+                    secretCode: nextRoomCode,
+                    createdAt: new Date().toISOString(),
+                });
+            }
         } catch (e) {
             console.warn("handleReplay Firestore error", e);
+            // On tente quand même la navigation — la room Socket.io existe déjà côté serveur
         }
+
+        // Supprimer l'ancienne room côté Firestore (nettoyage immédiat, sans attendre room_shutdown)
+        deleteDoc(doc(db, "groups", roomCode as string)).catch(() => {});
+
         router.push(`/room/${nextRoomCode}`);
     };
 
@@ -1188,7 +1220,7 @@ export default function RoomPage() {
             {/* ENDGAME COMPONENT */}
             {(currentPhase === 'GAME_OVER' && gameOverData) ? (
                 <EndGame
-                    gameOverData={gameOverData}
+                    gameOverData={gameOverData as unknown as Parameters<typeof EndGame>[0]['gameOverData']}
                     confirmLeave={confirmLeave}
                     getPlayerAvatar={getPlayerAvatar}
                     currentUserId={user?.uid}
@@ -1197,8 +1229,8 @@ export default function RoomPage() {
                 />
             ) : (
                 <GameProvider value={{
-                    game, currentPhase, roomCode, isHost, groupConfig,
-                    dynamicRolesConfig: rolesConfig,
+                    game, currentPhase, roomCode, isHost, groupConfig: groupConfig as unknown as Record<string, unknown>,
+                    dynamicRolesConfig: rolesConfig as unknown as Record<string, unknown>,
                     socket, user,
                     activePower, setActivePower, powerTargets, setPowerTargets,
                     handlePowerClick, handlePlayerClick,
@@ -1355,9 +1387,9 @@ export default function RoomPage() {
                                 <div key={friend.id} className={`flex items-center justify-between p-3 rounded-xl border-2 shadow-sm transition-shadow ${isInRoom ? 'bg-slate-100 border-slate-200 opacity-60' : 'bg-slate-50 border-slate-200 hover:shadow'}`}>
                                     <div className="flex items-center gap-3 overflow-hidden">
                                         <div className="relative w-10 h-10 rounded-full overflow-hidden border-2 border-slate-300 flex-shrink-0">
-                                            <Image src={friend.photoURL || "/assets/images/icones/Photo_Profil-transparent.png"} alt={friend.pseudo || "Ami"} fill className="object-cover" />
+                                            <Image src={(friend.photoURL as string) || "/assets/images/icones/Photo_Profil-transparent.png"} alt={(friend.pseudo as string) || "Ami"} fill className="object-cover" />
                                         </div>
-                                        <span className="font-bold text-slate-700 text-sm truncate">{friend.pseudo || "Joueur"}</span>
+                                        <span className="font-bold text-slate-700 text-sm truncate">{(friend.pseudo as string) || "Joueur"}</span>
                                     </div>
                                     {isInRoom ? (
                                         <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider px-2">
@@ -1369,7 +1401,7 @@ export default function RoomPage() {
                                         </span>
                                     ) : (
                                         <button
-                                            onClick={() => handleInviteFriend(friend.id, friend.pseudo || "Joueur")}
+                                            onClick={() => handleInviteFriend(friend.id, (friend.pseudo as string) || "Joueur")}
                                             className="bg-[#D1A07A] hover:bg-[#b08465] text-dark font-extrabold px-3 py-1.5 rounded-lg text-[10px] uppercase tracking-wider transition-colors shadow-sm cursor-pointer"
                                         >
                                             Inviter

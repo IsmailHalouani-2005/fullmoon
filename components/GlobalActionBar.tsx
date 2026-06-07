@@ -10,6 +10,31 @@ import { useThemeStore } from '../store/themeStore';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 
+interface NotifData {
+    id: string;
+    type: string;
+    fromUserId?: string;
+    fromPseudo?: string;
+    fromPhotoURL?: string;
+    groupId?: string;
+    message?: string;
+    createdAt?: { toMillis: () => number };
+    read?: boolean;
+}
+
+interface ChatData {
+    chatId: string;
+    friendId: string;
+    count: number;
+    lastUpdated?: { toMillis: () => number };
+}
+
+interface FriendInfo {
+    pseudo?: string;
+    photoURL?: string;
+    [key: string]: unknown;
+}
+
 export default function GlobalActionBar() {
     const router = useRouter();
     const pathname = usePathname();
@@ -17,12 +42,12 @@ export default function GlobalActionBar() {
     const { user, userData } = useAuth();
     const toast = useToast();
 
-    const [notifications, setNotifications] = useState<Record<string, unknown>[]>([]);
+    const [notifications, setNotifications] = useState<NotifData[]>([]);
     const [unreadMessages, setUnreadMessages] = useState(0);
     const [showNotifications, setShowNotifications] = useState(false);
 
-    const [unreadChatsList, setUnreadChatsList] = useState<Record<string, unknown>[]>([]);
-    const [friends, setFriends] = useState<Record<string, Record<string, unknown>>>({});
+    const [unreadChatsList, setUnreadChatsList] = useState<ChatData[]>([]);
+    const [friends, setFriends] = useState<Record<string, FriendInfo>>({});
     const [showMessagesDropdown, setShowMessagesDropdown] = useState(false);
     const [isExpanded, setIsExpanded] = useState(false);
     const { isDarkMode, toggleDarkMode } = useThemeStore();
@@ -72,7 +97,7 @@ export default function GlobalActionBar() {
         const unsubNotifs = onSnapshot(
             query(collection(db, 'users', uid, 'notifications'), orderBy('createdAt', 'desc')),
             (snapshot) => {
-                setNotifications(snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Record<string, unknown>)));
+                setNotifications(snapshot.docs.map(d => ({ id: d.id, ...d.data() } as NotifData)));
             }
         );
 
@@ -80,14 +105,14 @@ export default function GlobalActionBar() {
             query(collection(db, 'chats'), where('participants', 'array-contains', uid)),
             (snapshot) => {
                 let totalUnread = 0;
-                const unreadList: Record<string, unknown>[] = [];
+                const unreadList: ChatData[] = [];
                 snapshot.forEach(d => {
                     const data = d.data();
-                    const count = data.unreadCount?.[uid] || 0;
+                    const count = (data.unreadCount?.[uid] as number) || 0;
                     if (count > 0) {
                         totalUnread += count;
-                        const otherUserId = data.participants.find((p: string) => p !== uid);
-                        if (otherUserId) unreadList.push({ chatId: d.id, friendId: otherUserId, count, lastUpdated: data.lastUpdated });
+                        const otherUserId = data.participants.find((p: string) => p !== uid) as string | undefined;
+                        if (otherUserId) unreadList.push({ chatId: d.id, friendId: otherUserId, count, lastUpdated: data.lastUpdated as { toMillis: () => number } | undefined });
                     }
                 });
                 unreadList.sort((a, b) => (b.lastUpdated?.toMillis() || 0) - (a.lastUpdated?.toMillis() || 0));
@@ -109,8 +134,9 @@ export default function GlobalActionBar() {
         }
     };
 
-    const handleAcceptFriend = async (notif: Record<string, unknown>) => {
+    const handleAcceptFriend = async (notif: NotifData) => {
         if (!user || !userData) return;
+        if (!notif.fromUserId) return;
         try {
             // 1. Add them to my friends list
             await setDoc(doc(db, "users", user.uid, "friends", notif.fromUserId), {
@@ -149,8 +175,9 @@ export default function GlobalActionBar() {
         }
     };
 
-    const handleRejectFriend = async (notif: Record<string, unknown>) => {
+    const handleRejectFriend = async (notif: NotifData) => {
         if (!user || !userData) return;
+        if (!notif.fromUserId) return;
         try {
             await handleDeleteNotif(notif.id);
 
@@ -169,8 +196,9 @@ export default function GlobalActionBar() {
         }
     };
 
-    const handleAcceptGroupInvite = async (notif: Record<string, unknown>) => {
+    const handleAcceptGroupInvite = async (notif: NotifData) => {
         if (!user || !userData) return;
+        if (!notif.groupId) return;
         try {
             const groupDoc = await getDoc(doc(db, "groups", notif.groupId));
             let destination = '/play';
@@ -395,6 +423,8 @@ export default function GlobalActionBar() {
                                 ) : (
                                     unreadChatsList.map(chat => {
                                         const friendInfo = friends[chat.friendId] || { pseudo: "Utilisateur inconnu", photoURL: "/assets/images/icones/Photo_Profil-transparent.png" };
+                                        const friendPseudo = friendInfo.pseudo || "Utilisateur inconnu";
+                                        const friendPhotoURL = friendInfo.photoURL || "/assets/images/icones/Photo_Profil-transparent.png";
                                         return (
                                             <div key={chat.chatId}
                                                 // Actuellement, cliquer amène vers /play, mais maintenant on ouvre le chat directement
@@ -402,18 +432,18 @@ export default function GlobalActionBar() {
                                                     setShowMessagesDropdown(false);
                                                     setActiveChatFriend({
                                                         id: chat.friendId,
-                                                        pseudo: friendInfo.pseudo,
-                                                        photoURL: friendInfo.photoURL
+                                                        pseudo: friendPseudo,
+                                                        photoURL: friendPhotoURL
                                                     });
                                                 }}
                                                 className="p-4 border-b border-gray-100 hover:bg-gray-50 flex items-center gap-3 relative cursor-pointer group"
                                             >
                                                 <div className="w-10 h-10 rounded-full bg-dark overflow-hidden relative flex-shrink-0">
-                                                    <Image src={friendInfo.photoURL} alt="Ami" fill className="object-cover" sizes="40px" />
+                                                    <Image src={friendPhotoURL} alt="Ami" fill className="object-cover" sizes="40px" />
                                                 </div>
                                                 <div className="flex-1 min-w-0 flex flex-col justify-center">
                                                     <p className="text-sm text-dark font-bold truncate group-hover:text-secondary transition-colors">
-                                                        {friendInfo.pseudo}
+                                                        {friendPseudo}
                                                     </p>
                                                     <p className="text-xs text-red-500 font-bold mt-0.5">
                                                         {chat.count} message(s) non lu(s)

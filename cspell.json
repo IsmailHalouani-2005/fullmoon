@@ -1,0 +1,20 @@
+{
+    "$schema": "https://raw.githubusercontent.com/streetsidesoftware/cspell/main/packages/cspell-types/cspell.types.schema.json",
+    "version": "0.2",
+    "language": "en,fr",
+    "dictionaries": ["fr-fr"],
+    "dictionaryDefinitions": [
+        {
+            "name": "fr-fr",
+            "path": "./cspell-fr.txt",
+            "description": "French words and game-specific terms"
+        }
+    ],
+    "ignorePaths": [
+        "node_modules/**",
+        ".next/**",
+        "*.lock",
+        "*.json",
+        "dist/**"
+    ]
+}

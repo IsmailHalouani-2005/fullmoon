@@ -103,7 +103,7 @@ export default function ProfilePage() {
             if (avatarFile) {
                 try {
                     // Try to update Auth profile photo, might fail if Base64 string is too long for Auth
-                    await updateProfile(user, { photoURL: currentPhotoUrl });
+                    await updateProfile(user, { photoURL: currentPhotoUrl as string | null });
                 } catch (e: unknown) {
                     console.warn("L'image est trop grande pour Firebase Auth (photoURL limit), mais elle sera sauvegardée dans Firestore.", e);
                 }
@@ -118,7 +118,7 @@ export default function ProfilePage() {
             // 3b. Sync profile changes to active group if any
             if (userData?.currentGroupId) {
                 try {
-                    const groupDocRef = doc(db, "groups", userData.currentGroupId);
+                    const groupDocRef = doc(db, "groups", userData.currentGroupId as string);
                     const groupSnap = await getDoc(groupDocRef);
                     if (groupSnap.exists()) {
                         const groupData = groupSnap.data();
@@ -320,12 +320,12 @@ export default function ProfilePage() {
                                         e.preventDefault();
                                         setIsDragging(false);
                                         const file = e.dataTransfer.files?.[0];
-                                        if (file) handleImageChange({ target: { files: [file] } } as React.ChangeEvent<HTMLInputElement>);
+                                        if (file) handleImageChange({ target: { files: [file] } } as unknown as React.ChangeEvent<HTMLInputElement>);
                                     }}
                                 >
                                     <div className="absolute inset-0 bg-[url('/assets/images/icones/village_batiments.png')] bg-cover opacity-20 bg-center" />
                                     <Image
-                                        src={avatarPreview || userData?.photoURL || "/assets/images/icones/Photo_Profil-transparent.png"}
+                                        src={avatarPreview || (userData?.photoURL as string) || "/assets/images/icones/Photo_Profil-transparent.png"}
                                         alt="Profil"
                                         fill
                                         className="object-cover z-10 group-hover:opacity-60 transition-opacity"
@@ -429,7 +429,7 @@ export default function ProfilePage() {
                     {/* Card 2: Stats */}
                     <ProfileStats
                         stats={{
-                            ...stats,
+                            ...(stats as Parameters<typeof ProfileStats>[0]['stats']),
                             rank: userRank
                         }}
                     />

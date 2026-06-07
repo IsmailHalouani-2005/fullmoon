@@ -333,8 +333,8 @@ function PlayerCircleNode({
 
                 {/* Badge Rôle (Si mort, ou bien révélé à la voyante pendant la nuit) */}
                 {roleDef && (isDead || (!isDead && currentPhase === 'NIGHT' && me?.role === 'VOYANTE')) && (
-                    <div className="absolute -bottom-3 -right-3 w-12 h-12 rounded-full z-30 overflow-hidden" title={roleDef.label}>
-                        <Image src={roleDef.image || "/assets/images/icones/Carte_Role.png"} alt={roleDef.label} fill className="object-contain p-1" />
+                    <div className="absolute -bottom-3 -right-3 w-12 h-12 rounded-full z-30 overflow-hidden" title={roleDef.label as string | undefined}>
+                        <Image src={(roleDef.image as string) || "/assets/images/icones/Carte_Role.png"} alt={roleDef.label as string} fill className="object-contain p-1" />
                     </div>
                 )}
 

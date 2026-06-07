@@ -9,6 +9,19 @@ const deleteRoom = (roomCode: string) =>
     adminDb.collection('groups').doc(roomCode).delete()
         .catch((e: unknown) => console.error(`[Admin] Erreur suppression room ${roomCode}:`, e));
 
+// Supprime les données en mémoire et le timer d'une salle, puis Firestore
+function cleanupGameRoom(
+    code: string,
+    games: Record<string, GameState>,
+    gameTimers: Record<string, NodeJS.Timeout>
+): void {
+    delete games[code];
+    if (gameTimers[code]) {
+        clearInterval(gameTimers[code]);
+        delete gameTimers[code];
+    }
+    void deleteRoom(code);
+}
 
 // Shared games state so the HTTP layer can serve live stats
 const _games: Record<string, GameState> = {};
@@ -109,12 +122,7 @@ export function setupGameLogic(io: Server<ClientToServerEvents, ServerToClientEv
                     otherGame.chatMessages.push(leaveMsg);
                     io.to(code).emit("chat_message", leaveMsg);
                     if (otherGame.players.length === 0) {
-                        delete games[code];
-                        if (gameTimers[code]) {
-                            clearInterval(gameTimers[code]);
-                            delete gameTimers[code];
-                        }
-                        deleteRoom(code);
+                        cleanupGameRoom(code, games, gameTimers);
                     } else {
                         if (otherGame.hostId === userId) {
                             otherGame.hostId = otherGame.players[0].id;
@@ -394,7 +402,7 @@ export function setupGameLogic(io: Server<ClientToServerEvents, ServerToClientEv
             const caster = game.players.find(p => p.id === userId);
             if (!caster) return;
 
-            // Exception for Hunter: he can be dead but must be in HUNTER_SHOT phase
+            // Exception for Hunter: he can be dead, but must be in HUNTER_SHOT phase
             if (!caster.isAlive && game.phase !== 'HUNTER_SHOT') return;
             if (game.phase === 'HUNTER_SHOT' && caster.role !== 'CHASSEUR') return;
 
@@ -700,6 +708,13 @@ export function setupGameLogic(io: Server<ClientToServerEvents, ServerToClientEv
             socket.to(roomCode).emit("player_speaking", { userId, isSpeaking, type });
         });
 
+        // Enregistre le socket dans userSocketMap sans créer de GameState
+        // Utilisé par GroupChat pour que la signalisation WebRTC (voice) fonctionne
+        // même quand join_game n'est pas émis (groupes d'amis hors partie).
+        socket.on("join_voice_room", () => {
+            userSocketMap.set(userId, socket.id);
+        });
+
         socket.on("ping_activity", () => {
             const game = games[roomCode];
             if (game) {
@@ -742,16 +757,9 @@ export function setupGameLogic(io: Server<ClientToServerEvents, ServerToClientEv
             io.to(roomCode).emit("chat_message", leaveMsg);
 
             if (game.players.length === 0) {
-                delete games[roomCode];
-                if (gameTimers[roomCode]) {
-                    clearInterval(gameTimers[roomCode]);
-                    delete gameTimers[roomCode];
-                }
-                deleteRoom(roomCode);
+                cleanupGameRoom(roomCode, games, gameTimers);
             } else {
-                if (game.hostId === userId) {
-                    game.hostId = game.players[0].id;
-                }
+                if (game.hostId === userId) game.hostId = game.players[0].id;
                 emitGameState(roomCode, game, io);
             }
         });
@@ -809,9 +817,7 @@ export function setupGameLogic(io: Server<ClientToServerEvents, ServerToClientEv
                         io.to(roomCode).emit("chat_message", leaveMsg);
 
                         if (currentGame.players.length === 0) {
-                            delete games[roomCode];
-                            if (gameTimers[roomCode]) clearInterval(gameTimers[roomCode]);
-                            deleteRoom(roomCode);
+                            cleanupGameRoom(roomCode, games, gameTimers);
                         } else {
                             if (currentGame.hostId === userId) currentGame.hostId = currentGame.players[0].id;
                             emitGameState(roomCode, currentGame, io);
@@ -856,13 +862,7 @@ function startInactivityCheck(games: Record<string, GameState>, gameTimers: Reco
                             if (socket) socket.leave(roomCode);
                         }
                     }
-                    delete games[roomCode];
-                    if (gameTimers[roomCode]) {
-                        clearInterval(gameTimers[roomCode]);
-                        delete gameTimers[roomCode];
-                    }
-
-                    deleteRoom(roomCode);
+                    cleanupGameRoom(roomCode, games, gameTimers);
                 } else if (idleTime >= WARNING_TIMEOUT && game.players.length >= 5 && !game.lobbyWarningSent) {
                     // Send warning to host only
                     const host = game.players.find(p => p.id === game.hostId);
@@ -876,12 +876,7 @@ function startInactivityCheck(games: Record<string, GameState>, gameTimers: Reco
                 // Avoid looping if the game itself is inactive so long it needs hard shutdown as fallback
                 if (now - game.lastActivity > IDLE_TIMEOUT + 60000) {
                     // Failsafe room shutdown if NO ONE does anything
-                    delete games[roomCode];
-                    if (gameTimers[roomCode]) {
-                        clearInterval(gameTimers[roomCode]);
-                        delete gameTimers[roomCode];
-                    }
-                    deleteRoom(roomCode);
+                    cleanupGameRoom(roomCode, games, gameTimers);
                     return;
                 }
 
@@ -895,29 +890,28 @@ function startInactivityCheck(games: Record<string, GameState>, gameTimers: Reco
                     const playerIdleTime = now - (player.lastActivityTime || game.lastActivity);
 
                     if (playerIdleTime >= IDLE_TIMEOUT) {
-                        // Forcely kick
+                        // Marquer comme déconnecté (reste dans la partie pour être voté)
                         if (player.socketId) {
                             io.to(player.socketId).emit('room_shutdown', 'Vous avez été déconnecté(e) pour cause d\'inactivité (10 min).');
-                            const socket = io.sockets.sockets.get(player.socketId);
-                            if (socket) socket.leave(roomCode);
+                            const sock = io.sockets.sockets.get(player.socketId);
+                            if (sock) sock.leave(roomCode);
                         }
 
-                        const disconnectedName = player.name;
+                        player.isDisconnected = true;
+                        player.lastActivityTime = Date.now(); // Évite le re-déclenchement continu
+
                         if (!game.disconnectedPlayers) game.disconnectedPlayers = [];
-                        game.disconnectedPlayers.push({ id: player.id, name: disconnectedName });
+                        game.disconnectedPlayers.push({ id: player.id, name: player.name });
 
-                        game.players.splice(i, 1);
-
-                        const leaveMsg = { senderId: 'system', senderName: 'Système', text: `${disconnectedName} a été exclu(e) pour inactivité.`, time: Date.now(), chatType: 'system' as const };
+                        const leaveMsg = { senderId: 'system', senderName: 'Système', text: `${player.name} est déconnecté(e) pour inactivité (avatar conservé).`, time: Date.now(), chatType: 'system' as const };
                         game.chatMessages.push(leaveMsg);
                         io.to(roomCode).emit("chat_message", leaveMsg);
 
-                        if (game.players.length === 0) {
-                            delete games[roomCode];
-                            if (gameTimers[roomCode]) clearInterval(gameTimers[roomCode]);
-                            deleteRoom(roomCode);
+                        const activePlayers = game.players.filter(p => !p.isDisconnected);
+                        if (activePlayers.length === 0) {
+                            cleanupGameRoom(roomCode, games, gameTimers);
                         } else {
-                            if (game.hostId === player.id) game.hostId = game.players[0].id;
+                            if (game.hostId === player.id) game.hostId = activePlayers[0].id;
                             emitGameState(roomCode, game, io);
                         }
                     } else if (playerIdleTime >= WARNING_TIMEOUT && !player.inactivityWarningSent) {
@@ -1014,8 +1008,7 @@ function handlePhaseEnd(roomCode: string, endedPhase: Phase, games: Record<strin
             // tallyVotes now handles tie-breaking internally:
             // 1) Remove self-votes among tied candidates
             // 2) If still tied, pick randomly among those voted candidates
-            const result = tallyVotes(game, true);
-            let electedMayorId: string | null = result;
+            let electedMayorId: string | null = tallyVotes(game, true);
             let electionMode: 'clean' | 'tiebreak_selfvote' | 'tiebreak_random' | 'novotes' = 'clean';
 
             if (!electedMayorId) {
@@ -1027,7 +1020,7 @@ function handlePhaseEnd(roomCode: string, endedPhase: Phase, games: Record<strin
                 }
             }
 
-            // If tallyVotes returned a result but it was via tie-breaking, we trust it
+            // If tallyVotes returned a result, but it was via tie-breaking, we trust it
             // We check: did all tied candidates have same votes even after selfvote removal?
             // (This info isn't returned, so we use a simpler heuristic via the message logic)
 
@@ -1633,10 +1626,10 @@ function triggerGameOver(roomCode: string, victoryDetails: { winner: string, pla
     const winningIds = victoryDetails.players.map(p => p.id);
     game.players.forEach(p => {
         let points = 0;
-        points += p.stats.powerUses * 1;
+        points += p.stats.powerUses;
         points += p.stats.kills * 2;
         points += p.stats.saves * 3;
-        points += p.stats.daysSurvived * 1;
+        points += p.stats.daysSurvived;
 
         if (winningIds.includes(p.id)) {
             points += 10;
@@ -1690,12 +1683,7 @@ function triggerGameOver(roomCode: string, victoryDetails: { winner: string, pla
                     }
                 }
 
-                delete games[roomCode];
-                if (gameTimers[roomCode]) {
-                    clearInterval(gameTimers[roomCode]);
-                    delete gameTimers[roomCode];
-                }
-                deleteRoom(roomCode);
+                cleanupGameRoom(roomCode, games, gameTimers);
             }
         }, 5 * 60 * 1000).unref(); // 5 minutes
     }, 4500).unref();

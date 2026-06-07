@@ -263,7 +263,7 @@ export default function PlayerProfilePage() {
                     <ProfileAvatarHeader
                         playerId={playerId}
                         playerData={playerData}
-                        currentUser={currentUser}
+                        currentUser={currentUser as unknown as Record<string, unknown> | null}
                         isFriend={isFriend}
                         hasBlockedMe={hasBlockedMe}
                         isBlocked={isBlocked}
@@ -282,10 +282,8 @@ export default function PlayerProfilePage() {
 
                     {/* Stats Wrapper */}
                     <ProfileStats
-                        stats={{
-                            ...playerData.stats,
-                            rank: playerRank
-                        }}
+                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                        stats={{ ...(playerData.stats as any), rank: playerRank }}
                     />
 
                 </div>
@@ -301,25 +299,25 @@ export default function PlayerProfilePage() {
                                 {gameHistory.map((entry) => {
                                     const roleDef = entry.roleId ? ROLES[entry.roleId as RoleId] : null;
                                     const campColor = entry.roleCamp === 'LOUPS' ? 'text-red-400' : entry.roleCamp === 'SOLO' ? 'text-purple-400' : 'text-green-400';
-                                    const date = entry.playedAt ? new Date(entry.playedAt).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: '2-digit' }) : '—';
+                                    const date = entry.playedAt ? new Date(entry.playedAt as string).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: '2-digit' }) : '—';
                                     return (
-                                        <div key={entry.id} className={`flex items-center gap-3 p-3 rounded-xl border transition-colors ${entry.hasWon ? 'bg-green-500/5 border-green-500/20' : 'bg-red-500/5 border-red-500/20'}`}>
+                                        <div key={entry.id as string} className={`flex items-center gap-3 p-3 rounded-xl border transition-colors ${entry.hasWon ? 'bg-green-500/5 border-green-500/20' : 'bg-red-500/5 border-red-500/20'}`}>
                                             <div className="relative w-10 h-10 shrink-0 rounded-full overflow-hidden border border-white/10 bg-white/5">
                                                 {roleDef?.image ? (
-                                                    <Image src={roleDef.image} alt={entry.roleLabel || '?'} fill className="object-contain p-1" />
+                                                    <Image src={roleDef.image} alt={(entry.roleLabel as string) || '?'} fill className="object-contain p-1" />
                                                 ) : (
                                                     <div className="w-full h-full flex items-center justify-center text-white/30 text-xs">?</div>
                                                 )}
                                             </div>
                                             <div className="flex-1 min-w-0">
-                                                <p className={`text-sm font-bold truncate ${campColor}`}>{entry.roleLabel || '?'}</p>
-                                                <p className="text-xs text-white/40">{entry.playerCount} joueurs · {date}</p>
+                                                <p className={`text-sm font-bold truncate ${campColor}`}>{(entry.roleLabel as string) || '?'}</p>
+                                                <p className="text-xs text-white/40">{entry.playerCount as number} joueurs · {date}</p>
                                             </div>
                                             <div className="flex flex-col items-end gap-1 shrink-0">
                                                 <span className={`text-xs font-extrabold px-2 py-0.5 rounded-full ${entry.hasWon ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>
                                                     {entry.hasWon ? 'Victoire' : 'Défaite'}
                                                 </span>
-                                                <span className="text-xs text-[#D1A07A] font-bold">+{entry.points ?? 0} pts</span>
+                                                <span className="text-xs text-[#D1A07A] font-bold">+{(entry.points as number) ?? 0} pts</span>
                                             </div>
                                         </div>
                                     );
@@ -334,8 +332,8 @@ export default function PlayerProfilePage() {
             {showChat && (
                 <PrivateChat
                     friendId={playerId}
-                    friendPseudo={playerData?.pseudo || "Joueur"}
-                    friendPhotoURL={playerData?.photoURL || "/assets/images/icones/Photo_Profil-transparent.png"}
+                    friendPseudo={(playerData?.pseudo as string) || "Joueur"}
+                    friendPhotoURL={(playerData?.photoURL as string) || "/assets/images/icones/Photo_Profil-transparent.png"}
                     onClose={() => setShowChat(false)}
                 />
             )}

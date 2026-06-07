@@ -68,16 +68,15 @@ describe('Wolf Chat Logic', () => {
 
         let gotDirectMsg = false;
         let gotStateMessage = false;
+        let messageSent = false;
         let finished = false;
-        let outerTimer: NodeJS.Timeout | null = null;
-        let innerTimer: NodeJS.Timeout | null = null;
+        let failTimer: NodeJS.Timeout | null = null;
 
         // Finalise le test une seule fois et nettoie tous les timers
         const finish = (err?: Error) => {
             if (finished) return;
             finished = true;
-            if (outerTimer) { clearTimeout(outerTimer); outerTimer = null; }
-            if (innerTimer) { clearTimeout(innerTimer); innerTimer = null; }
+            if (failTimer) { clearTimeout(failTimer); failTimer = null; }
             done(err);
         };
 
@@ -92,27 +91,29 @@ describe('Wolf Chat Logic', () => {
                 const hasMessage = state.chatMessages?.find((m: ChatMessage) => m.text === 'Hello Alpha!');
                 if (hasMessage && !gotStateMessage) {
                     gotStateMessage = true;
-                    finish(); // succès — nettoie les timers
+                    finish();
                 }
             }
         });
 
-        // Wait 65s for NIGHT phase to start
-        outerTimer = setTimeout(() => {
-            outerTimer = null;
-            clientWolf.emit('chat_message', {
-                senderId: 'userW',
-                senderName: 'WolfPlayer',
-                text: 'Hello Alpha!',
-                time: Date.now(),
-                chatType: 'night'
-            }, () => {});
+        // Écouter le changement de phase plutôt qu'attendre un délai fixe (plus robuste)
+        clientWolf.on('update_game', (state) => {
+            if (state.phase === 'NIGHT' && !messageSent) {
+                messageSent = true;
+                clientWolf.emit('chat_message', {
+                    senderId: 'userW',
+                    senderName: 'WolfPlayer',
+                    text: 'Hello Alpha!',
+                    time: Date.now(),
+                    chatType: 'night'
+                }, () => {});
 
-            // Fail si pas reçu dans les 5s
-            innerTimer = setTimeout(() => {
-                innerTimer = null;
-                if (!gotStateMessage) finish(new Error('Did not receive message in update_game state'));
-            }, 5000);
-        }, 65000);
+                // Échoue si pas reçu dans les 5s après envoi
+                failTimer = setTimeout(() => {
+                    failTimer = null;
+                    if (!gotStateMessage) finish(new Error('Message envoyé en phase NIGHT mais non reçu dans update_game'));
+                }, 5000);
+            }
+        });
     });
 });

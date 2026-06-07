@@ -13,6 +13,7 @@ import { useToast } from '@/contexts/ToastContext';
 import { VillageCardSkeleton } from '@/components/ui/Skeleton';
 import { ref, onValue } from 'firebase/database';
 import { useThemeStore } from '@/store/themeStore';
+import type { UserData, GroupData, FriendData, FriendStatus } from '@/types/firestore';
 
 export default function PlayPage() {
     const router = useRouter();
@@ -49,15 +50,15 @@ export default function PlayPage() {
     const [activeTab, setActiveTab] = useState('Toutes');
     const [searchVillage, setSearchVillage] = useState('');
     const [searchPlayer, setSearchPlayer] = useState('');
-    const [villages, setVillages] = useState<Record<string, unknown>[]>([]);
+    const [villages, setVillages] = useState<GroupData[]>([]);
     const [playerSearchResults, setPlayerSearchResults] = useState<Record<string, unknown>[]>([]);
     const [isSearchingPlayer, setIsSearchingPlayer] = useState(false);
-    const [friends, setFriends] = useState<Record<string, unknown>[]>([]);
-    const [friendsStatuses, setFriendsStatuses] = useState<Record<string, Record<string, unknown>>>({});
-    const [friendsGroups, setFriendsGroups] = useState<Record<string, Record<string, unknown>>>({});
+    const [friends, setFriends] = useState<FriendData[]>([]);
+    const [friendsStatuses, setFriendsStatuses] = useState<Record<string, FriendStatus & { pseudo?: string; photoURL?: string }>>({});
+    const [friendsGroups, setFriendsGroups] = useState<Record<string, GroupData>>({});
     const [friendsOnlinePresence, setFriendsOnlinePresence] = useState<Record<string, boolean>>({});
     const [sentRequests, setSentRequests] = useState<string[]>([]);
-    const [group, setGroup] = useState<Record<string, unknown> | null>(null);
+    const [group, setGroup] = useState<GroupData | null>(null);
     const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
     const [villagesLoading, setVillagesLoading] = useState(true);
     // Photos des hôtes de villages lues depuis Firestore (pour les comptes Base64)
@@ -75,11 +76,11 @@ export default function PlayPage() {
     const [showMobileSocialPanel, setShowMobileSocialPanel] = useState(false);
 
     // --- Private Village Join State ---
-    const [selectedPrivateVillage, setSelectedPrivateVillage] = useState<Record<string, unknown> | null>(null);
+    const [selectedPrivateVillage, setSelectedPrivateVillage] = useState<GroupData | null>(null);
     const [inputSecretCode, setInputSecretCode] = useState("");
     const [joiningError, setJoiningError] = useState("");
 
-    const [pendingRejoinVillage, setPendingRejoinVillage] = useState<Record<string, unknown> | null>(null);
+    const [pendingRejoinVillage, setPendingRejoinVillage] = useState<(GroupData & { canRejoin?: boolean }) | null>(null);
     const [rejoinCountdown, setRejoinCountdown] = useState<number | null>(null);
     const isNavigatingRef = useRef(false);
     const rejoinCountdownRef = useRef<NodeJS.Timeout | null>(null);
@@ -97,7 +98,7 @@ export default function PlayPage() {
         if (!user) return;
         const unsub = onSnapshot(
             query(collection(db, 'users', user.uid, 'friends')),
-            (snapshot) => setFriends(snapshot.docs.map(d => ({ id: d.id, ...d.data() })))
+            (snapshot) => setFriends(snapshot.docs.map(d => ({ ...d.data(), id: d.id } as FriendData)))
         );
         return () => unsub();
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -130,22 +131,20 @@ export default function PlayPage() {
         const unsub = onSnapshot(
             query(collection(db, 'groups'), where('isVillage', '==', true)),
             (snapshot) => {
-                const villagesData = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+                const villagesData = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as GroupData));
 
                 // Nettoyage des salons vides par l'hôte uniquement
-                villagesData.forEach(async (v: Record<string, unknown>) => {
-                    const players = v.players as unknown[] | undefined;
-                    if ((!players || players.length === 0) && v.hostId === user?.uid) {
-                        await deleteGroupCompletely(v.id as string);
+                villagesData.forEach(async (v: GroupData) => {
+                    if ((!v.players || v.players.length === 0) && v.hostId === user?.uid) {
+                        await deleteGroupCompletely(v.id);
                     }
                 });
 
                 const activeVillages = villagesData
-                    .filter((v: Record<string, unknown>) => {
-                        const players = v.players as unknown[] | undefined;
-                        return players && players.length > 0 && v.isConfigured === true;
+                    .filter((v: GroupData) => {
+                        return v.players && v.players.length > 0 && v.isConfigured === true;
                     })
-                    .sort((a: Record<string, unknown>, b: Record<string, unknown>) => {
+                    .sort((a: GroupData, b: GroupData) => {
                         if (!a.createdAt) return 1;
                         if (!b.createdAt) return -1;
                         return new Date(b.createdAt as string).getTime() - new Date(a.createdAt as string).getTime();
@@ -162,18 +161,18 @@ export default function PlayPage() {
 
     // Clé stable basée sur les hostIds uniques — ne change que quand un nouvel hôte apparaît
     const hostIdsKey = useMemo(
-        () => [...new Set(villages.map((v: Record<string, unknown>) => v.hostId as string).filter(Boolean))].sort().join(','),
+        () => [...new Set(villages.map((v) => v.hostId).filter(Boolean))].sort().join(','),
         [villages]
     );
 
     // Charge les photos des hôtes une seule fois par hostId (ref évite la closure stale)
     useEffect(() => {
         if (!villages.length) return;
-        villages.forEach(async (v: Record<string, unknown>) => {
-            const hostId = v.hostId as string | undefined;
+        villages.forEach(async (v) => {
+            const hostId = v.hostId;
             if (!hostId || fetchedHostIdsRef.current.has(hostId)) return;
 
-            const hostPhoto = v.hostPhoto as string | undefined;
+            const hostPhoto = v.hostPhoto;
             const hasRealPhoto = hostPhoto && !hostPhoto.startsWith('data:') && hostPhoto !== "/assets/images/icones/Photo_Profil-transparent.png";
             if (hasRealPhoto) {
                 fetchedHostIdsRef.current.add(hostId);
@@ -226,7 +225,7 @@ export default function PlayPage() {
     useEffect(() => {
         let unsubscribeGroup = () => { };
         if (userData && user) {
-            let groupId = userData.currentGroupId;
+            let groupId: string = userData.currentGroupId || '';
 
             if (!groupId) {
                 // Initialize solo group for the user
@@ -240,15 +239,26 @@ export default function PlayPage() {
                     }, { merge: true });
 
                     await updateDoc(doc(db, "users", user.uid), {
-                        currentGroupId: groupId
+                        currentGroupId: groupId,
+                        socialGroupId: groupId,
                     });
                 };
                 initGroup();
             } else {
+                // Migration silencieuse : les anciens comptes sans socialGroupId reçoivent la valeur courante
+                // si leur groupe actuel n'est pas un village.
+                if (!userData.socialGroupId) {
+                    getDoc(doc(db, "groups", groupId)).then(snap => {
+                        if (snap.exists() && !snap.data().isVillage) {
+                            updateDoc(doc(db, "users", user.uid), { socialGroupId: groupId }).catch(() => {});
+                        }
+                    }).catch(() => {});
+                }
+
                 // Listen to the active group
                 unsubscribeGroup = onSnapshot(doc(db, "groups", groupId), (snap) => {
                     if (snap.exists()) {
-                        const groupData = snap.data();
+                        const groupData = snap.data() as GroupData;
                         setGroup(groupData);
 
                         // Toujours demander confirmation avant de (re)rejoindre un village
@@ -256,7 +266,7 @@ export default function PlayPage() {
                             const gameStarted = groupData.gameStarted === true;
                             // Vérifier si le joueur faisait partie de la partie au moment de son lancement
                             const wasInGame = gameStarted
-                                ? (groupData.players || []).some((p: { uid: string }) => p.uid === user.uid)
+                                ? (groupData.players || []).some((p) => p.uid === user.uid)
                                 : true; // En lobby, tous les joueurs du groupe peuvent toujours rejoindre
                             setPendingRejoinVillage({
                                 ...groupData,
@@ -312,8 +322,8 @@ export default function PlayPage() {
     // Real-time listener pour les amis ET les membres du groupe courant
     const idsToWatchString = useMemo(() => {
         const idsToWatch = new Set<string>();
-        friends.forEach(f => { if (f.friendId) idsToWatch.add(f.friendId as string); });
-        (group?.players as Array<{ uid?: string }> | undefined)?.forEach((p) => { if (p.uid && p.uid !== user?.uid) idsToWatch.add(p.uid); });
+        friends.forEach(f => { if (f.friendId) idsToWatch.add(f.friendId); });
+        group?.players?.forEach((p) => { if (p.uid && p.uid !== user?.uid) idsToWatch.add(p.uid); });
         return Array.from(idsToWatch).sort().join(',');
     }, [friends, group?.players, user?.uid]);
 
@@ -326,7 +336,7 @@ export default function PlayPage() {
                 if (docSnap.exists()) {
                     setFriendsStatuses(prev => ({
                         ...prev,
-                        [uid]: docSnap.data()
+                        [uid]: docSnap.data() as FriendStatus & { pseudo?: string; photoURL?: string }
                     }));
                 }
             })
@@ -357,7 +367,7 @@ export default function PlayPage() {
                 if (snap.exists()) {
                     setFriendsGroups(prev => ({
                         ...prev,
-                        [groupId]: snap.data()
+                        [groupId]: snap.data() as GroupData
                     }));
                 }
             });
@@ -539,12 +549,15 @@ export default function PlayPage() {
     };
 
     const handleInviteToGroup = async (friendId: string, friendPseudo: string) => {
-        if (!user || !userData || !userData.currentGroupId) return;
+        if (!user || !userData) return;
+        // Utiliser le groupe social (pas le village courant) pour les invitations de groupe
+        const inviteGroupId = userData.socialGroupId || userData.currentGroupId;
+        if (!inviteGroupId) return;
         try {
             const notifRef = collection(db, "users", friendId, "notifications");
             await addDoc(notifRef, {
                 type: "group_invite",
-                groupId: userData.currentGroupId,
+                groupId: inviteGroupId,
                 fromUserId: user.uid,
                 fromPseudo: userData.pseudo,
                 fromPhotoURL: userData.photoURL || "/assets/images/icones/Photo_Profil-transparent.png",
@@ -565,6 +578,7 @@ export default function PlayPage() {
         setRejoinCountdown(null);
         if (rejoinCountdownRef.current) clearInterval(rejoinCountdownRef.current);
         try {
+            if (!notif.groupId) return;
             const groupDoc = await getDoc(doc(db, "groups", notif.groupId));
             let destination = '/play';
 
@@ -609,8 +623,12 @@ export default function PlayPage() {
                 players: arrayUnion({ uid: user.uid, pseudo: userData.pseudo, photoURL: getSafePhotoURL(userData.photoURL) })
             });
 
+            const groupDoc2 = await getDoc(doc(db, "groups", notif.groupId));
+            const isVillageGroup = groupDoc2.exists() && groupDoc2.data().isVillage === true;
             await updateDoc(doc(db, "users", user.uid), {
-                currentGroupId: notif.groupId
+                currentGroupId: notif.groupId,
+                // Mémoriser comme groupe social seulement si c'est un groupe (pas un village)
+                ...(isVillageGroup ? {} : { socialGroupId: notif.groupId }),
             });
 
             await handleDeleteNotif(notif.id);
@@ -654,7 +672,7 @@ export default function PlayPage() {
         }
     };
 
-    const handleJoinVillage = async (villageToJoin: Record<string, unknown>) => {
+    const handleJoinVillage = async (villageToJoin: GroupData) => {
         if (!user || !userData) return;
         isNavigatingRef.current = true;
         setPendingRejoinVillage(null);
@@ -673,30 +691,37 @@ export default function PlayPage() {
 
                 // User is the host: move EVERYONE in the party to the village
                 // Check if village has enough space
-                const villagePlayers = villageToJoin.players as unknown[] | undefined;
-                const villageMaxPlayers = (villageToJoin.maxPlayers as number | undefined) || 16;
-                const groupPlayers = group.players as Array<{ uid: string }>;
+                const villagePlayers = villageToJoin.players;
+                const villageMaxPlayers = villageToJoin.maxPlayers || 16;
+                const groupPlayers = group.players;
                 const currentVillagePlayers = villagePlayers ? villagePlayers.length : 0;
                 if (currentVillagePlayers + groupPlayers.length > villageMaxPlayers) {
                     toast.warning("Il n'y a pas assez de place dans ce village pour tout votre groupe !");
                     return;
                 }
 
+                // Sanitise chaque joueur (filtre les photoURL base64 trop lourdes pour Firestore)
+                const sanitizedGroupPlayers = groupPlayers.map(p => ({
+                    uid: p.uid,
+                    pseudo: p.pseudo || 'Joueur',
+                    photoURL: getSafePhotoURL(p.photoURL),
+                }));
+
                 // Add all party players to the village
-                await updateDoc(doc(db, "groups", villageToJoin.id as string), {
-                    players: arrayUnion(...groupPlayers)
+                await updateDoc(doc(db, "groups", villageToJoin.id), {
+                    players: arrayUnion(...sanitizedGroupPlayers)
                 });
 
-                // Update currentGroupId for all party members
+                // Update currentGroupId for all party members + mémoriser le groupe social
+                const socialGroupId = group.id;
                 const updatePromises = groupPlayers.map((p) =>
                     updateDoc(doc(db, "users", p.uid), {
-                        currentGroupId: villageToJoin.id
+                        currentGroupId: villageToJoin.id,
+                        socialGroupId, // Garder trace du groupe social
                     })
                 );
                 await Promise.all(updatePromises);
-
-                // Delete the old party group since everyone left
-                await deleteGroupCompletely(group.id as string);
+                // NE PAS supprimer le groupe social — il reste accessible pour le chat
 
             } else {
                 // Solo player (or in a solo group)
@@ -714,15 +739,15 @@ export default function PlayPage() {
                 }
 
                 // Check if village is full BEFORE joining
-                const soloVillagePlayers = villageToJoin.players as unknown[] | undefined;
-                const soloVillageMaxPlayers = (villageToJoin.maxPlayers as number | undefined) || 16;
+                const soloVillagePlayers = villageToJoin.players;
+                const soloVillageMaxPlayers = villageToJoin.maxPlayers || 16;
                 if (soloVillagePlayers && soloVillagePlayers.length >= soloVillageMaxPlayers) {
                     toast.warning("Ce village est déjà complet !");
                     return;
                 }
 
                 // Add player to the new village
-                await updateDoc(doc(db, "groups", villageToJoin.id as string), {
+                await updateDoc(doc(db, "groups", villageToJoin.id), {
                     players: arrayUnion(playerObj)
                 });
 
@@ -736,7 +761,7 @@ export default function PlayPage() {
             setSelectedPrivateVillage(null);
 
             isNavigatingRef.current = true;
-            router.push(`/room/${villageToJoin.id as string}`);
+            router.push(`/room/${villageToJoin.id}`);
         } catch (error) {
             console.error("Erreur lors de la connexion au village:", error);
             toast.error("Erreur en rejoignant le village.");
@@ -775,11 +800,19 @@ export default function PlayPage() {
             }
 
             // Détermination des joueurs initiaux (soit le groupe entier, soit juste l'utilisateur)
-            const initialPlayers = isParty ? group.players : [{
-                uid: user.uid,
-                pseudo: userData.pseudo || 'Joueur',
-                photoURL: getSafePhotoURL(userData.photoURL)
-            }];
+            // Sanitise les photoURL base64 (> 1 MB → rejet Firestore)
+            type SafePlayer2 = { uid: string; pseudo: string; photoURL: string };
+            const initialPlayers: SafePlayer2[] = isParty
+                ? group.players.map(p => ({
+                    uid: p.uid,
+                    pseudo: p.pseudo || 'Joueur',
+                    photoURL: getSafePhotoURL(p.photoURL),
+                }))
+                : [{
+                    uid: user.uid,
+                    pseudo: userData.pseudo || 'Joueur',
+                    photoURL: getSafePhotoURL(userData.photoURL)
+                }];
 
             // Création d'un groupe de base
             await setDoc(doc(db, "groups", newGroupId), {
@@ -800,16 +833,16 @@ export default function PlayPage() {
             });
 
             if (isParty) {
-                // Update currentGroupId for all party members
-                const updatePromises = (group.players as Array<{ uid: string }>).map((p) =>
+                // Update currentGroupId for all party members + mémoriser le groupe social
+                const socialGroupId = group.id;
+                const updatePromises = group.players.map((p) =>
                     updateDoc(doc(db, "users", p.uid), {
-                        currentGroupId: newGroupId
+                        currentGroupId: newGroupId,
+                        socialGroupId, // Garder trace du groupe social
                     })
                 );
                 await Promise.all(updatePromises);
-
-                // Delete the old party group
-                await deleteGroupCompletely(group.id as string);
+                // NE PAS supprimer le groupe social
             } else {
                 await updateDoc(doc(db, "users", user.uid), {
                     currentGroupId: newGroupId
@@ -849,12 +882,11 @@ export default function PlayPage() {
             );
 
             // Filtres : public, configuré, en lobby (pas de phase ou phase === 'LOBBY'), assez de place
-            type VillageDoc = Record<string, unknown> & { id: string };
             const candidates = snap.docs
-                .map(d => ({ id: d.id, ...d.data() } as VillageDoc))
+                .map(d => ({ id: d.id, ...d.data() } as GroupData))
                 .filter(v => {
-                    const players = v.players as Array<{ uid: string }> | undefined;
-                    const maxPlayers = (v.maxPlayers as number | undefined) || 16;
+                    const players = v.players;
+                    const maxPlayers = v.maxPlayers || 16;
                     return players && players.length > 0 &&
                         v.gameStarted !== true &&
                         v.phase !== 'GAME_OVER' &&
@@ -863,8 +895,8 @@ export default function PlayPage() {
                 })
                 // Tri : le plus rempli en premier (bientôt plein = meilleur match)
                 .sort((a, b) => {
-                    const ap = (a.players as unknown[]).length;
-                    const bp = (b.players as unknown[]).length;
+                    const ap = (a.players ?? []).length;
+                    const bp = (b.players ?? []).length;
                     return bp - ap;
                 });
 
@@ -879,11 +911,19 @@ export default function PlayPage() {
                     newGroupId += chars.charAt(Math.floor(Math.random() * chars.length));
                 }
 
-                const initialPlayers = isParty ? group.players : [{
-                    uid: user.uid,
-                    pseudo: userData.pseudo || 'Joueur',
-                    photoURL: getSafePhotoURL(userData.photoURL)
-                }];
+                // Sanitise les photoURL base64 avant d'écrire dans Firestore (> 1 MB → rejet)
+                type SafePlayer = { uid: string; pseudo: string; photoURL: string };
+                const initialPlayers: SafePlayer[] = isParty
+                    ? group.players.map(p => ({
+                        uid: p.uid,
+                        pseudo: p.pseudo || 'Joueur',
+                        photoURL: getSafePhotoURL(p.photoURL),
+                    }))
+                    : [{
+                        uid: user.uid,
+                        pseudo: userData.pseudo || 'Joueur',
+                        photoURL: getSafePhotoURL(userData.photoURL)
+                    }];
 
                 await setDoc(doc(db, "groups", newGroupId), {
                     id: newGroupId,
@@ -904,12 +944,15 @@ export default function PlayPage() {
                 });
 
                 if (isParty) {
-                    const updatePromises = (group.players as Array<{ uid: string }>).map((p) =>
-                        updateDoc(doc(db, "users", p.uid), { currentGroupId: newGroupId })
+                    const socialGroupId = group.id;
+                    const updatePromises = group.players.map((p) =>
+                        updateDoc(doc(db, "users", p.uid), {
+                            currentGroupId: newGroupId,
+                            socialGroupId, // Garder trace du groupe social
+                        })
                     );
                     await Promise.all(updatePromises);
-
-                    await deleteGroupCompletely(group.id as string);
+                    // NE PAS supprimer le groupe social
                 } else {
                     await updateDoc(doc(db, "users", user.uid), { currentGroupId: newGroupId });
                 }
@@ -926,11 +969,10 @@ export default function PlayPage() {
     const handleKickPlayer = async (playerToKick: { uid: string }) => {
         if (!user || group?.hostId !== user.uid) return;
         try {
-            const groupPlayers = group.players as unknown[] | undefined;
-            if (groupPlayers && groupPlayers.length <= 1) {
-                await deleteGroupCompletely(group.id as string);
+            if (group.players && group.players.length <= 1) {
+                await deleteGroupCompletely(group.id);
             } else {
-                await updateDoc(doc(db, "groups", group.id as string), {
+                await updateDoc(doc(db, "groups", group.id), {
                     players: arrayRemove(playerToKick)
                 });
             }
@@ -1228,7 +1270,7 @@ export default function PlayPage() {
                                             </button>
                                             {(user && (group?.unreadCount?.[user.uid] || 0) > 0) && (
                                                 <span className="absolute -top-2 -right-2 bg-red-500 text-white text-[9px] font-bold min-w-[16px] h-4 flex items-center justify-center rounded-full pointer-events-none drop-shadow-md border border-[#2A2F32] px-1 z-10 animate-pulse">
-                                                    {(group?.unreadCount?.[user?.uid] || 0) > 9 ? "9+" : group?.unreadCount[user.uid]}
+                                                    {(group?.unreadCount?.[user?.uid] || 0) > 9 ? "9+" : group?.unreadCount?.[user.uid]}
                                                 </span>
                                             )}
                                         </div>
@@ -1239,7 +1281,7 @@ export default function PlayPage() {
                                 )}
                             </div>
                             <div className="grid grid-cols-2 gap-4">
-                                {(group?.players as Array<Record<string, unknown>> | undefined)?.map((p) => (
+                                {group?.players?.map((p) => (
                                     <div key={p.uid} className="flex items-center justify-between gap-3 cursor-pointer group hover:bg-white/5 p-2 rounded -ml-2 transition-colors" onClick={() => router.push(`/profil/${p.uid}`)}>
                                         <div className="flex items-center gap-3">
                                             <div className={`relative w-10 h-10 rounded-full border ${p.uid === group?.hostId ? 'border-yellow-400' : 'border-[#E3D1A5]'} bg-[#E3D1A5]/20 overflow-hidden`}>
@@ -1304,7 +1346,8 @@ export default function PlayPage() {
                                     {isSearchingPlayer ? (
                                         <p className="p-3 text-xs text-secondary text-center">Recherche en cours...</p>
                                     ) : playerSearchResults.length > 0 ? (
-                                        playerSearchResults.map(p => {
+                                        playerSearchResults.map(rawP => {
+                                            const p = rawP as { id: string; pseudo?: string; nom?: string; photoURL?: string; photo_profil?: string };
                                             const isFriend = friends.some(f => f.friendId === p.id);
                                             const isPending = sentRequests.includes(p.id);
 
@@ -1403,7 +1446,7 @@ export default function PlayPage() {
                                                                 onClick={() => setActiveChatFriend({
                                                                     id: friend.friendId,
                                                                     pseudo: fStatus?.pseudo || friend.pseudo,
-                                                                    photoURL: fStatus?.photoURL || friend.photoURL
+                                                                    photoURL: fStatus?.photoURL || friend.photoURL || ''
                                                                 })}
                                                             >
                                                                 <Image src="/assets/images/icones/message-icon.png" alt="Message" width={16} height={16} />
@@ -1450,11 +1493,11 @@ export default function PlayPage() {
                     onClose={() => setActiveChatFriend(null)}
                 />
             )}
-            {/* Render Group Chat if active */}
-            {showGroupChat && userData?.currentGroupId && (
+            {/* Render Group Chat if active — utilise le groupe social (indépendant du room courant) */}
+            {showGroupChat && (userData?.socialGroupId || (userData?.currentGroupId && !group?.isVillage)) && (
                 <div className="fixed bottom-4 right-4 z-[9999] md:right-8 md:bottom-8">
                     <GroupChat
-                        groupId={userData.currentGroupId}
+                        groupId={(userData.socialGroupId || userData.currentGroupId) as string}
                         onClose={() => setShowGroupChat(false)}
                     />
                 </div>
@@ -1593,7 +1636,7 @@ export default function PlayPage() {
                                             if (groupSnap.exists()) {
                                                 const gData = groupSnap.data();
                                                 if (gData.players && gData.players.length <= 1) {
-                                                    await deleteGroupCompletely(pendingRejoinVillage.id as string);
+                                                    await deleteGroupCompletely(pendingRejoinVillage.id);
                                                 } else {
                                                     const updatedPlayers = (gData.players as Array<{ uid: string }>).filter((p) => p.uid !== user.uid);
                                                     await updateDoc(groupRef, { players: updatedPlayers });

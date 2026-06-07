@@ -239,7 +239,7 @@ export default function VoiceChatManager({
         return effectivePlayers.filter((p: Player) => {
             if (p.id === currentUser?.uid) return false;
             if (!game) return true; // Group context
-            if (game.phase === 'LOBBY' || game.phase === 'DAY_DISCUSSION' || game.phase === 'DAY_VOTE' || game.phase === 'MAYOR_ELECTION' || game.phase === 'ROLE_REVEAL') {
+            if (game.phase === 'LOBBY' || game.phase === 'DAY_DISCUSSION' || game.phase === 'DAY_VOTE' || game.phase === 'MAYOR_ELECTION' || game.phase === 'ROLE_REVEAL' || game.phase === 'GAME_OVER') {
                 return true;
             }
             if (game.phase === 'NIGHT' && myPlayer) {
@@ -330,6 +330,22 @@ export default function VoiceChatManager({
         };
     }, [handleInteraction]);
 
+    // --- 3b. Reset peer connections on socket reconnect ---
+    // Quand le socket se reconnecte (nouvelle socket.id), les anciennes connexions WebRTC
+    // sont dans un état "disconnected" ou "failed" et ne récupèrent pas automatiquement.
+    // On les ferme toutes pour forcer le ré-établissement via le mécanisme cible habituel.
+    useEffect(() => {
+        if (!socket) return;
+        const handleReconnect = () => {
+            const existingPeers = Object.keys(peerConnections.current);
+            if (existingPeers.length > 0) {
+                existingPeers.forEach(peerId => closeConnection(peerId));
+            }
+        };
+        socket.on('connect', handleReconnect);
+        return () => { socket.off('connect', handleReconnect); };
+    }, [socket]);
+
     // --- 4. Signaling Listeners ---
     useEffect(() => {
         if (!socket) return;
@@ -349,40 +365,44 @@ export default function VoiceChatManager({
             }
 
             try {
-                if (signal.type === 'offer') {
-                    const isCollision = isMakingOffer.current[senderId] || pc.signalingState !== 'stable';
-                    const isPolite = currentUser?.uid < senderId;
-                    isIgnoringOffer.current[senderId] = !isPolite && isCollision;
+                if ('type' in signal && (signal.type === 'offer' || signal.type === 'answer')) {
+                    const sdpSignal = signal as RTCSessionDescriptionInit;
+                    if (sdpSignal.type === 'offer') {
+                        const isCollision = isMakingOffer.current[senderId] || pc.signalingState !== 'stable';
+                        const isPolite = currentUser?.uid < senderId;
+                        isIgnoringOffer.current[senderId] = !isPolite && isCollision;
 
-                    if (isIgnoringOffer.current[senderId]) {
-                        console.warn(`VoiceChat: Ignoring offer collision from ${senderId} (impolite peer)`);
-                        return;
-                    }
-
-                    await pc.setRemoteDescription(new RTCSessionDescription(signal));
-                    const answer = await pc.createAnswer();
-                    await pc.setLocalDescription(answer);
-                    socket.emit('voice_signal', { targetId: senderId, signal: answer, type });
-
-                    if (pendingCandidates.current[senderId]) {
-                        for (const cand of pendingCandidates.current[senderId]) {
-                            await pc.addIceCandidate(new RTCIceCandidate(cand)).catch(e => console.warn("Queued candidate error", e));
+                        if (isIgnoringOffer.current[senderId]) {
+                            console.warn(`VoiceChat: Ignoring offer collision from ${senderId} (impolite peer)`);
+                            return;
                         }
-                        delete pendingCandidates.current[senderId];
-                    }
-                } else if (signal.type === 'answer') {
-                    await pc.setRemoteDescription(new RTCSessionDescription(signal));
 
-                    if (pendingCandidates.current[senderId]) {
-                        for (const cand of pendingCandidates.current[senderId]) {
-                            await pc.addIceCandidate(new RTCIceCandidate(cand)).catch(e => console.warn("Queued candidate error", e));
+                        await pc.setRemoteDescription(new RTCSessionDescription(sdpSignal));
+                        const answer = await pc.createAnswer();
+                        await pc.setLocalDescription(answer);
+                        socket.emit('voice_signal', { targetId: senderId, signal: answer, type });
+
+                        if (pendingCandidates.current[senderId]) {
+                            for (const cand of pendingCandidates.current[senderId]) {
+                                await pc.addIceCandidate(new RTCIceCandidate(cand)).catch(e => console.warn("Queued candidate error", e));
+                            }
+                            delete pendingCandidates.current[senderId];
                         }
-                        delete pendingCandidates.current[senderId];
+                    } else if (sdpSignal.type === 'answer') {
+                        await pc.setRemoteDescription(new RTCSessionDescription(sdpSignal));
+
+                        if (pendingCandidates.current[senderId]) {
+                            for (const cand of pendingCandidates.current[senderId]) {
+                                await pc.addIceCandidate(new RTCIceCandidate(cand)).catch(e => console.warn("Queued candidate error", e));
+                            }
+                            delete pendingCandidates.current[senderId];
+                        }
                     }
-                } else if (signal && (signal.candidate || signal.sdpMid)) {
+                } else if ('candidate' in signal) {
+                    const iceSignal = signal as RTCIceCandidateInit;
                     if (pc.remoteDescription) {
                         try {
-                            await pc.addIceCandidate(new RTCIceCandidate(signal));
+                            await pc.addIceCandidate(new RTCIceCandidate(iceSignal));
                             setStats(s => ({ ...s, cand: s.cand + 1 }));
                         } catch (e) {
                             if (!isIgnoringOffer.current[senderId]) {
@@ -392,7 +412,7 @@ export default function VoiceChatManager({
                     } else {
                         if (!isIgnoringOffer.current[senderId]) {
                             if (!pendingCandidates.current[senderId]) pendingCandidates.current[senderId] = [];
-                            pendingCandidates.current[senderId].push(signal);
+                            pendingCandidates.current[senderId].push(iceSignal);
                         }
                     }
                 }

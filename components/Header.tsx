@@ -21,7 +21,7 @@ export default function Header({ onQuickJoin, isDark = false }: HeaderProps) {
     const [user, setUser] = useState<Record<string, unknown> | null>(null);
 
     useEffect(() => {
-        const unsubscribe = onAuthStateChanged(auth, setUser);
+        const unsubscribe = onAuthStateChanged(auth, (user) => setUser(user as Record<string, unknown> | null));
         return () => unsubscribe();
     }, []);
 

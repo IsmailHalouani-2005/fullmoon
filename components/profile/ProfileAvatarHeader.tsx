@@ -1,3 +1,4 @@
+import React from 'react';
 import Image from 'next/image';
 
 interface ProfileAvatarHeaderProps {
@@ -49,7 +50,7 @@ export default function ProfileAvatarHeader({
                 <div className="relative w-40 h-40 rounded-full border-4 border-[#5E4730] bg-[#E3D1A5] shadow-xl overflow-hidden flex-shrink-0">
                     <div className="absolute inset-0 bg-[url('/assets/images/icones/village_batiments.png')] bg-cover opacity-20 bg-center"></div>
                     <Image
-                        src={playerData?.photoURL || "/assets/images/icones/Photo_Profil-transparent.png"}
+                        src={(playerData?.photoURL as string) || "/assets/images/icones/Photo_Profil-transparent.png"}
                         alt="Profil"
                         fill
                         className="object-cover z-10"
@@ -58,7 +59,7 @@ export default function ProfileAvatarHeader({
 
                 {/* Info & Actions */}
                 <div className="flex flex-col items-center md:items-start text-center md:text-left">
-                    <h2 className="text-white font-bold text-3xl mb-1">{playerData?.pseudo || "Joueur"}</h2>
+                    <h2 className="text-white font-bold text-3xl mb-1">{(playerData?.pseudo as React.ReactNode) || "Joueur"}</h2>
                     <p className="text-white/50 text-sm mb-4">[{playerId.substring(0, 8)}...]</p>
 
                     {/* Icons row */}

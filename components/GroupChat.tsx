@@ -114,6 +114,13 @@ export default function GroupChat({ groupId, onClose }: GroupChatProps) {
             setGroupGame(gameState);
         });
 
+        // Enregistre ce socket dans userSocketMap côté serveur
+        // pour que la signalisation WebRTC (voice_request_connect / voice_signal) fonctionne.
+        // join_game n'est pas émis ici (pas de GameState à créer), donc on utilise join_voice_room.
+        newSocket.on('connect', () => {
+            newSocket.emit('join_voice_room');
+        });
+
         // eslint-disable-next-line react-hooks/set-state-in-effect
         setSocket(newSocket);
 
@@ -190,7 +197,7 @@ export default function GroupChat({ groupId, onClose }: GroupChatProps) {
             if (groupData?.players) {
                 (groupData.players as Record<string, unknown>[]).forEach((p) => {
                     if (p.uid !== currentUser.uid) {
-                        const currentUnread = groupData.unreadCount?.[p.uid] || 0;
+                        const currentUnread = groupData.unreadCount?.[p.uid as string] || 0;
                         updates[`unreadCount.${p.uid}`] = currentUnread + 1;
                     }
                 });
@@ -351,9 +358,9 @@ export default function GroupChat({ groupId, onClose }: GroupChatProps) {
             <VoiceChatManager
                 socket={socket}
                 roomCode={groupId}
-                currentUser={currentUser}
+                currentUser={currentUser ? { uid: currentUser.uid, pseudo: (currentData?.pseudo as string | undefined), email: currentUser.email } : null as unknown as { uid: string; pseudo?: string; email?: string | null }}
                 game={groupGame}
-                players={groupPlayers}
+                players={groupPlayers as unknown as import("@/types/game").Player[]}
                 isMicroOn={isMicroOn}
                 isHeadphonesOn={isHeadphonesOn}
                 micSensitivity={micSensitivity}

@@ -24,7 +24,7 @@ export default function AdminSimulationPage() {
     const [lastResult, setLastResult] = useState<Partial<Record<RoleId, number>> | null>(null);
     const [batchResults, setBatchResults] = useState<{
         runs: number;
-        stats: Record<RoleId, { count: number; percentage: number }>;
+        stats: Partial<Record<RoleId, { count: number; percentage: number }>>;
     } | null>(null);
 
     useEffect(() => {

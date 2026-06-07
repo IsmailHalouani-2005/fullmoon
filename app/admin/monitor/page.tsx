@@ -29,6 +29,61 @@ type UserSort = 'points_desc' | 'points_asc' | 'alpha_asc' | 'alpha_desc' | 'gam
 type RoomFilter = 'all' | 'lobby' | 'active' | 'finished';
 type RoomSort = 'created_desc' | 'created_asc' | 'players_desc' | 'players_asc' | 'phase';
 
+// ─── Types internes ───────────────────────────────────────────────────────────
+
+interface LivePlayer {
+    id: string;
+    name: string;
+    role?: string;
+    isAlive?: boolean;
+    isDisconnected?: boolean;
+    effects?: string[];
+    deadAt?: string;
+}
+
+interface FsPlayer {
+    uid: string;
+    pseudo: string;
+    photoURL?: string;
+}
+
+interface MergedRoom {
+    id: string;
+    name: string;
+    hostPseudo: string;
+    gameStarted: boolean;
+    isPrivate: boolean;
+    isMicro: boolean;
+    createdAt: string;
+    phase: string;
+    playerCount: number;
+    alivePlayers: number | null;
+    liveState: {
+        timer?: number;
+        players?: LivePlayer[];
+        hostId?: string;
+        mayorId?: string;
+    } | null;
+    players?: FsPlayer[];
+    [key: string]: unknown;
+}
+
+interface UserRecord {
+    id: string;
+    pseudo: string;
+    email: string;
+    photoURL?: string;
+    createdAt: string;
+    stats?: {
+        points?: number;
+        gamesPlayed?: number;
+        wins?: number;
+        losses?: number;
+        fled?: number;
+    };
+    [key: string]: unknown;
+}
+
 // ─── Composant principal ──────────────────────────────────────────────────────
 
 export default function AdminMonitorPage() {
@@ -40,18 +95,18 @@ export default function AdminMonitorPage() {
 
     // Rooms
     const [liveRooms, setLiveRooms] = useState<Record<string, Record<string, unknown>>>({});  // Socket.io state
-    const [fsRooms, setFsRooms] = useState<Record<string, unknown>[]>([]);                    // Firestore rooms
+    const [fsRooms, setFsRooms] = useState<MergedRoom[]>([]);                                 // Firestore rooms
     const [roomsLoading, setRoomsLoading] = useState(false);
     const [roomFilter, setRoomFilter] = useState<RoomFilter>('all');
     const [roomSort, setRoomSort] = useState<RoomSort>('created_desc');
     const [roomSearch, setRoomSearch] = useState('');
 
     // Users
-    const [users, setUsers] = useState<Record<string, unknown>[]>([]);
+    const [users, setUsers] = useState<UserRecord[]>([]);
     const [usersLoading, setUsersLoading] = useState(false);
     const [userSearch, setUserSearch] = useState('');
     const [userSort, setUserSort] = useState<UserSort>('points_desc');
-    const [editingUser, setEditingUser] = useState<Record<string, unknown> | null>(null);
+    const [editingUser, setEditingUser] = useState<UserRecord | null>(null);
     const [editPseudo, setEditPseudo] = useState('');
     const [editPoints, setEditPoints] = useState(0);
 
@@ -73,7 +128,7 @@ export default function AdminMonitorPage() {
         try {
             // 1. Rooms Firestore (toutes, même non lancées)
             const snap = await getDocs(collection(db, 'groups'));
-            const all = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+            const all = snap.docs.map(d => ({ id: d.id, ...d.data() } as MergedRoom));
             setFsRooms(all);
 
             // 2. Rooms Socket.io live (état détaillé en partie)
@@ -94,7 +149,7 @@ export default function AdminMonitorPage() {
         setUsersLoading(true);
         try {
             const snap = await getDocs(collection(db, 'users'));
-            setUsers(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+            setUsers(snap.docs.map(d => ({ id: d.id, ...d.data() } as UserRecord)));
         } catch {
             toast.error('Erreur lors du chargement des utilisateurs.');
         } finally {
@@ -110,16 +165,21 @@ export default function AdminMonitorPage() {
 
     // ─── Rooms fusionnés (Firestore + live Socket.io) ─────────────────────────
 
-    const mergedRooms = useMemo(() => {
+    const mergedRooms = useMemo<MergedRoom[]>(() => {
         return fsRooms.map(fsRoom => {
-            const live = liveRooms[fsRoom.id];
+            const live = liveRooms[fsRoom.id] as (Record<string, unknown> & { phase?: string; totalPlayers?: number; alivePlayers?: number; timer?: number; players?: LivePlayer[]; hostId?: string; mayorId?: string }) | undefined;
             return {
                 ...fsRoom,
-                liveState: live || null,
-                phase: live?.phase || (fsRoom.gameStarted ? 'ACTIVE' : 'LOBBY'),
-                playerCount: live?.totalPlayers ?? fsRoom.players?.length ?? 0,
-                alivePlayers: live?.alivePlayers ?? null,
-            };
+                liveState: live ? {
+                    timer: live.timer,
+                    players: live.players,
+                    hostId: live.hostId as string | undefined,
+                    mayorId: live.mayorId as string | undefined,
+                } : null,
+                phase: (live?.phase as string) || (fsRoom.gameStarted ? 'ACTIVE' : 'LOBBY'),
+                playerCount: (live?.totalPlayers as number) ?? (fsRoom.players?.length ?? 0),
+                alivePlayers: (live?.alivePlayers as number) ?? null,
+            } as MergedRoom;
         });
     }, [fsRooms, liveRooms]);
 
@@ -150,7 +210,7 @@ export default function AdminMonitorPage() {
 
     // ─── Users filtrés + triés ────────────────────────────────────────────────
 
-    const filteredUsers = useMemo(() => {
+    const filteredUsers = useMemo<UserRecord[]>(() => {
         let list = [...users];
         if (userSearch) list = list.filter(u =>
             u.pseudo?.toLowerCase().includes(userSearch.toLowerCase()) ||
@@ -273,7 +333,7 @@ export default function AdminMonitorPage() {
                             </div>
                         ) : (
                             <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
-                                {filteredRooms.map((room: Record<string, unknown>) => (
+                                {filteredRooms.map((room: MergedRoom) => (
                                     <div key={room.id} className="bg-[#1a1b26] rounded-xl border border-white/10 overflow-hidden">
                                         {/* Room header */}
                                         <div className="flex items-center justify-between px-4 py-3 border-b border-white/10">
@@ -282,8 +342,8 @@ export default function AdminMonitorPage() {
                                                 <span className={`px-2 py-0.5 rounded text-xs font-bold ${PHASE_COLORS[room.phase] || 'bg-slate-700'}`}>
                                                     {PHASE_LABELS[room.phase] || room.phase || 'Lobby'}
                                                 </span>
-                                                {room.liveState?.timer > 0 && (
-                                                    <span className="text-slate-400 text-xs font-mono">{room.liveState.timer}s</span>
+                                                {(room.liveState?.timer ?? 0) > 0 && (
+                                                    <span className="text-slate-400 text-xs font-mono">{room.liveState!.timer}s</span>
                                                 )}
                                                 {room.isPrivate && <span className="text-xs bg-yellow-800/40 text-yellow-300 px-2 py-0.5 rounded border border-yellow-700/30">Privé</span>}
                                                 {room.isMicro && <span className="text-xs bg-blue-800/40 text-blue-300 px-2 py-0.5 rounded border border-blue-700/30">🎙</span>}
@@ -298,15 +358,15 @@ export default function AdminMonitorPage() {
                                         <div className="p-3">
                                             {room.liveState ? (
                                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
-                                                    {(room.liveState as { players: Record<string, unknown>[] }).players.map((p: Record<string, unknown>) => {
+                                                    {(room.liveState.players ?? []).map((p: LivePlayer) => {
                                                         const roleDef = p.role ? ROLES[p.role as RoleId] : null;
                                                         return (
                                                             <div key={p.id} className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs border ${p.isAlive ? 'border-white/10 bg-white/5' : 'border-red-900/30 bg-red-950/20 opacity-60'}`}>
                                                                 <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${p.isDisconnected ? 'bg-yellow-400 animate-pulse' : p.isAlive ? 'bg-green-400' : 'bg-red-500'}`} />
                                                                 <span className={`flex-1 font-medium truncate ${!p.isAlive ? 'line-through text-slate-500' : ''}`}>
                                                                     {p.name}
-                                                                    {p.id === room.liveState.hostId && <span className="ml-1 text-[9px] text-yellow-400">H</span>}
-                                                                    {p.id === room.liveState.mayorId && <span className="ml-0.5">👑</span>}
+                                                                    {p.id === room.liveState!.hostId && <span className="ml-1 text-[9px] text-yellow-400">H</span>}
+                                                                    {p.id === room.liveState!.mayorId && <span className="ml-0.5">👑</span>}
                                                                 </span>
                                                                 {roleDef && (
                                                                     <span className={`text-[10px] font-bold ${CAMP_COLORS[roleDef.camp] || 'text-slate-300'} flex items-center gap-1`}>
@@ -322,9 +382,9 @@ export default function AdminMonitorPage() {
                                                 </div>
                                             ) : (
                                                 /* Lobby non lancé — joueurs depuis Firestore */
-                                                room.players?.length > 0 ? (
+                                                (room.players?.length ?? 0) > 0 ? (
                                                     <div className="flex flex-wrap gap-1.5">
-                                                        {(room.players as Record<string, unknown>[]).map((p: Record<string, unknown>) => (
+                                                        {(room.players ?? []).map((p: FsPlayer) => (
                                                             <span key={p.uid} className="flex items-center gap-1.5 px-2 py-1 bg-white/5 rounded-lg text-xs border border-white/10">
                                                                 <div className="w-4 h-4 rounded-full overflow-hidden relative flex-shrink-0">
                                                                     <Image src={p.photoURL || '/assets/images/icones/Photo_Profil-transparent.png'} alt={p.pseudo} fill className="object-cover" />
@@ -342,7 +402,7 @@ export default function AdminMonitorPage() {
                                         {/* Footer */}
                                         <div className="px-4 py-2 border-t border-white/5 text-[10px] text-slate-500 flex justify-between">
                                             <span>{room.createdAt ? new Date(room.createdAt).toLocaleString('fr-FR') : '—'}</span>
-                                            <span>{room.isConfigured ? 'Configuré' : 'Non configuré'} • {room.maxPlayers ?? '?'} max</span>
+                                            <span>{room.isConfigured ? 'Configuré' : 'Non configuré'} • {(room.maxPlayers as number | undefined) ?? '?'} max</span>
                                         </div>
                                     </div>
                                 ))}

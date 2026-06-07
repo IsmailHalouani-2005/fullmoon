@@ -107,21 +107,21 @@ export default function Leaderboard() {
                         {/* 3rd Place Avatar (Left on image "3") */}
                         {podium[2] && (
                             <div className="absolute bottom-[55%] left-[5%] md:left-[18%] w-24 h-24 sm:w-28 sm:h-28 rounded-full border-4 border-amber-700 bg-secondary flex items-center justify-center overflow-hidden z-10 transition-transform hover:scale-105">
-                                <Image src={podium[2].photoURL || "/assets/images/icones/Photo_Profil-transparent.png"} alt="3rd Place" fill className="object-cover" />
+                                <Image src={(podium[2].photoURL as string) || "/assets/images/icones/Photo_Profil-transparent.png"} alt="3rd Place" fill className="object-cover" />
                             </div>
                         )}
 
                         {/* 1st Place Avatar (Center "1") */}
                         {podium[1] && (
                             <div className="absolute bottom-[75%] left-[50%] -translate-x-1/2 w-28 h-28 sm:w-36 sm:h-36 rounded-full border-4 border-yellow-400 bg-secondary flex items-center justify-center overflow-hidden z-20 shadow-xl transition-transform hover:scale-110">
-                                <Image src={podium[1].photoURL || "/assets/images/icones/Photo_Profil-transparent.png"} alt="1st Place" fill className="object-cover" />
+                                <Image src={(podium[1].photoURL as string) || "/assets/images/icones/Photo_Profil-transparent.png"} alt="1st Place" fill className="object-cover" />
                             </div>
                         )}
 
                         {/* 2nd Place Avatar (Right on image "2") */}
                         {podium[0] && (
                             <div className="absolute bottom-[60%] right-[5%] md:right-[18%] w-24 h-24 sm:w-28 sm:h-28 rounded-full border-4 border-slate-400 bg-secondary flex items-center justify-center overflow-hidden z-10 transition-transform hover:scale-105">
-                                <Image src={podium[0].photoURL || "/assets/images/icones/Photo_Profil-transparent.png"} alt="2nd Place" fill className="object-cover" />
+                                <Image src={(podium[0].photoURL as string) || "/assets/images/icones/Photo_Profil-transparent.png"} alt="2nd Place" fill className="object-cover" />
                             </div>
                         )}
                     </div>
@@ -138,7 +138,7 @@ export default function Leaderboard() {
                             <div ref={tableRef} className="flex flex-col space-y-2">
                                 {topPlayers.map((player, index) => (
                                     <div
-                                        key={player.id}
+                                        key={player.id as string}
                                         className="grid grid-cols-[1fr_3fr_1fr] items-center py-2 px-2 text-white/90 hover:bg-white/10 hover:scale-[1.01] rounded-lg transition-all cursor-default gap-2"
                                         style={{
                                             opacity: visibleRows.has(index) ? 1 : 0,
@@ -149,11 +149,11 @@ export default function Leaderboard() {
                                         <div className="text-center font-bold text-lg">{index + 1}</div>
                                         <div className="flex items-center justify-start ml-4 pl-2 sm:pl-0 space-x-3 overflow-hidden">
                                             <div className="w-8 h-8 rounded-full bg-secondary outline outline-2 outline-white/20 overflow-hidden relative flex-shrink-0">
-                                                <Image src={player.photoURL || "/assets/images/icones/Photo_Profil-transparent.png"} alt="avatar" fill className="object-cover" />
+                                                <Image src={(player.photoURL as string) || "/assets/images/icones/Photo_Profil-transparent.png"} alt="avatar" fill className="object-cover" />
                                             </div>
-                                            <span className="font-semibold text-sm sm:text-base truncate">{player.pseudo || `Joueur ${index + 1}`}</span>
+                                            <span className="font-semibold text-sm sm:text-base truncate">{(player.pseudo as string) || `Joueur ${index + 1}`}</span>
                                         </div>
-                                        <div className="text-center font-mono font-medium text-secondary">{player.stats?.points ?? 0}</div>
+                                        <div className="text-center font-mono font-medium text-secondary">{(player.stats as { points?: number })?.points ?? 0}</div>
                                     </div>
                                 ))}
                             </div>
