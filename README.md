@@ -113,9 +113,9 @@ Topologie Mesh (P2P direct), sans serveur média — coût serveur nul.
 - **LoadingScreen** : messages animés cycliques + code salon copiable
 - **Error Boundary** : écran propre en cas d'erreur React inattendue
 
-### 5. Tests ⭐⭐
+### 5. Tests ⭐⭐⭐
 
-**182 tests unitaires** couvrant la logique critique :
+**269 tests** couvrant la logique critique et les comportements réseau :
 
 | Suite | Tests |
 |-------|-------|
@@ -133,7 +133,10 @@ Topologie Mesh (P2P direct), sans serveur média — coût serveur nul.
 | `victoryDetection.test.ts` | Sons fin de partie — chaque rôle/combinaison |
 | `witchBlindSave.test.ts` | Sorcière aveugle — sauvegarde, victoire, effets |
 | `gameContext.test.ts` | GameContext exports, phases, maire, Sorcière |
-| `wolf_chat.test.ts` | Chat nuit Loup Alpha → Loup Garou (intégration) |
+| `wolf_chat.test.ts` | Chat nuit Loup Alpha → Loup Garou (intégration Socket.io) |
+| `voiceRoom.test.ts` | Enregistrement vocal, relay `voice_request_connect` / `voice_signal` |
+| `disconnectInGame.test.ts` | Déconnexion lobby (isDisconnected=true, 60s) et en partie (avatar conservé) |
+| `disconnectedPlayerLogic.test.ts` | checkVictory et tallyVotes avec joueurs déconnectés |
 
 ```bash
 npx jest
@@ -179,8 +182,9 @@ werewolf/
 │   ├── firebase.ts              # Init Firebase SDK
 │   └── roleDistribution.ts      # Algorithmes de distribution des rôles
 ├── types/
-│   ├── game.ts                  # GameState, Player, Phase, Events
-│   └── roles.ts                 # Définitions des rôles et pouvoirs
+│   ├── game.ts                  # GameState, Player, Phase, Events Socket.io
+│   ├── roles.ts                 # Définitions des rôles et pouvoirs
+│   └── firestore.ts             # Interfaces des documents Firestore (UserData, GroupData…)
 ├── tests/                       # Tests unitaires Jest
 ├── public/assets/
 │   ├── images/                  # Icônes, rôles, personnages
@@ -258,27 +262,31 @@ ALLOWED_ORIGINS= #Dev local
 | Frontend + Backend | Infomaniak (Node.js) | Piloté par `server.js` |
 | Base de données | Firebase (Firestore + RTDB) | Cloud |
 
-### Fichiers à uploader après `npm run build`
+### Fichiers à uploader via SFTP après `pnpm build`
 
 ```
-.next/          ← build compilé
-server/         ← moteur de jeu
-lib/            ← firebase.ts, roleDistribution.ts
-types/          ← game.ts, roles.ts
-public/         ← assets, sons, images
+.next/                        ← build Next.js compilé
+server/                       ← moteur de jeu (ts-node au runtime)
+lib/                          ← firebase.ts, roleDistribution.ts
+types/                        ← game.ts, roles.ts, firestore.ts
+public/                       ← assets, sons, images
+server.js                     ← point d'entrée production
 package.json
+package-lock.json
 next.config.ts
-server.js       ← point d'entrée production
+tsconfig.json                 ← requis par ts-node
 .npmrc
+fullmoon-serviceAccount.json  ← clé Firebase Admin SDK
 ```
 
-> ⚠️ Ne pas uploader : `node_modules/`, `.env.local` (valeurs de prod déjà sur le serveur), `tests/`
+> ⚠️ Ne pas uploader : `node_modules/` (installé sur le serveur), `app/`, `components/`, `contexts/`, `store/` (compilés dans `.next/`), `tests/`
+>
+> 🔑 Les variables d'environnement (clés Firebase, `ALLOWED_ORIGINS`, `NEXT_PUBLIC_SOCKET_URL`) sont à configurer directement dans le **Manager Infomaniak** — ne pas uploader `.env.local`.
 
-Puis via SSH :
-```bash
-npm install
-pm2 restart all
-```
+Puis dans le Manager Infomaniak :
+- **Commande de démarrage** : `node server.js`
+- **Version Node.js** : 20.x minimum
+- **Variables d'environnement** : saisir les clés via leur interface
 
 ---
 
